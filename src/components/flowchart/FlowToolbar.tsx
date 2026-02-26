@@ -16,7 +16,7 @@ interface FlowToolbarProps {
   showMinimap: boolean;
   onToggleGrid: () => void;
   onToggleMinimap: () => void;
-  onFitView: () => void;
+  onFitView?: () => void;
 }
 
 interface ExportedFlowchart {
@@ -143,7 +143,7 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
   onToggleMinimap,
   onFitView,
 }) => {
-  const { getZoom, zoomIn, zoomOut } = useReactFlow();
+  const { getZoom, zoomIn, zoomOut, fitView } = useReactFlow();
   const [zoomLevel, setZoomLevel] = useState(100);
   const [isSaveLoading, setIsSaveLoading] = useState(false);
   const [isOpenModalOpen, setIsOpenModalOpen] = useState(false);
@@ -462,7 +462,7 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
         <Button
           variant="ghost"
           size="sm"
-          onClick={onFitView}
+          onClick={() => onFitView ? onFitView() : fitView()}
           leftIcon={<FitViewIcon />}
           title="Fit to Screen"
         >

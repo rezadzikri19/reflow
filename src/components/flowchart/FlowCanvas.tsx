@@ -42,6 +42,10 @@ interface FlowCanvasProps {
   gridSize?: number;
   /** Whether snap to grid is enabled */
   snapToGrid?: boolean;
+  /** Whether to show the grid background */
+  showGrid?: boolean;
+  /** Whether to show the minimap */
+  showMinimap?: boolean;
 }
 
 // =============================================================================
@@ -60,6 +64,8 @@ function FlowCanvasInner({
   onCanvasClick,
   gridSize = 20,
   snapToGrid = true,
+  showGrid = true,
+  showMinimap = true,
   customNodeTypes,
 }: FlowCanvasInnerProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -335,12 +341,14 @@ function FlowCanvasInner({
         className="bg-gray-50"
       >
         {/* Background with dots pattern */}
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={gridSize}
-          size={1}
-          color="#D1D5DB"
-        />
+        {showGrid && (
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={gridSize}
+            size={1}
+            color="#D1D5DB"
+          />
+        )}
 
         {/* Zoom and pan controls */}
         <Controls
@@ -351,14 +359,16 @@ function FlowCanvasInner({
         />
 
         {/* MiniMap for navigation */}
-        <MiniMap
-          nodeColor={minimapNodeColor}
-          nodeStrokeWidth={3}
-          zoomable
-          pannable
-          className="!bg-white !border !border-gray-200 !rounded-lg !shadow-sm"
-          maskColor="rgba(0, 0, 0, 0.1)"
-        />
+        {showMinimap && (
+          <MiniMap
+            nodeColor={minimapNodeColor}
+            nodeStrokeWidth={3}
+            zoomable
+            pannable
+            className="!bg-white !border !border-gray-200 !rounded-lg !shadow-sm"
+            maskColor="rgba(0, 0, 0, 0.1)"
+          />
+        )}
 
         {/* Info Panel */}
         <Panel position="top-right" className="!m-2">

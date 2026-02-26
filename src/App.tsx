@@ -27,7 +27,7 @@ import {
 } from './components/charts';
 
 // Stores
-import { useFlowchartStore, useNodes } from './stores/flowchartStore';
+import { useFlowchartStore, useNodes, useShowGrid, useShowMinimap } from './stores/flowchartStore';
 import { useScenarios, useActiveScenario } from './stores/scenarioStore';
 
 // ============================================================================
@@ -114,6 +114,11 @@ const NavTabs: React.FC<NavTabsProps> = ({ activeView, onViewChange }) => {
 // ============================================================================
 
 const FlowchartView: React.FC = () => {
+  const showGrid = useShowGrid();
+  const showMinimap = useShowMinimap();
+  const toggleGrid = useFlowchartStore((state) => state.toggleGrid);
+  const toggleMinimap = useFlowchartStore((state) => state.toggleMinimap);
+
   return (
     <div className="flex h-full">
       {/* Left Panel - Node Palette */}
@@ -124,13 +129,13 @@ const FlowchartView: React.FC = () => {
       {/* Center - Flow Canvas */}
       <div className="flex-1 flex flex-col">
         <FlowToolbar
-          showGrid={true}
-          showMinimap={true}
-          onToggleGrid={() => {}}
-          onToggleMinimap={() => {}}
+          showGrid={showGrid}
+          showMinimap={showMinimap}
+          onToggleGrid={toggleGrid}
+          onToggleMinimap={toggleMinimap}
         />
         <div className="flex-1">
-          <FlowCanvas />
+          <FlowCanvas showGrid={showGrid} showMinimap={showMinimap} />
         </div>
       </div>
 

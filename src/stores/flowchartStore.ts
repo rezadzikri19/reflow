@@ -32,6 +32,8 @@ interface FlowchartState {
   flowchartId: string | null;
   flowchartName: string;
   isDirty: boolean;
+  showGrid: boolean;
+  showMinimap: boolean;
 }
 
 interface FlowchartActions {
@@ -49,6 +51,8 @@ interface FlowchartActions {
   newFlowchart: (name?: string) => void;
   markDirty: () => void;
   reset: () => void;
+  toggleGrid: () => void;
+  toggleMinimap: () => void;
 }
 
 type FlowchartStore = FlowchartState & FlowchartActions;
@@ -64,6 +68,8 @@ const initialState: FlowchartState = {
   flowchartId: null,
   flowchartName: 'Untitled Flowchart',
   isDirty: false,
+  showGrid: true,
+  showMinimap: true,
 };
 
 // =============================================================================
@@ -246,6 +252,18 @@ export const useFlowchartStore = create<FlowchartStore>()(
         });
       },
 
+      toggleGrid: () => {
+        set((state) => {
+          state.showGrid = !state.showGrid;
+        });
+      },
+
+      toggleMinimap: () => {
+        set((state) => {
+          state.showMinimap = !state.showMinimap;
+        });
+      },
+
       reset: () => {
         set(initialState);
       },
@@ -256,6 +274,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
         selectedNodeId: state.selectedNodeId,
         flowchartId: state.flowchartId,
         flowchartName: state.flowchartName,
+        showGrid: state.showGrid,
+        showMinimap: state.showMinimap,
       }),
     }
   )
@@ -271,6 +291,8 @@ export const useSelectedNodeId = () => useFlowchartStore((state) => state.select
 export const useFlowchartId = () => useFlowchartStore((state) => state.flowchartId);
 export const useFlowchartName = () => useFlowchartStore((state) => state.flowchartName);
 export const useIsDirty = () => useFlowchartStore((state) => state.isDirty);
+export const useShowGrid = () => useFlowchartStore((state) => state.showGrid);
+export const useShowMinimap = () => useFlowchartStore((state) => state.showMinimap);
 
 export const useSelectedNode = () => {
   const nodes = useFlowchartStore((state) => state.nodes);
