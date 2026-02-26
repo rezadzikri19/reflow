@@ -20,7 +20,6 @@ import type {
   OnNodesChange,
   OnEdgesChange,
 } from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
 
 import { nodeTypes } from './nodes';
 import { useFlowchartStore } from '../../stores/flowchartStore';
