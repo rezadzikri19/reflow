@@ -1,16 +1,14 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { v4 as uuidv4 } from 'uuid';
-import {
-  Scenario,
-  SCENARIO_COLORS,
-} from '../types';
+import type { Scenario } from '../types';
+import { SCENARIO_COLORS } from '../types';
+import type { ScenarioRecord } from '../db/database';
 import {
   db,
   saveScenario as dbSaveScenario,
   loadScenarios as dbLoadScenarios,
   deleteScenario as dbDeleteScenario,
-  ScenarioRecord,
 } from '../db/database';
 import { useFlowchartStore } from './flowchartStore';
 

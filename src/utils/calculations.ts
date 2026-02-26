@@ -1,4 +1,4 @@
-import {
+import type {
   FlowchartNode,
   FlowchartEdge,
   ProcessNodeData,
@@ -6,9 +6,11 @@ import {
   NodeResult,
   CalculationInput,
   CalculationOutput,
-  WORKING_TIME_DEFAULTS,
 } from '../types';
 import {
+  WORKING_TIME_DEFAULTS,
+} from '../types';
+import type {
   findCriticalPath,
   NodeTime,
 } from './pathFinding';

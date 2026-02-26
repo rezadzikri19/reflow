@@ -1,4 +1,4 @@
-import Dexie, { Table } from 'dexie';
+import Dexie, { type EntityTable } from 'dexie';
 
 // =============================================================================
 // Database Model Interfaces
@@ -36,9 +36,9 @@ export interface SettingsRecord {
 // =============================================================================
 
 export class FlowchartDatabase extends Dexie {
-  flowcharts!: Table<FlowchartRecord, string>;
-  scenarios!: Table<ScenarioRecord, string>;
-  settings!: Table<SettingsRecord, string>;
+  flowcharts!: EntityTable<FlowchartRecord, 'id'>;
+  scenarios!: EntityTable<ScenarioRecord, 'id'>;
+  settings!: EntityTable<SettingsRecord, 'id'>;
 
   constructor() {
     super('FlowchartProcessDB');

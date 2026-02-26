@@ -1,4 +1,4 @@
-import type { Node, Edge } from '@xyflow/react';
+import type { Node } from '@xyflow/react';
 
 // ============================================================================
 // Node Types
@@ -91,7 +91,26 @@ export type FlowchartNode = Node<ProcessNodeData, ProcessNodeType>;
 /**
  * Custom flowchart edge extending React Flow's Edge type
  */
-export type FlowchartEdge = Edge<Record<string, unknown>>;
+export interface FlowchartEdge {
+  id: string;
+  source: string;
+  target: string;
+  type?: string;
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
+  animated?: boolean;
+  hidden?: boolean;
+  deletable?: boolean;
+  selectable?: boolean;
+  data?: Record<string, unknown>;
+  selected?: boolean;
+  markerStart?: string;
+  markerEnd?: string;
+  zIndex?: number;
+  label?: string;
+  style?: React.CSSProperties;
+  className?: string;
+}
 
 // ============================================================================
 // Flowchart Interface

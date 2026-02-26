@@ -3,18 +3,22 @@ import { persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { v4 as uuidv4 } from 'uuid';
 import type { Node, Edge } from '@xyflow/react';
-import {
+import type {
   FlowchartNode,
   FlowchartEdge,
   ProcessNodeData,
   ProcessNodeType,
+} from '../types';
+import {
   DEFAULT_PROCESS_NODE_DATA,
 } from '../types';
+import type {
+  FlowchartRecord,
+} from '../db/database';
 import {
   db,
   saveFlowchart as dbSaveFlowchart,
   loadFlowchart as dbLoadFlowchart,
-  FlowchartRecord,
 } from '../db/database';
 
 // =============================================================================

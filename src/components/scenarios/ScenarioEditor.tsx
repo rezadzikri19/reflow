@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { useScenarioStore } from '../../stores/scenarioStore';
-import { Scenario, SCENARIO_COLORS } from '../../types';
+import type { Scenario } from '../../types';
+import { SCENARIO_COLORS } from '../../types';
 
 // ============================================================================
 // Types

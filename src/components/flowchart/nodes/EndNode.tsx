@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { StopIcon } from 'lucide-react';
+import { Square } from 'lucide-react';
 
 /**
  * EndNode - Red circular end node with stop icon
@@ -28,7 +28,7 @@ function EndNode({ data, selected }: NodeProps) {
       />
 
       {/* Stop Icon */}
-      <StopIcon className="w-6 h-6 text-white" />
+      <Square className="w-6 h-6 text-white" />
     </div>
   );
 }

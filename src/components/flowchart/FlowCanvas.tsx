@@ -7,13 +7,15 @@ import {
   Panel,
   ReactFlowProvider,
   useReactFlow,
+  BackgroundVariant,
+  MarkerType,
+  SelectionMode,
+} from '@xyflow/react';
+import type {
   Connection,
   EdgeChange,
   NodeChange,
   NodeTypes,
-  BackgroundVariant,
-  MarkerType,
-  SelectionMode,
   OnConnect,
   OnNodesChange,
   OnEdgesChange,

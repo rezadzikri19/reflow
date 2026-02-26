@@ -9,7 +9,8 @@ import {
   useCalculationStore,
   useScenarioResults,
 } from '../../stores/calculationStore';
-import { FlowchartNode, ProcessNodeData, SCENARIO_COLORS } from '../../types';
+import type { FlowchartNode, ProcessNodeData } from '../../types';
+import { SCENARIO_COLORS } from '../../types';
 
 // ============================================================================
 // Types

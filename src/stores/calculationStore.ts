@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import {
+import type {
   ScenarioResults,
   FlowchartNode,
   FlowchartEdge,

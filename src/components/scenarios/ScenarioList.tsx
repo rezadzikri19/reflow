@@ -8,7 +8,7 @@ import {
   useActiveScenarioId,
   useBaselineScenarioId,
 } from '../../stores/scenarioStore';
-import { Scenario } from '../../types';
+import type { Scenario } from '../../types';
 
 // ============================================================================
 // ScenarioItem Component
