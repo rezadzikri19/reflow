@@ -1,10 +1,14 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import { enableMapSet } from 'immer';
 import type {
   ScenarioResults,
   FlowchartNode,
   FlowchartEdge,
 } from '../types';
+
+// Enable Map/Set support for Immer
+enableMapSet();
 import { calculateScenarioResults } from '../utils/calculations';
 import { useFlowchartStore } from './flowchartStore';
 import { useScenarioStore, useScenarios } from './scenarioStore';
@@ -66,7 +70,9 @@ export const useCalculationStore = create<CalculationStore>()(
       const results = calculateScenarioResults(nodes, edges, scenario.quantities);
 
       set((state) => {
-        state.results.set(scenarioId, results);
+        const newResults = new Map(state.results);
+        newResults.set(scenarioId, results);
+        state.results = newResults;
         state.isCalculating = false;
         state.lastCalculatedAt = new Date();
       });

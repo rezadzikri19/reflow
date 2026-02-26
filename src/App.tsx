@@ -168,7 +168,6 @@ const ScenariosView: React.FC = () => {
     <div className="flex h-full">
       {/* Left Panel - Scenario List */}
       <div className="w-72 border-r border-gray-200 bg-gray-50 overflow-y-auto p-4">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Scenarios</h2>
         <ScenarioList />
       </div>
 

@@ -7,7 +7,7 @@ import {
 } from '../../stores/scenarioStore';
 import {
   useCalculationStore,
-  useScenarioResults,
+  useCalculationResults,
 } from '../../stores/calculationStore';
 import type { FlowchartNode, ProcessNodeData } from '../../types';
 import { SCENARIO_COLORS } from '../../types';
@@ -129,11 +129,12 @@ export const QuantityInputTable: React.FC<QuantityInputTableProps> = ({
   const scenarios = useScenarios();
   const { updateQuantity, saveScenarios } = useScenarioStore();
   const { calculateScenario, calculateAll } = useCalculationStore();
+  const calculationResults = useCalculationResults();
 
-  // Get process nodes only (exclude start, end, etc.)
+  // Get process and delay nodes only (exclude start, end, etc.)
   const processNodes = useMemo(() => {
     return nodes.filter(
-      (node) => node.data.nodeType === 'process' || node.data.nodeType === 'subprocess'
+      (node) => node.data.nodeType === 'process' || node.data.nodeType === 'subprocess' || node.data.nodeType === 'delay'
     );
   }, [nodes]);
 
@@ -377,10 +378,23 @@ export const QuantityInputTable: React.FC<QuantityInputTableProps> = ({
               <tr key={node.id} className="hover:bg-gray-50">
                 {/* Node name */}
                 <td className="px-4 py-3 whitespace-nowrap">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-gray-900">
-                      {node.data.label}
-                    </span>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900">
+                        {node.data.label}
+                      </span>
+                      <span
+                        className={`text-xs px-1.5 py-0.5 rounded ${
+                          node.data.nodeType === 'process'
+                            ? 'bg-blue-100 text-blue-700'
+                            : node.data.nodeType === 'subprocess'
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-gray-200 text-gray-700'
+                        }`}
+                      >
+                        {node.data.nodeType}
+                      </span>
+                    </div>
                     <span className="text-xs text-gray-500">
                       {node.data.unitTimeMinutes} min/unit
                     </span>
@@ -415,7 +429,7 @@ export const QuantityInputTable: React.FC<QuantityInputTableProps> = ({
                 Total Time
               </td>
               {scenarios.map((scenario) => {
-                const results = useCalculationStore.getState().results.get(scenario.id);
+                const results = calculationResults.get(scenario.id);
                 const totalMinutes = results?.totalMinutes || 0;
 
                 return (
