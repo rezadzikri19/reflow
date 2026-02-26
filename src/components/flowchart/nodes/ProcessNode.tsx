@@ -46,6 +46,7 @@ function ProcessNode({ data, selected }: NodeProps<ProcessNodeData>) {
   const {
     label = 'Process',
     unitType = 'documents',
+    customUnitName,
     unitTimeMinutes = 0,
     defaultQuantity = 1,
   } = data || {};
@@ -83,7 +84,9 @@ function ProcessNode({ data, selected }: NodeProps<ProcessNodeData>) {
       {/* Unit Type and Time Info */}
       <div className="flex items-center gap-2 text-blue-100 text-xs">
         <UnitIcon className="w-4 h-4 shrink-0" />
-        <span className="truncate capitalize">{unitType}</span>
+        <span className="truncate capitalize">
+          {unitType === 'custom' ? (customUnitName || 'Custom') : unitType}
+        </span>
       </div>
 
       {/* Unit Time */}

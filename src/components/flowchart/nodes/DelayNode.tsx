@@ -5,7 +5,7 @@ import type { BaseNodeData } from '../../../types/index';
 
 interface DelayNodeData extends BaseNodeData {
   /** Delay duration in minutes */
-  delayMinutes?: number;
+  unitTimeMinutes?: number;
   /** Optional reason for the delay */
   delayReason?: string;
 }
@@ -34,7 +34,7 @@ function formatDelay(minutes: number): string {
 function DelayNode({ data, selected }: NodeProps<DelayNodeData>) {
   const {
     label = 'Delay',
-    delayMinutes = 0,
+    unitTimeMinutes = 0,
     delayReason,
   } = data || {};
 
@@ -72,7 +72,7 @@ function DelayNode({ data, selected }: NodeProps<DelayNodeData>) {
       <div className="flex items-center justify-center gap-2 bg-gray-500 rounded px-3 py-2">
         <Clock className="w-4 h-4 text-gray-200" />
         <span className="text-white font-bold text-lg">
-          {formatDelay(delayMinutes)}
+          {formatDelay(unitTimeMinutes)}
         </span>
       </div>
 
