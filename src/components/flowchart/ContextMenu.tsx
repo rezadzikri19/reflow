@@ -1,0 +1,168 @@
+import React, { useEffect, useRef, useCallback } from 'react';
+import { Layers, Ungroup, X } from 'lucide-react';
+import { useFlowchartStore } from '../../stores/flowchartStore';
+
+// =============================================================================
+// Types
+// =============================================================================
+
+type ContextMenuPosition = {
+  x: number;
+  y: number;
+};
+
+interface ContextMenuProps {
+  /** Whether the menu is visible */
+  isOpen: boolean;
+  /** Position of the menu */
+  position: ContextMenuPosition;
+  /** Callback when menu closes */
+  onClose: () => void;
+  /** IDs of currently selected nodes */
+  selectedNodeIds: string[];
+  /** Whether the selection can be grouped */
+  canGroup: boolean;
+  /** Reason why grouping is not allowed (if canGroup is false) */
+  groupDisabledReason?: string;
+  /** Whether a subprocess is selected (for ungroup) */
+  isSubprocessSelected: boolean;
+  /** ID of selected subprocess (if any) */
+  selectedSubprocessId?: string;
+}
+
+// =============================================================================
+// Component
+// =============================================================================
+
+export const ContextMenu: React.FC<ContextMenuProps> = ({
+  isOpen,
+  position,
+  onClose,
+  selectedNodeIds,
+  canGroup,
+  groupDisabledReason,
+  isSubprocessSelected,
+  selectedSubprocessId,
+}) => {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const groupNodesIntoSubprocess = useFlowchartStore((state) => state.groupNodesIntoSubprocess);
+  const ungroupSubprocess = useFlowchartStore((state) => state.ungroupSubprocess);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen, onClose]);
+
+  // Adjust position to keep menu in viewport
+  const adjustedPosition = useCallback(() => {
+    if (!menuRef.current) return position;
+
+    const menuWidth = 180;
+    const menuHeight = 120;
+    const padding = 10;
+
+    let x = position.x;
+    let y = position.y;
+
+    // Adjust horizontal position
+    if (x + menuWidth + padding > window.innerWidth) {
+      x = window.innerWidth - menuWidth - padding;
+    }
+
+    // Adjust vertical position
+    if (y + menuHeight + padding > window.innerHeight) {
+      y = window.innerHeight - menuHeight - padding;
+    }
+
+    return { x: Math.max(padding, x), y: Math.max(padding, y) };
+  }, [position]);
+
+  const handleGroup = useCallback(() => {
+    if (!canGroup) return;
+    groupNodesIntoSubprocess(selectedNodeIds);
+    onClose();
+  }, [canGroup, groupNodesIntoSubprocess, selectedNodeIds, onClose]);
+
+  const handleUngroup = useCallback(() => {
+    if (!isSubprocessSelected || !selectedSubprocessId) return;
+    ungroupSubprocess(selectedSubprocessId);
+    onClose();
+  }, [isSubprocessSelected, selectedSubprocessId, ungroupSubprocess, onClose]);
+
+  if (!isOpen) return null;
+
+  const adjustedPos = adjustedPosition();
+
+  return (
+    <div
+      ref={menuRef}
+      className="fixed z-50 min-w-[160px] bg-white rounded-lg shadow-lg border border-gray-200 py-1 animate-in fade-in-0 zoom-in-95"
+      style={{
+        left: adjustedPos.x,
+        top: adjustedPos.y,
+      }}
+    >
+      {/* Group option */}
+      <button
+        className={`
+          w-full px-3 py-2 text-left text-sm flex items-center gap-2
+          ${canGroup
+            ? 'text-gray-700 hover:bg-gray-100 cursor-pointer'
+            : 'text-gray-400 cursor-not-allowed'
+          }
+        `}
+        onClick={handleGroup}
+        disabled={!canGroup}
+        title={groupDisabledReason}
+      >
+        <Layers className="w-4 h-4" />
+        <span>Group into Subprocess</span>
+      </button>
+
+      {/* Ungroup option */}
+      {isSubprocessSelected && (
+        <button
+          className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+          onClick={handleUngroup}
+        >
+          <Ungroup className="w-4 h-4" />
+          <span>Ungroup Subprocess</span>
+        </button>
+      )}
+
+      {/* Divider */}
+      <div className="my-1 border-t border-gray-100" />
+
+      {/* Cancel option */}
+      <button
+        className="w-full px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-100 flex items-center gap-2"
+        onClick={onClose}
+      >
+        <X className="w-4 h-4" />
+        <span>Cancel</span>
+      </button>
+    </div>
+  );
+};
+
+export default ContextMenu;

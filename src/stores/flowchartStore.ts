@@ -34,6 +34,8 @@ interface FlowchartState {
   isDirty: boolean;
   showGrid: boolean;
   showMinimap: boolean;
+  /** Currently active sheet ID (null = main flowchart view, ID = viewing that subprocess) */
+  activeSheetId: string | null;
 }
 
 interface FlowchartActions {
@@ -55,6 +57,12 @@ interface FlowchartActions {
   reset: () => void;
   toggleGrid: () => void;
   toggleMinimap: () => void;
+  // Subprocess grouping actions
+  groupNodesIntoSubprocess: (nodeIds: string[], label?: string) => string | null;
+  ungroupSubprocess: (subprocessId: string) => void;
+  // Sheet navigation actions
+  openSubprocessSheet: (subprocessId: string) => void;
+  closeActiveSheet: () => void;
 }
 
 type FlowchartStore = FlowchartState & FlowchartActions;
@@ -72,6 +80,7 @@ const initialState: FlowchartState = {
   isDirty: false,
   showGrid: true,
   showMinimap: true,
+  activeSheetId: null,
 };
 
 // =============================================================================
@@ -301,6 +310,267 @@ export const useFlowchartStore = create<FlowchartStore>()(
         });
       },
 
+      // =============================================================================
+      // Subprocess Grouping Actions
+      // =============================================================================
+
+      /**
+       * Group multiple nodes into a subprocess container
+       * @param nodeIds - IDs of nodes to group
+       * @param label - Optional label for the subprocess
+       * @returns The ID of the created subprocess, or null if grouping failed
+       */
+      groupNodesIntoSubprocess: (nodeIds: string[], label?: string) => {
+        const state = get();
+
+        // Validation: Need at least 2 nodes
+        if (nodeIds.length < 2) {
+          console.warn('Cannot group: Need at least 2 nodes');
+          return null;
+        }
+
+        // Get the nodes to group
+        const nodesToGroup = state.nodes.filter(n => nodeIds.includes(n.id));
+
+        // Validation: All nodes must exist
+        if (nodesToGroup.length !== nodeIds.length) {
+          console.warn('Cannot group: Some nodes not found');
+          return null;
+        }
+
+        // Validation: Cannot group start/end nodes
+        const hasStartEnd = nodesToGroup.some(n => n.type === 'start' || n.type === 'end');
+        if (hasStartEnd) {
+          console.warn('Cannot group: Start and end nodes cannot be grouped');
+          return null;
+        }
+
+        // Validation: Cannot group nodes that are already in a subprocess (no nesting)
+        const alreadyGrouped = nodesToGroup.filter(n => n.data.parentId);
+        if (alreadyGrouped.length > 0) {
+          console.warn('Cannot group: Some nodes are already in a subprocess');
+          return null;
+        }
+
+        // Validation: Cannot group subprocess nodes themselves
+        const hasSubprocess = nodesToGroup.some(n => n.type === 'subprocess');
+        if (hasSubprocess) {
+          console.warn('Cannot group: Cannot nest subprocesses');
+          return null;
+        }
+
+        // Calculate bounding box of selected nodes
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        nodesToGroup.forEach(node => {
+          minX = Math.min(minX, node.position.x);
+          minY = Math.min(minY, node.position.y);
+          // Approximate node dimensions (can be refined with actual measurements)
+          const nodeWidth = 180;
+          const nodeHeight = 100;
+          maxX = Math.max(maxX, node.position.x + nodeWidth);
+          maxY = Math.max(maxY, node.position.y + nodeHeight);
+        });
+
+        // Add padding for the subprocess container
+        const padding = 40;
+        const subprocessX = minX - padding;
+        const subprocessY = minY - padding;
+        const subprocessWidth = (maxX - minX) + padding * 2;
+        const subprocessHeight = (maxY - minY) + padding * 2;
+
+        // Create subprocess node
+        const subprocessId = uuidv4();
+        const subprocessNode: FlowchartNode = {
+          id: subprocessId,
+          type: 'subprocess',
+          position: { x: subprocessX, y: subprocessY },
+          data: {
+            id: subprocessId,
+            label: label || 'Subprocess',
+            nodeType: 'subprocess',
+            childNodeIds: nodeIds,
+            isExpanded: true,
+            ...DEFAULT_PROCESS_NODE_DATA,
+          } as ProcessNodeData,
+        };
+
+        // Update child nodes with parentId and convert to relative positions
+        const updatedNodes = state.nodes.map(node => {
+          if (nodeIds.includes(node.id)) {
+            return {
+              ...node,
+              position: {
+                x: node.position.x - subprocessX,
+                y: node.position.y - subprocessY,
+              },
+              data: {
+                ...node.data,
+                parentId: subprocessId,
+              } as ProcessNodeData,
+            };
+          }
+          return node;
+        });
+
+        // Transform edges
+        const updatedEdges = state.edges.map(edge => {
+          const sourceIsChild = nodeIds.includes(edge.source);
+          const targetIsChild = nodeIds.includes(edge.target);
+
+          // Internal edge (between children) - keep unchanged but mark with subprocessId
+          if (sourceIsChild && targetIsChild) {
+            return {
+              ...edge,
+              subprocessId: subprocessId,
+            };
+          }
+
+          // Incoming edge (external -> child) - redirect target to subprocess
+          if (!sourceIsChild && targetIsChild) {
+            return {
+              ...edge,
+              originalTarget: edge.target,
+              originalTargetHandle: edge.targetHandle,
+              target: subprocessId,
+              targetHandle: null,
+            };
+          }
+
+          // Outgoing edge (child -> external) - redirect source to subprocess
+          if (sourceIsChild && !targetIsChild) {
+            return {
+              ...edge,
+              originalSource: edge.source,
+              originalSourceHandle: edge.sourceHandle,
+              source: subprocessId,
+              sourceHandle: null,
+            };
+          }
+
+          // External edge - keep unchanged
+          return edge;
+        });
+
+        set((state) => {
+          state.nodes = [...updatedNodes, subprocessNode];
+          state.edges = updatedEdges;
+          state.isDirty = true;
+        });
+
+        return subprocessId;
+      },
+
+      /**
+       * Ungroup a subprocess, restoring children to the canvas
+       * @param subprocessId - ID of the subprocess to ungroup
+       */
+      ungroupSubprocess: (subprocessId: string) => {
+        const state = get();
+
+        const subprocessNode = state.nodes.find(n => n.id === subprocessId);
+        if (!subprocessNode || subprocessNode.type !== 'subprocess') {
+          console.warn('Cannot ungroup: Subprocess not found');
+          return;
+        }
+
+        const childIds = subprocessNode.data.childNodeIds || [];
+
+        // Update child nodes: remove parentId and convert back to absolute positions
+        const updatedNodes = state.nodes
+          .filter(n => n.id !== subprocessId) // Remove subprocess node
+          .map(node => {
+            if (childIds.includes(node.id)) {
+              return {
+                ...node,
+                position: {
+                  x: node.position.x + subprocessNode.position.x,
+                  y: node.position.y + subprocessNode.position.y,
+                },
+                data: {
+                  ...node.data,
+                  parentId: undefined,
+                } as ProcessNodeData,
+              };
+            }
+            return node;
+          });
+
+        // Restore edges
+        const updatedEdges = state.edges
+          .map(edge => {
+            // Internal edges (between children) - keep them, just remove subprocessId marker
+            if (edge.subprocessId === subprocessId) {
+              const { subprocessId: _, ...restEdge } = edge;
+              return restEdge as FlowchartEdge;
+            }
+
+            // Restore incoming edges (external -> child, now redirected to subprocess)
+            if (edge.target === subprocessId && edge.originalTarget) {
+              const { originalTarget, originalTargetHandle, ...restEdge } = edge;
+              return {
+                ...restEdge,
+                target: originalTarget,
+                targetHandle: originalTargetHandle,
+              } as FlowchartEdge;
+            }
+
+            // Restore outgoing edges (child -> external, now redirected from subprocess)
+            if (edge.source === subprocessId && edge.originalSource) {
+              const { originalSource, originalSourceHandle, ...restEdge } = edge;
+              return {
+                ...restEdge,
+                source: originalSource,
+                sourceHandle: originalSourceHandle,
+              } as FlowchartEdge;
+            }
+
+            return edge;
+          })
+          .filter(edge => {
+            // Remove edges that were connected to the subprocess but have no original target/source
+            // (these shouldn't exist, but just in case)
+            if (edge.source === subprocessId || edge.target === subprocessId) {
+              return false;
+            }
+            return true;
+          });
+
+        set((state) => {
+          state.nodes = updatedNodes;
+          state.edges = updatedEdges;
+          // Close sheet if viewing this subprocess
+          if (state.activeSheetId === subprocessId) {
+            state.activeSheetId = null;
+          }
+          state.isDirty = true;
+        });
+      },
+
+      /**
+       * Open a subprocess in a sheet view
+       * @param subprocessId - ID of the subprocess to open
+       */
+      openSubprocessSheet: (subprocessId: string) => {
+        set((state) => {
+          // Verify the subprocess exists
+          const subprocessNode = state.nodes.find(n => n.id === subprocessId && n.type === 'subprocess');
+          if (subprocessNode) {
+            state.activeSheetId = subprocessId;
+            state.selectedNodeId = null; // Clear selection when switching sheets
+          }
+        });
+      },
+
+      /**
+       * Close the currently active sheet and return to main view
+       */
+      closeActiveSheet: () => {
+        set((state) => {
+          state.activeSheetId = null;
+          state.selectedNodeId = null; // Clear selection when closing sheet
+        });
+      },
+
       reset: () => {
         set(initialState);
       },
@@ -313,6 +583,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
         flowchartName: state.flowchartName,
         showGrid: state.showGrid,
         showMinimap: state.showMinimap,
+        activeSheetId: state.activeSheetId,
       }),
     }
   )
@@ -330,6 +601,7 @@ export const useFlowchartName = () => useFlowchartStore((state) => state.flowcha
 export const useIsDirty = () => useFlowchartStore((state) => state.isDirty);
 export const useShowGrid = () => useFlowchartStore((state) => state.showGrid);
 export const useShowMinimap = () => useFlowchartStore((state) => state.showMinimap);
+export const useActiveSheetId = () => useFlowchartStore((state) => state.activeSheetId);
 
 export const useSelectedNode = () => {
   const nodes = useFlowchartStore((state) => state.nodes);

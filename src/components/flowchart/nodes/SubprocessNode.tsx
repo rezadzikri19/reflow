@@ -1,15 +1,26 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { Layers, ChevronRight } from 'lucide-react';
-import type { BaseNodeData } from '../../../types/index';
+import { Layers, ExternalLink } from 'lucide-react';
+import type { ProcessNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
+import { useFlowchartStore } from '../../../stores/flowchartStore';
 
-/**
- * SubprocessNode - Purple rectangular node with nested process indicator
- * Represents a subprocess that can be expanded to show more detail
- */
-function SubprocessNode({ data, selected }: NodeProps) {
-  const { label = 'Subprocess', description, tags } = (data as BaseNodeData) || {};
+// =============================================================================
+// SubprocessNode Component
+// =============================================================================
+
+function SubprocessNode({ data, selected, id }: NodeProps) {
+  const { label = 'Subprocess', description, tags, childNodeIds = [] } = (data as ProcessNodeData) || {};
+  const openSubprocessSheet = useFlowchartStore((state) => state.openSubprocessSheet);
+
+  // Get child count from childNodeIds array directly
+  const childCount = childNodeIds.length;
+
+  // Handle opening the subprocess sheet
+  const handleOpenSheet = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    openSubprocessSheet(id);
+  }, [id, openSubprocessSheet]);
 
   return (
     <div
@@ -39,17 +50,18 @@ function SubprocessNode({ data, selected }: NodeProps) {
         <span className="text-white font-semibold text-sm truncate flex-1" title={label}>
           {label}
         </span>
-        <ChevronRight className="w-4 h-4 text-purple-200 shrink-0" />
       </div>
 
-      {/* Nested process indicator */}
-      <div className="flex items-center gap-1">
+      {/* Child count indicator */}
+      <div className="flex items-center gap-1.5">
         <div className="flex gap-0.5">
           <div className="w-1 h-4 bg-purple-300 rounded-sm" />
           <div className="w-1 h-4 bg-purple-400 rounded-sm" />
           <div className="w-1 h-4 bg-purple-300 rounded-sm" />
         </div>
-        <span className="text-purple-100 text-xs ml-2">Contains nested process</span>
+        <span className="text-purple-100 text-xs">
+          {childCount} node{childCount !== 1 ? 's' : ''} inside
+        </span>
       </div>
 
       {/* Description (if provided) */}
@@ -64,9 +76,15 @@ function SubprocessNode({ data, selected }: NodeProps) {
         </div>
       )}
 
-      {/* Expand indicator */}
+      {/* Open button */}
       <div className="flex items-center justify-end">
-        <span className="text-purple-200 text-xs italic">Click to expand</span>
+        <button
+          onClick={handleOpenSheet}
+          className="flex items-center gap-1 text-purple-200 text-xs hover:text-white transition-colors"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          <span>Open</span>
+        </button>
       </div>
 
       {/* Tags indicator */}

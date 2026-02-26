@@ -126,34 +126,36 @@ const FlowchartView: React.FC = () => {
   const selectedEdge = edges.find((e) => e.selected);
 
   return (
-    <div className="flex h-full">
-      {/* Left Panel - Node Palette */}
-      <div className="w-64 border-r border-gray-200 bg-gray-50 overflow-y-auto">
-        <NodePalette />
-      </div>
+    <ReactFlowProvider>
+      <div className="flex h-full">
+        {/* Left Panel - Node Palette */}
+        <div className="w-64 border-r border-gray-200 bg-gray-50 overflow-y-auto">
+          <NodePalette />
+        </div>
 
-      {/* Center - Flow Canvas */}
-      <div className="flex-1 flex flex-col">
-        <FlowToolbar
-          showGrid={showGrid}
-          showMinimap={showMinimap}
-          onToggleGrid={toggleGrid}
-          onToggleMinimap={toggleMinimap}
-        />
-        <div className="flex-1">
-          <FlowCanvas showGrid={showGrid} showMinimap={showMinimap} />
+        {/* Center - Flow Canvas */}
+        <div className="flex-1 flex flex-col">
+          <FlowToolbar
+            showGrid={showGrid}
+            showMinimap={showMinimap}
+            onToggleGrid={toggleGrid}
+            onToggleMinimap={toggleMinimap}
+          />
+          <div className="flex-1">
+            <FlowCanvas showGrid={showGrid} showMinimap={showMinimap} />
+          </div>
+        </div>
+
+        {/* Right Panel - Properties (Node or Edge) */}
+        <div className="w-80 border-l border-gray-200 bg-white overflow-y-auto">
+          {selectedEdge ? (
+            <EdgePropertiesPanel />
+          ) : (
+            <NodePropertiesPanel />
+          )}
         </div>
       </div>
-
-      {/* Right Panel - Properties (Node or Edge) */}
-      <div className="w-80 border-l border-gray-200 bg-white overflow-y-auto">
-        {selectedEdge ? (
-          <EdgePropertiesPanel />
-        ) : (
-          <NodePropertiesPanel />
-        )}
-      </div>
-    </div>
+    </ReactFlowProvider>
   );
 };
 

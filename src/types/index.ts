@@ -90,6 +90,10 @@ export interface ProcessNodeData extends BaseNodeData {
   defaultQuantity: number;
   /** Tags for categorizing and filtering nodes */
   tags?: string[];
+  /** ID of parent subprocess node (for grouped nodes) */
+  parentId?: string;
+  /** Child node IDs (for subprocess nodes) */
+  childNodeIds?: string[];
 }
 
 // ============================================================================
@@ -123,6 +127,16 @@ export interface FlowchartEdge {
   label?: string;
   style?: React.CSSProperties;
   className?: string;
+  /** Original source before grouping (for ungrouping restoration) */
+  originalSource?: string;
+  /** Original target before grouping (for ungrouping restoration) */
+  originalTarget?: string;
+  /** Original source handle before grouping */
+  originalSourceHandle?: string | null;
+  /** Original target handle before grouping */
+  originalTargetHandle?: string | null;
+  /** ID of the subprocess this edge belongs to (for internal edges) */
+  subprocessId?: string;
 }
 
 // ============================================================================

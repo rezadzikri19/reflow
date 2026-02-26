@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { useReactFlow } from '@xyflow/react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
+import { useReactFlow, useStore } from '@xyflow/react';
 import { Button } from '../common/Button';
 import { Modal, ModalFooter, ModalBody } from '../common/Modal';
 import { useFlowchartStore } from '../../stores/flowchartStore';
@@ -132,6 +132,23 @@ const TrashIcon = () => (
   </svg>
 );
 
+const GroupIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="7" />
+    <rect x="14" y="3" width="7" height="7" />
+    <rect x="14" y="14" width="7" height="7" />
+    <rect x="3" y="14" width="7" height="7" />
+  </svg>
+);
+
+const UngroupIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" />
+    <line x1="10" y1="3" x2="14" y2="3" strokeDasharray="2 2" />
+    <line x1="10" y1="21" x2="14" y2="21" strokeDasharray="2 2" />
+  </svg>
+);
+
 // =============================================================================
 // Component
 // =============================================================================
@@ -164,6 +181,8 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
     loadFlowchart,
     setNodes,
     setEdges,
+    groupNodesIntoSubprocess,
+    ungroupSubprocess,
   } = useFlowchartStore();
 
   // Update zoom level when canvas zoom changes
@@ -324,6 +343,43 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
     }
   }, [isDirty, setNodes, setEdges]);
 
+  // Get selected nodes from React Flow using store subscription for reactivity
+  const { getNodes } = useReactFlow();
+
+  // Subscribe to node selection changes - this will trigger re-renders
+  const selectedNodeIds = useStore((state) => {
+    const nodes = state.nodes as FlowchartNode[];
+    return nodes.filter((n) => n.selected).map((n) => n.id);
+  });
+
+  // Handle grouping selected nodes
+  const handleGroupNodes = useCallback(() => {
+    if (selectedNodeIds.length >= 2) {
+      groupNodesIntoSubprocess(selectedNodeIds);
+    }
+  }, [selectedNodeIds, groupNodesIntoSubprocess]);
+
+  // Handle ungrouping selected subprocess
+  const handleUngroupNodes = useCallback(() => {
+    if (selectedNodeIds.length === 1) {
+      const selectedNode = nodes.find(n => n.id === selectedNodeIds[0]);
+      if (selectedNode?.type === 'subprocess') {
+        ungroupSubprocess(selectedNodeIds[0]);
+      }
+    }
+  }, [selectedNodeIds, ungroupSubprocess, nodes]);
+
+  // Calculate if grouping/ungrouping is possible
+  const selectedNodes = useMemo(() => {
+    return nodes.filter(n => selectedNodeIds.includes(n.id));
+  }, [nodes, selectedNodeIds]);
+
+  const canGroup = selectedNodes.length >= 2 &&
+    !selectedNodes.some(n => n.type === 'start' || n.type === 'end') &&
+    !selectedNodes.some(n => n.data.parentId) &&
+    !selectedNodes.some(n => n.type === 'subprocess');
+  const canUngroup = selectedNodes.length === 1 && selectedNodes[0]?.type === 'subprocess';
+
   return (
     <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-gray-200 shadow-sm">
       {/* Left Section - Flowchart Name & File Actions */}
@@ -435,8 +491,34 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
         </div>
       </div>
 
-      {/* Center Section - Zoom Controls */}
+      {/* Center Section - Zoom Controls & Edit Tools */}
       <div className="flex items-center gap-2">
+        {/* Group/Ungroup Buttons */}
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleGroupNodes}
+            disabled={!canGroup}
+            leftIcon={<GroupIcon />}
+            title={canGroup ? 'Group selected nodes into Subprocess (Ctrl+G)' : 'Select 2+ nodes to group'}
+          >
+            Group
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleUngroupNodes}
+            disabled={!canUngroup}
+            leftIcon={<UngroupIcon />}
+            title={canUngroup ? 'Ungroup subprocess' : 'Select a subprocess to ungroup'}
+          >
+            Ungroup
+          </Button>
+        </div>
+
+        <div className="h-4 w-px bg-gray-200 mx-1" />
+
         <Button
           variant="ghost"
           size="sm"

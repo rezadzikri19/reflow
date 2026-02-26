@@ -3,5 +3,7 @@ export { default as FlowToolbar } from './FlowToolbar';
 export { default as NodePalette } from './NodePalette';
 export { default as NodePropertiesPanel } from './NodePropertiesPanel';
 export { default as EdgePropertiesPanel } from './EdgePropertiesPanel';
+export { default as SheetBar } from './SheetBar';
+export type { SheetInfo } from './SheetBar';
 export * from './nodes';
 export * from './edges';
