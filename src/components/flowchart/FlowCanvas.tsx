@@ -10,11 +10,11 @@ import {
   BackgroundVariant,
   MarkerType,
   SelectionMode,
+  applyNodeChanges,
+  applyEdgeChanges,
 } from '@xyflow/react';
 import type {
   Connection,
-  EdgeChange,
-  NodeChange,
   NodeTypes,
   OnConnect,
   OnNodesChange,
@@ -92,24 +92,17 @@ function FlowCanvasInner({
   // =============================================================================
 
   /**
-   * Handle node changes (position, selection, etc.)
+   * Handle node changes (position, selection, dimensions, etc.)
    */
   const onNodesChange: OnNodesChange<FlowchartNode> = useCallback(
     (changes) => {
-      if (readOnly) return;
+      // Apply changes to get updated nodes
+      const updatedNodes = applyNodeChanges(changes, nodes);
+      setNodes(updatedNodes);
 
-      const updatedNodes = [...nodes];
-
+      // Handle side effects
       changes.forEach((change) => {
-        if (change.type === 'position' && change.position) {
-          const nodeIndex = updatedNodes.findIndex((n) => n.id === change.id);
-          if (nodeIndex !== -1) {
-            updatedNodes[nodeIndex] = {
-              ...updatedNodes[nodeIndex],
-              position: change.position,
-            };
-          }
-        } else if (change.type === 'remove') {
+        if (change.type === 'remove') {
           deleteNode(change.id);
         } else if (change.type === 'select') {
           if (change.selected) {
@@ -117,15 +110,10 @@ function FlowCanvasInner({
           } else if (selectedNodeId === change.id) {
             setSelectedNode(null);
           }
+        } else if (change.type === 'position') {
+          markDirty();
         }
       });
-
-      // Only update if there were position changes
-      const hasPositionChanges = changes.some((c) => c.type === 'position');
-      if (hasPositionChanges) {
-        setNodes(updatedNodes);
-        markDirty();
-      }
     },
     [nodes, readOnly, deleteNode, setSelectedNode, selectedNodeId, setNodes, markDirty]
   );
@@ -135,7 +123,8 @@ function FlowCanvasInner({
    */
   const onEdgesChange: OnEdgesChange<FlowchartEdge> = useCallback(
     (changes) => {
-      if (readOnly) return;
+      const updatedEdges = applyEdgeChanges(changes, edges);
+      setEdges(updatedEdges);
 
       changes.forEach((change) => {
         if (change.type === 'remove') {
@@ -143,7 +132,7 @@ function FlowCanvasInner({
         }
       });
     },
-    [readOnly, deleteEdge]
+    [edges, deleteEdge, setEdges]
   );
 
   /**
@@ -361,7 +350,18 @@ function FlowCanvasInner({
         {/* MiniMap for navigation */}
         {showMinimap && (
           <MiniMap
-            nodeColor={minimapNodeColor}
+            nodeColor={(node) => {
+              switch (node.type) {
+                case 'start': return '#10B981';
+                case 'end': return '#EF4444';
+                case 'process': return '#3B82F6';
+                case 'decision': return '#F59E0B';
+                case 'subprocess': return '#8B5CF6';
+                case 'parallel': return '#06B6D4';
+                case 'delay': return '#EC4899';
+                default: return '#6B7280';
+              }
+            }}
             nodeStrokeWidth={3}
             zoomable
             pannable
