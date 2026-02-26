@@ -10,13 +10,25 @@ import type { BaseNodeData } from '../../../types/index';
 function DecisionNode({ data, selected }: NodeProps<BaseNodeData>) {
   const { label = 'Decision' } = data || {};
 
+  // Diamond dimensions
+  const diamondSize = 60;
+  const halfDiagonal = (diamondSize * Math.sqrt(2)) / 2; // ~42.4px
+
+  // Container size needs to fit the rotated diamond
+  const containerSize = Math.ceil(halfDiagonal * 2) + 20; // ~105px
+
+  // Diamond center position within container
+  const centerOffset = containerSize / 2;
+
   return (
-    <div className="relative" style={{ width: 100, height: 100 }}>
-      {/* Target Handle - Left side for incoming connections */}
+    <div className="relative" style={{ width: containerSize, height: containerSize }}>
+      {/* Target Handle - Left corner of diamond */}
       <Handle
         type="target"
         position={Position.Left}
+        id="input"
         className="!w-3 !h-3 !bg-amber-300 !border-2 !border-amber-700 hover:!bg-amber-200"
+        style={{ left: 0, top: centerOffset, transform: 'translate(-50%, -50%)' }}
       />
 
       {/* Diamond Shape Container */}
@@ -31,10 +43,10 @@ function DecisionNode({ data, selected }: NodeProps<BaseNodeData>) {
           ${selected ? 'ring-2 ring-amber-400 ring-offset-2' : ''}
         `}
         style={{
-          width: 60,
-          height: 60,
-          left: 20,
-          top: 8,
+          width: diamondSize,
+          height: diamondSize,
+          left: centerOffset - diamondSize / 2,
+          top: centerOffset - diamondSize / 2,
           transform: 'rotate(45deg)',
           borderRadius: '4px',
         }}
@@ -48,42 +60,44 @@ function DecisionNode({ data, selected }: NodeProps<BaseNodeData>) {
         </div>
       </div>
 
-      {/* Source Handle - Right side (Yes branch) */}
+      {/* Source Handle - Right corner (Yes branch) */}
       <Handle
         type="source"
         position={Position.Right}
         id="yes"
         className="!w-3 !h-3 !bg-green-400 !border-2 !border-green-700 hover:!bg-green-300"
+        style={{ right: 0, top: centerOffset, transform: 'translate(50%, -50%)' }}
       />
 
-      {/* Source Handle - Bottom (No branch) */}
+      {/* Source Handle - Bottom corner (No branch) */}
       <Handle
         type="source"
         position={Position.Bottom}
         id="no"
         className="!w-3 !h-3 !bg-red-400 !border-2 !border-red-700 hover:!bg-red-300"
+        style={{ bottom: 0, left: centerOffset, transform: 'translate(-50%, 50%)' }}
       />
 
-      {/* Yes Label - Right side */}
+      {/* Yes Label - Right side, positioned away from handle */}
       <div
         className="absolute text-xs font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded pointer-events-none"
-        style={{ right: -24, top: 40 }}
+        style={{ right: -32, top: centerOffset - 8 }}
       >
         Yes
       </div>
 
-      {/* No Label - Bottom */}
+      {/* No Label - Bottom, positioned away from handle */}
       <div
         className="absolute text-xs font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded pointer-events-none"
-        style={{ bottom: -20, left: '50%', transform: 'translateX(-50%)' }}
+        style={{ bottom: -32, left: centerOffset - 10 }}
       >
         No
       </div>
 
       {/* Label below the diamond */}
       <div
-        className="absolute whitespace-nowrap"
-        style={{ bottom: -28, left: '50%', transform: 'translateX(-50%)' }}
+        className="absolute whitespace-nowrap pointer-events-none"
+        style={{ bottom: -48, left: centerOffset, transform: 'translateX(-50%)' }}
       >
         <span
           className="text-xs font-medium text-amber-800 bg-amber-100 px-2 py-0.5 rounded truncate block text-center"
