@@ -54,18 +54,18 @@ const ScenarioItem: React.FC<ScenarioItemProps> = ({
       `}
       onClick={onSelect}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
         {/* Color indicator */}
         <div
           className="w-4 h-4 rounded-full flex-shrink-0"
           style={{ backgroundColor: scenario.color }}
         />
 
-        <div className="flex flex-col">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-gray-900">{scenario.name}</span>
+        <div className="flex flex-col min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-medium text-gray-900 truncate">{scenario.name}</span>
             {isBaseline && (
-              <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+              <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full flex-shrink-0">
                 Baseline
               </span>
             )}
@@ -76,17 +76,17 @@ const ScenarioItem: React.FC<ScenarioItemProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+      <div className="flex flex-col gap-0.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
         <Button
           variant="ghost"
           size="sm"
           onClick={onEdit}
-          className="text-gray-500 hover:text-gray-700"
+          className="text-gray-500 hover:text-gray-700 p-1"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
+            width="14"
+            height="14"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -102,15 +102,27 @@ const ScenarioItem: React.FC<ScenarioItemProps> = ({
           variant={showDeleteConfirm ? 'danger' : 'ghost'}
           size="sm"
           onClick={handleDelete}
-          className={showDeleteConfirm ? '' : 'text-gray-500 hover:text-red-600'}
+          className={`p-1 ${showDeleteConfirm ? '' : 'text-gray-500 hover:text-red-600'}`}
         >
           {showDeleteConfirm ? (
-            'Confirm'
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
           ) : (
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
+              width="14"
+              height="14"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -128,9 +140,22 @@ const ScenarioItem: React.FC<ScenarioItemProps> = ({
             variant="ghost"
             size="sm"
             onClick={() => setShowDeleteConfirm(false)}
-            className="text-gray-500"
+            className="text-gray-500 p-1"
           >
-            Cancel
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </Button>
         )}
       </div>
