@@ -1,16 +1,17 @@
 import { memo } from 'react';
 import {
   BaseEdge,
-  EdgeLabelRenderer,
   getBezierPath,
   getSmoothStepPath,
-  useReactFlow,
+  getStraightPath,
+  getSimpleBezierPath,
   type EdgeProps,
+  Position,
 } from '@xyflow/react';
 
 /**
  * CustomEdge - Edge component with visual selection feedback
- * Highlights when selected with a thicker stroke and different color
+ * Supports multiple edge types: smoothstep, bezier, straight, simplebezier
  */
 function CustomEdge({
   id,
@@ -23,16 +24,35 @@ function CustomEdge({
   style = {},
   markerEnd,
   selected,
+  type = 'smoothstep',
 }: EdgeProps) {
-  // Use smoothstep path for cleaner edges
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
+  // Get the appropriate path based on edge type
+  let edgePath: string;
+
+  const pathParams = {
     sourceX,
     sourceY,
-    sourcePosition,
     targetX,
     targetY,
-    targetPosition,
-  });
+    sourcePosition: sourcePosition || Position.Right,
+    targetPosition: targetPosition || Position.Left,
+  };
+
+  switch (type) {
+    case 'bezier':
+      [edgePath] = getBezierPath(pathParams);
+      break;
+    case 'straight':
+      [edgePath] = getStraightPath(pathParams);
+      break;
+    case 'simplebezier':
+      [edgePath] = getSimpleBezierPath(pathParams);
+      break;
+    case 'smoothstep':
+    default:
+      [edgePath] = getSmoothStepPath(pathParams);
+      break;
+  }
 
   return (
     <>

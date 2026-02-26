@@ -11,6 +11,7 @@ import {
   FlowToolbar,
   NodePalette,
   NodePropertiesPanel,
+  EdgePropertiesPanel,
 } from './components/flowchart';
 
 // Scenario components
@@ -118,6 +119,10 @@ const FlowchartView: React.FC = () => {
   const showMinimap = useShowMinimap();
   const toggleGrid = useFlowchartStore((state) => state.toggleGrid);
   const toggleMinimap = useFlowchartStore((state) => state.toggleMinimap);
+  const edges = useFlowchartStore((state) => state.edges);
+
+  // Check if any edge is selected
+  const selectedEdge = edges.find((e) => e.selected);
 
   return (
     <div className="flex h-full">
@@ -139,9 +144,13 @@ const FlowchartView: React.FC = () => {
         </div>
       </div>
 
-      {/* Right Panel - Node Properties */}
+      {/* Right Panel - Properties (Node or Edge) */}
       <div className="w-80 border-l border-gray-200 bg-white overflow-y-auto">
-        <NodePropertiesPanel />
+        {selectedEdge ? (
+          <EdgePropertiesPanel />
+        ) : (
+          <NodePropertiesPanel />
+        )}
       </div>
     </div>
   );

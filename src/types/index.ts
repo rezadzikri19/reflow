@@ -17,6 +17,15 @@ export type ProcessNodeType =
   | 'delay';
 
 // ============================================================================
+// Edge Types
+// ============================================================================
+
+/**
+ * All supported edge/connection types for the Process Flowchart Tool
+ */
+export type EdgeType = 'smoothstep' | 'bezier' | 'straight' | 'simplebezier';
+
+// ============================================================================
 // Unit Types
 // ============================================================================
 
