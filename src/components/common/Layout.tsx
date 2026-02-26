@@ -63,7 +63,7 @@ export const Layout: React.FC<LayoutProps> = ({
             ${sidebar ? (sidebarCollapsed ? 'ml-16' : 'ml-64') : ''}
           `.replace(/\s+/g, ' ').trim()}
         >
-          <div className="p-6">{children}</div>
+          <div className="">{children}</div>
         </main>
       </div>
     </div>

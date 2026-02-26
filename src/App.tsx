@@ -1,9 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 // Common components
-import { Layout, Header, Sidebar, SidebarSection } from './components/common';
+import { Layout } from './components/common';
 
 // Flowchart components
 import {
@@ -77,42 +77,35 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 // ============================================================================
-// Sidebar Navigation Component
+// Navigation Tabs Component
 // ============================================================================
 
-interface AppSidebarProps {
+interface NavTabsProps {
   activeView: ViewType;
   onViewChange: (view: ViewType) => void;
-  collapsed: boolean;
 }
 
-const AppSidebar: React.FC<AppSidebarProps> = ({
-  activeView,
-  onViewChange,
-  collapsed,
-}) => {
+const NavTabs: React.FC<NavTabsProps> = ({ activeView, onViewChange }) => {
   return (
-    <Sidebar collapsed={collapsed}>
-      <SidebarSection title="Navigation">
-        {NAV_ITEMS.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => onViewChange(item.id)}
-            className={`
-              w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left
-              transition-colors duration-150
-              ${activeView === item.id
-                ? 'bg-primary-100 text-primary-700'
-                : 'text-gray-600 hover:bg-gray-100'
-              }
-            `}
-          >
-            {item.icon}
-            {!collapsed && <span className="font-medium">{item.label}</span>}
-          </button>
-        ))}
-      </SidebarSection>
-    </Sidebar>
+    <nav className="flex items-center gap-1">
+      {NAV_ITEMS.map((item) => (
+        <button
+          key={item.id}
+          onClick={() => onViewChange(item.id)}
+          className={`
+            flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium
+            transition-colors duration-150
+            ${activeView === item.id
+              ? 'bg-primary-100 text-primary-700'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+            }
+          `}
+        >
+          {item.icon}
+          <span>{item.label}</span>
+        </button>
+      ))}
+    </nav>
   );
 };
 
@@ -330,13 +323,8 @@ const ReportsView: React.FC = () => {
 
 function App() {
   const [activeView, setActiveView] = useState<ViewType>('flowchart');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const { flowchartName } = useFlowchartStore();
-
-  const toggleSidebar = useCallback(() => {
-    setSidebarCollapsed((prev) => !prev);
-  }, []);
 
   const renderView = () => {
     switch (activeView) {
@@ -352,30 +340,20 @@ function App() {
   };
 
   const header = (
-    <Header
-      title="Process Flowchart Tool"
-      subtitle={flowchartName || 'Untitled Flowchart'}
-      onMenuClick={toggleSidebar}
-    />
-  );
-
-  const sidebar = (
-    <AppSidebar
-      activeView={activeView}
-      onViewChange={setActiveView}
-      collapsed={sidebarCollapsed}
-    />
+    <div className="h-full px-4 flex items-center justify-between">
+      <div className="flex items-center gap-6">
+        <h1 className="text-lg font-semibold text-gray-900">
+          {flowchartName || 'Process Flowchart Tool'}
+        </h1>
+        <NavTabs activeView={activeView} onViewChange={setActiveView} />
+      </div>
+    </div>
   );
 
   return (
     <ReactFlowProvider>
-      <Layout
-        header={header}
-        sidebar={sidebar}
-        sidebarCollapsed={sidebarCollapsed}
-        onSidebarCollapse={toggleSidebar}
-      >
-        <div className="h-[calc(100vh-8rem)]">
+      <Layout header={header}>
+        <div className="h-[calc(100vh-4rem)]">
           {renderView()}
         </div>
       </Layout>

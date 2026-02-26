@@ -5,7 +5,7 @@ import React from 'react';
 // ============================================================================
 
 export interface SidebarProps {
-  /** Navigation items */
+  /** Navigation items (alternative to children) */
   items?: SidebarItem[];
   /** Currently active item ID */
   activeItemId?: string;
@@ -19,6 +19,8 @@ export interface SidebarProps {
   footer?: React.ReactNode;
   /** Additional className */
   className?: string;
+  /** Children content (alternative to items) */
+  children?: React.ReactNode;
 }
 
 export interface SidebarItem {
@@ -50,6 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   header,
   footer,
   className = '',
+  children,
 }) => {
   const handleItemClick = (item: SidebarItem) => {
     if (item.disabled) return;
@@ -71,18 +74,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4">
-        <ul className="space-y-1 px-2">
-          {items.map((item) => (
-            <li key={item.id}>
-              <SidebarNavItem
-                item={item}
-                isActive={activeItemId === item.id}
-                collapsed={collapsed}
-                onClick={() => handleItemClick(item)}
-              />
-            </li>
-          ))}
-        </ul>
+        {children ? (
+          children
+        ) : (
+          <ul className="space-y-1 px-2">
+            {items.map((item) => (
+              <li key={item.id}>
+                <SidebarNavItem
+                  item={item}
+                  isActive={activeItemId === item.id}
+                  collapsed={collapsed}
+                  onClick={() => handleItemClick(item)}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
       </nav>
 
       {/* Footer */}
