@@ -22,6 +22,7 @@ import type {
 } from '@xyflow/react';
 
 import { nodeTypes } from './nodes';
+import { edgeTypes } from './edges';
 import { useFlowchartStore } from '../../stores/flowchartStore';
 import type { FlowchartNode, FlowchartEdge, ProcessNodeType } from '../../types';
 
@@ -331,6 +332,7 @@ function FlowCanvasInner({
         onDragOver={onDragOver}
         onDrop={onDrop}
         nodeTypes={registeredNodeTypes}
+        edgeTypes={edgeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         snapToGrid={snapToGrid}
         snapGrid={[gridSize, gridSize]}
