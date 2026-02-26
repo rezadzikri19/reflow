@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
-import { useFlowchartStore, useSelectedNode } from '../../stores/flowchartStore';
+import React, { useState, useCallback, useMemo } from 'react';
+import { useFlowchartStore, useSelectedNode, useNodes } from '../../stores/flowchartStore';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
+import { TagInput } from '../common/TagInput';
 import type { ProcessNodeData, UnitType, ProcessNodeType } from '../../types';
 
 // ============================================================================
@@ -42,12 +43,22 @@ const NODE_TYPE_LABELS: Record<ProcessNodeType, string> = {
 
 export const NodePropertiesPanel: React.FC = () => {
   const selectedNode = useSelectedNode();
+  const nodes = useNodes();
   const updateNode = useFlowchartStore((state) => state.updateNode);
   const deleteNode = useFlowchartStore((state) => state.deleteNode);
   const addNode = useFlowchartStore((state) => state.addNode);
-  const nodes = useFlowchartStore((state) => state.nodes);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Get all existing tags from all nodes for autocomplete suggestions
+  const allExistingTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    nodes.forEach((node) => {
+      const nodeTags = (node.data as ProcessNodeData).tags || [];
+      nodeTags.forEach((tag) => tagSet.add(tag));
+    });
+    return Array.from(tagSet).sort();
+  }, [nodes]);
 
   const handleLabelChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -175,6 +186,15 @@ export const NodePropertiesPanel: React.FC = () => {
     }
   }, [selectedNode, addNode]);
 
+  const handleTagsChange = useCallback(
+    (tags: string[]) => {
+      if (selectedNode) {
+        updateNode(selectedNode.id, { tags });
+      }
+    },
+    [selectedNode, updateNode]
+  );
+
   // No node selected state
   if (!selectedNode) {
     return (
@@ -258,6 +278,21 @@ export const NodePropertiesPanel: React.FC = () => {
               />
             </div>
           </div>
+        </section>
+
+        {/* Tags Section */}
+        <section>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            Tags
+          </h3>
+          <TagInput
+            label=""
+            value={nodeData.tags || []}
+            onChange={handleTagsChange}
+            suggestions={allExistingTags}
+            placeholder="Add a tag..."
+            helperText="Press Enter or comma to add a tag"
+          />
         </section>
 
         {/* Process Node Properties */}

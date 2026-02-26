@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -18,6 +18,7 @@ import {
 import {
   ScenarioList,
   QuantityInputTable,
+  TagFilter,
 } from './components/scenarios';
 
 // Chart components
@@ -163,6 +164,17 @@ const FlowchartView: React.FC = () => {
 const ScenariosView: React.FC = () => {
   const scenarios = useScenarios();
   const nodes = useNodes();
+  const [selectedFilterTags, setSelectedFilterTags] = useState<string[]>([]);
+
+  // Derive available tags from all nodes
+  const availableTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    nodes.forEach((node) => {
+      const nodeTags = node.data.tags || [];
+      nodeTags.forEach((tag) => tagSet.add(tag));
+    });
+    return Array.from(tagSet).sort();
+  }, [nodes]);
 
   return (
     <div className="flex h-full">
@@ -176,7 +188,12 @@ const ScenariosView: React.FC = () => {
         <h2 className="text-lg font-semibold text-gray-800 mb-4">
           Quantity Configuration
         </h2>
-        <QuantityInputTable />
+        <TagFilter
+          availableTags={availableTags}
+          selectedTags={selectedFilterTags}
+          onSelectionChange={setSelectedFilterTags}
+        />
+        <QuantityInputTable filterTags={selectedFilterTags} />
       </div>
     </div>
   );

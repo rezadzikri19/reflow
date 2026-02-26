@@ -9,8 +9,7 @@ import {
   useCalculationStore,
   useCalculationResults,
 } from '../../stores/calculationStore';
-import type { FlowchartNode, ProcessNodeData } from '../../types';
-import { SCENARIO_COLORS } from '../../types';
+import type { FlowchartNode } from '../../types';
 
 // ============================================================================
 // Types
@@ -18,6 +17,7 @@ import { SCENARIO_COLORS } from '../../types';
 
 interface QuantityInputTableProps {
   className?: string;
+  filterTags?: string[];
 }
 
 interface EditableCellProps {
@@ -124,6 +124,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
 
 export const QuantityInputTable: React.FC<QuantityInputTableProps> = ({
   className = '',
+  filterTags = [],
 }) => {
   const nodes = useNodes();
   const scenarios = useScenarios();
@@ -132,11 +133,23 @@ export const QuantityInputTable: React.FC<QuantityInputTableProps> = ({
   const calculationResults = useCalculationResults();
 
   // Get process and delay nodes only (exclude start, end, etc.)
+  // Filter by tags if filterTags is provided
   const processNodes = useMemo(() => {
-    return nodes.filter(
+    const baseNodes = nodes.filter(
       (node) => node.data.nodeType === 'process' || node.data.nodeType === 'subprocess' || node.data.nodeType === 'delay'
     );
-  }, [nodes]);
+
+    // If no filter tags selected, show all process nodes
+    if (filterTags.length === 0) {
+      return baseNodes;
+    }
+
+    // Filter nodes that have at least one matching tag
+    return baseNodes.filter((node) => {
+      const nodeTags = node.data.tags || [];
+      return nodeTags.some((tag) => filterTags.includes(tag));
+    });
+  }, [nodes, filterTags]);
 
   // Calculate all scenarios on mount
   React.useEffect(() => {
@@ -288,8 +301,7 @@ export const QuantityInputTable: React.FC<QuantityInputTableProps> = ({
   return (
     <div className={`flex flex-col ${className}`}>
       {/* Header with Import/Export buttons */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Quantity Input</h3>
+      <div className="flex items-center justify-end mb-4">
         <div className="flex gap-2">
           <Button
             variant="secondary"

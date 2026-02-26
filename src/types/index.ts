@@ -86,6 +86,8 @@ export interface ProcessNodeData extends BaseNodeData {
   parallelCapacity?: number;
   /** Default quantity of units to process */
   defaultQuantity: number;
+  /** Tags for categorizing and filtering nodes */
+  tags?: string[];
 }
 
 // ============================================================================
@@ -312,6 +314,7 @@ export const DEFAULT_PROCESS_NODE_DATA: Partial<ProcessNodeData> = {
   unitTimeMinutes: 0,
   requiresFTE: false,
   defaultQuantity: 1,
+  tags: [],
 };
 
 /**

@@ -10,6 +10,10 @@ export type { ButtonProps, ButtonVariant, ButtonSize } from './Button';
 export { Input } from './Input';
 export type { InputProps } from './Input';
 
+// TagInput Component
+export { TagInput } from './TagInput';
+export type { TagInputProps } from './TagInput';
+
 // Modal Component
 export { Modal, ModalFooter, ModalBody } from './Modal';
 export type { ModalProps, ModalFooterProps, ModalBodyProps } from './Modal';
