@@ -40,6 +40,7 @@ interface FlowchartActions {
   addNode: (type: ProcessNodeType, position: { x: number; y: number }) => void;
   updateNode: (nodeId: string, data: Partial<ProcessNodeData>) => void;
   deleteNode: (nodeId: string) => void;
+  deleteNodes: (nodeIds: string[]) => void;
   setSelectedNode: (nodeId: string | null) => void;
   addEdge: (source: string, target: string) => void;
   updateEdge: (edgeId: string, data: Record<string, unknown>) => void;
@@ -127,6 +128,29 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
           // Clear selection if the deleted node was selected
           if (state.selectedNodeId === nodeId) {
+            state.selectedNodeId = null;
+          }
+
+          state.isDirty = true;
+        });
+      },
+
+      deleteNodes: (nodeIds: string[]) => {
+        if (nodeIds.length === 0) return;
+
+        set((state) => {
+          const idsSet = new Set(nodeIds);
+
+          // Remove the nodes
+          state.nodes = state.nodes.filter((n) => !idsSet.has(n.id));
+
+          // Remove all edges connected to any of the deleted nodes
+          state.edges = state.edges.filter(
+            (e) => !idsSet.has(e.source) && !idsSet.has(e.target)
+          );
+
+          // Clear selection if any deleted node was selected
+          if (state.selectedNodeId && idsSet.has(state.selectedNodeId)) {
             state.selectedNodeId = null;
           }
 

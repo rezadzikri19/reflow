@@ -69,7 +69,7 @@ function FlowCanvasInner({
   customNodeTypes,
 }: FlowCanvasInnerProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, getNodes, getEdges } = useReactFlow();
 
   // Store selectors
   const nodes = useFlowchartStore((state) => state.nodes);
@@ -81,6 +81,7 @@ function FlowCanvasInner({
   const setEdges = useFlowchartStore((state) => state.setEdges);
   const setSelectedNode = useFlowchartStore((state) => state.setSelectedNode);
   const deleteNode = useFlowchartStore((state) => state.deleteNode);
+  const deleteNodes = useFlowchartStore((state) => state.deleteNodes);
   const deleteEdge = useFlowchartStore((state) => state.deleteEdge);
   const markDirty = useFlowchartStore((state) => state.markDirty);
 
@@ -229,9 +230,14 @@ function FlowCanvasInner({
           return;
         }
 
-        // Delete selected node if any
-        if (selectedNodeId) {
-          deleteNode(selectedNodeId);
+        // Get all currently selected nodes from React Flow
+        const currentNodes = getNodes();
+        const selectedNodes = currentNodes.filter((node) => node.selected);
+        const selectedNodeIds = selectedNodes.map((node) => node.id);
+
+        // Delete all selected nodes
+        if (selectedNodeIds.length > 0) {
+          deleteNodes(selectedNodeIds);
           setSelectedNode(null);
         }
       }
@@ -244,7 +250,7 @@ function FlowCanvasInner({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [readOnly, selectedNodeId, deleteNode, setSelectedNode]);
+  }, [readOnly, getNodes, deleteNodes, setSelectedNode]);
 
   // =============================================================================
   // MiniMap Node Color
