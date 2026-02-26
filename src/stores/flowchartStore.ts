@@ -42,7 +42,7 @@ interface FlowchartActions {
   deleteNode: (nodeId: string) => void;
   deleteNodes: (nodeIds: string[]) => void;
   setSelectedNode: (nodeId: string | null) => void;
-  addEdge: (source: string, target: string) => void;
+  addEdge: (source: string, target: string, sourceHandle?: string, targetHandle?: string) => void;
   updateEdge: (edgeId: string, data: Record<string, unknown>) => void;
   deleteEdge: (edgeId: string) => void;
   setNodes: (nodes: FlowchartNode[]) => void;
@@ -164,13 +164,13 @@ export const useFlowchartStore = create<FlowchartStore>()(
         });
       },
 
-      addEdge: (source: string, target: string) => {
-        const id = `edge-${source}-${target}`;
+      addEdge: (source: string, target: string, sourceHandle?: string, targetHandle?: string) => {
+        const id = `edge-${source}-${sourceHandle || 'default'}-${target}`;
 
         set((state) => {
           // Check if edge already exists
           const edgeExists = state.edges.some(
-            (e) => e.source === source && e.target === target
+            (e) => e.source === source && e.target === target && e.sourceHandle === sourceHandle
           );
 
           if (!edgeExists) {
@@ -178,6 +178,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
               id,
               source,
               target,
+              sourceHandle,
+              targetHandle,
               type: 'default',
             };
 

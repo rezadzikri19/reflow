@@ -147,7 +147,12 @@ function FlowCanvasInner({
       // Prevent self-connections
       if (connection.source === connection.target) return;
 
-      addEdge(connection.source, connection.target);
+      addEdge(
+        connection.source,
+        connection.target,
+        connection.sourceHandle,
+        connection.targetHandle
+      );
     },
     [readOnly, addEdge]
   );
