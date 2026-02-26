@@ -83,6 +83,7 @@ function FlowCanvasInner({
   const deleteNode = useFlowchartStore((state) => state.deleteNode);
   const deleteNodes = useFlowchartStore((state) => state.deleteNodes);
   const deleteEdge = useFlowchartStore((state) => state.deleteEdge);
+  const deleteEdges = useFlowchartStore((state) => state.deleteEdges);
   const markDirty = useFlowchartStore((state) => state.markDirty);
 
   // Use custom node types if provided, otherwise use defaults
@@ -240,10 +241,20 @@ function FlowCanvasInner({
         const selectedNodes = currentNodes.filter((node) => node.selected);
         const selectedNodeIds = selectedNodes.map((node) => node.id);
 
+        // Get all currently selected edges from React Flow
+        const currentEdges = getEdges();
+        const selectedEdges = currentEdges.filter((edge) => edge.selected);
+        const selectedEdgeIds = selectedEdges.map((edge) => edge.id);
+
         // Delete all selected nodes
         if (selectedNodeIds.length > 0) {
           deleteNodes(selectedNodeIds);
           setSelectedNode(null);
+        }
+
+        // Delete all selected edges
+        if (selectedEdgeIds.length > 0) {
+          deleteEdges(selectedEdgeIds);
         }
       }
 
@@ -255,7 +266,7 @@ function FlowCanvasInner({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [readOnly, getNodes, deleteNodes, setSelectedNode]);
+  }, [readOnly, getNodes, getEdges, deleteNodes, deleteEdges, setSelectedNode]);
 
   // =============================================================================
   // MiniMap Node Color

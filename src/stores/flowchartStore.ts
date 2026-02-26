@@ -45,6 +45,7 @@ interface FlowchartActions {
   addEdge: (source: string, target: string, sourceHandle?: string, targetHandle?: string) => void;
   updateEdge: (edgeId: string, data: Record<string, unknown>) => void;
   deleteEdge: (edgeId: string) => void;
+  deleteEdges: (edgeIds: string[]) => void;
   setNodes: (nodes: FlowchartNode[]) => void;
   setEdges: (edges: FlowchartEdge[]) => void;
   saveFlowchart: () => Promise<void>;
@@ -205,6 +206,16 @@ export const useFlowchartStore = create<FlowchartStore>()(
       deleteEdge: (edgeId: string) => {
         set((state) => {
           state.edges = state.edges.filter((e) => e.id !== edgeId);
+          state.isDirty = true;
+        });
+      },
+
+      deleteEdges: (edgeIds: string[]) => {
+        if (edgeIds.length === 0) return;
+
+        set((state) => {
+          const idsSet = new Set(edgeIds);
+          state.edges = state.edges.filter((e) => !idsSet.has(e.id));
           state.isDirty = true;
         });
       },
