@@ -100,6 +100,7 @@ function FlowCanvasInner({
   const openSubprocessSheet = useFlowchartStore((state) => state.openSubprocessSheet);
   const closeActiveSheet = useFlowchartStore((state) => state.closeActiveSheet);
   const groupNodesIntoSubprocess = useFlowchartStore((state) => state.groupNodesIntoSubprocess);
+  const defaultEdgeType = useFlowchartStore((state) => state.defaultEdgeType);
 
   // Context menu state
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
@@ -435,7 +436,7 @@ function FlowCanvasInner({
   // =============================================================================
 
   const defaultEdgeOptions = {
-    type: 'smoothstep',
+    type: defaultEdgeType,
     animated: false,
     markerEnd: {
       type: MarkerType.ArrowClosed,

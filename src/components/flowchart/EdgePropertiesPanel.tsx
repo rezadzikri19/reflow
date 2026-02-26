@@ -33,6 +33,7 @@ export const EdgePropertiesPanel: React.FC = () => {
   const edges = useFlowchartStore((state) => state.edges);
   const updateEdge = useFlowchartStore((state) => state.updateEdge);
   const deleteEdge = useFlowchartStore((state) => state.deleteEdge);
+  const setDefaultEdgeType = useFlowchartStore((state) => state.setDefaultEdgeType);
   const { getEdges } = useReactFlow();
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -42,11 +43,14 @@ export const EdgePropertiesPanel: React.FC = () => {
 
   const handleEdgeTypeChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const newType = e.target.value as EdgeType;
       if (selectedEdge) {
-        updateEdge(selectedEdge.id, { type: e.target.value as EdgeType });
+        updateEdge(selectedEdge.id, { type: newType });
       }
+      // Persist the selected line style as default for future connections
+      setDefaultEdgeType(newType);
     },
-    [selectedEdge, updateEdge]
+    [selectedEdge, updateEdge, setDefaultEdgeType]
   );
 
   const handleLabelChange = useCallback(

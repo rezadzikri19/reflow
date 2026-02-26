@@ -8,6 +8,7 @@ import type {
   FlowchartEdge,
   ProcessNodeData,
   ProcessNodeType,
+  EdgeType,
 } from '../types';
 import {
   DEFAULT_PROCESS_NODE_DATA,
@@ -36,6 +37,8 @@ interface FlowchartState {
   showMinimap: boolean;
   /** Currently active sheet ID (null = main flowchart view, ID = viewing that subprocess) */
   activeSheetId: string | null;
+  /** Default edge type for new connections */
+  defaultEdgeType: EdgeType;
 }
 
 interface FlowchartActions {
@@ -57,6 +60,7 @@ interface FlowchartActions {
   reset: () => void;
   toggleGrid: () => void;
   toggleMinimap: () => void;
+  setDefaultEdgeType: (edgeType: EdgeType) => void;
   // Subprocess grouping actions
   groupNodesIntoSubprocess: (nodeIds: string[], label?: string) => string | null;
   ungroupSubprocess: (subprocessId: string) => void;
@@ -81,6 +85,7 @@ const initialState: FlowchartState = {
   showGrid: true,
   showMinimap: true,
   activeSheetId: null,
+  defaultEdgeType: 'smoothstep',
 };
 
 // =============================================================================
@@ -255,7 +260,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
               target,
               sourceHandle,
               targetHandle,
-              type: 'default',
+              type: state.defaultEdgeType,
             };
 
             state.edges.push(newEdge);
@@ -372,6 +377,12 @@ export const useFlowchartStore = create<FlowchartStore>()(
       toggleMinimap: () => {
         set((state) => {
           state.showMinimap = !state.showMinimap;
+        });
+      },
+
+      setDefaultEdgeType: (edgeType: EdgeType) => {
+        set((state) => {
+          state.defaultEdgeType = edgeType;
         });
       },
 
@@ -649,6 +660,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
         showGrid: state.showGrid,
         showMinimap: state.showMinimap,
         activeSheetId: state.activeSheetId,
+        defaultEdgeType: state.defaultEdgeType,
       }),
     }
   )
