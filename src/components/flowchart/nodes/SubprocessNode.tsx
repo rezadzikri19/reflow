@@ -2,13 +2,14 @@ import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Layers, ChevronRight } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
+import NodeTags from './NodeTags';
 
 /**
  * SubprocessNode - Purple rectangular node with nested process indicator
  * Represents a subprocess that can be expanded to show more detail
  */
-function SubprocessNode({ data, selected }: NodeProps<BaseNodeData>) {
-  const { label = 'Subprocess', description } = data || {};
+function SubprocessNode({ data, selected }: NodeProps) {
+  const { label = 'Subprocess', description, tags } = (data as BaseNodeData) || {};
 
   return (
     <div
@@ -67,6 +68,9 @@ function SubprocessNode({ data, selected }: NodeProps<BaseNodeData>) {
       <div className="flex items-center justify-end">
         <span className="text-purple-200 text-xs italic">Click to expand</span>
       </div>
+
+      {/* Tags indicator */}
+      <NodeTags tags={tags} className="justify-center" />
 
       {/* Source Handle - Right side for outgoing connections */}
       <Handle

@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Timer, Clock } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
+import NodeTags from './NodeTags';
 
 interface DelayNodeData extends BaseNodeData {
   /** Delay duration in minutes */
@@ -31,12 +32,13 @@ function formatDelay(minutes: number): string {
  * DelayNode - Gray node for wait times
  * Represents a delay or waiting period in the process
  */
-function DelayNode({ data, selected }: NodeProps<DelayNodeData>) {
+function DelayNode({ data, selected }: NodeProps) {
   const {
     label = 'Delay',
     unitTimeMinutes = 0,
     delayReason,
-  } = data || {};
+    tags,
+  } = (data as DelayNodeData) || {};
 
   return (
     <div
@@ -94,6 +96,9 @@ function DelayNode({ data, selected }: NodeProps<DelayNodeData>) {
         <div className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
         <div className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
       </div>
+
+      {/* Tags indicator */}
+      <NodeTags tags={tags} className="justify-center" />
 
       {/* Source Handle - Right side for outgoing connections */}
       <Handle

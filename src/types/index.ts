@@ -56,6 +56,8 @@ export interface BaseNodeData {
   description?: string;
   /** The type of node */
   nodeType: ProcessNodeType;
+  /** Tags for categorizing and filtering nodes */
+  tags?: string[];
   /** Index signature to satisfy Record<string, unknown> constraint */
   [key: string]: unknown;
 }

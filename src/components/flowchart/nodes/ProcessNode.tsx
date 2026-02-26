@@ -10,6 +10,7 @@ import {
   Clock,
 } from 'lucide-react';
 import type { ProcessNodeData, UnitType } from '../../../types/index';
+import NodeTags from './NodeTags';
 
 /**
  * Maps unit types to their corresponding icons
@@ -42,14 +43,15 @@ function formatTime(minutes: number): string {
  * ProcessNode - Blue rectangular node showing process details
  * Displays label, unit type icon, unit time, quantity, and calculated time
  */
-function ProcessNode({ data, selected }: NodeProps<ProcessNodeData>) {
+function ProcessNode({ data, selected }: NodeProps) {
   const {
     label = 'Process',
     unitType = 'documents',
     customUnitName,
     unitTimeMinutes = 0,
     defaultQuantity = 1,
-  } = data || {};
+    tags,
+  } = (data as ProcessNodeData) || {};
 
   const UnitIcon = unitTypeIcons[unitType];
   const calculatedTime = unitTimeMinutes * defaultQuantity;
@@ -105,6 +107,9 @@ function ProcessNode({ data, selected }: NodeProps<ProcessNodeData>) {
           {formatTime(calculatedTime)}
         </span>
       </div>
+
+      {/* Tags indicator */}
+      <NodeTags tags={tags} className="justify-center" />
 
       {/* Source Handle - Right side for outgoing connections */}
       <Handle

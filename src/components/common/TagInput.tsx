@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useMemo } from 'react';
-import { getTagColor } from '../../utils/tagColors';
+import { useTagColors } from '../../hooks/useTagColors';
 
 // ============================================================================
 // Types
@@ -40,6 +40,7 @@ export const TagInput: React.FC<TagInputProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { getTagColor } = useTagColors();
 
   // Filter suggestions based on input and exclude already selected tags
   const filteredSuggestions = useMemo(() => {

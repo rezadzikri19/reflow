@@ -1,5 +1,5 @@
 import React from 'react';
-import { getTagColor } from '../../utils/tagColors';
+import { useTagColors } from '../../hooks/useTagColors';
 
 // ============================================================================
 // Types
@@ -23,6 +23,8 @@ export const TagFilter: React.FC<TagFilterProps> = ({
   selectedTags = [],
   onSelectionChange,
 }) => {
+  const { getTagColor } = useTagColors();
+
   const toggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {
       onSelectionChange(selectedTags.filter((t) => t !== tag));
@@ -53,7 +55,7 @@ export const TagFilter: React.FC<TagFilterProps> = ({
         )}
       </div>
       <div className="flex flex-wrap gap-2">
-        {availableTags.map((tag) => {
+        {availableTags.sort().map((tag) => {
           const isSelected = selectedTags.includes(tag);
           const color = getTagColor(tag);
           return (

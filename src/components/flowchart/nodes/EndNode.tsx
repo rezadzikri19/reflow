@@ -2,13 +2,14 @@ import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Square } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
+import NodeTags from './NodeTags';
 
 /**
  * EndNode - Red circular end node with stop icon
  * This node represents the ending point of a process flowchart
  */
-function EndNode({ data, selected }: NodeProps<BaseNodeData>) {
-  const { label = 'End' } = data || {};
+function EndNode({ data, selected }: NodeProps) {
+  const { label = 'End', tags } = (data as BaseNodeData) || {};
 
   return (
     <div className="relative">
@@ -46,6 +47,14 @@ function EndNode({ data, selected }: NodeProps<BaseNodeData>) {
         >
           {label}
         </span>
+      </div>
+
+      {/* Tags indicator below label */}
+      <div
+        className="absolute pointer-events-none"
+        style={{ bottom: -36, left: '50%', transform: 'translateX(-50%)' }}
+      >
+        <NodeTags tags={tags} />
       </div>
     </div>
   );

@@ -2,13 +2,14 @@ import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Play } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
+import NodeTags from './NodeTags';
 
 /**
  * StartNode - Green circular start node with play icon
  * This node represents the starting point of a process flowchart
  */
-function StartNode({ data, selected }: NodeProps<BaseNodeData>) {
-  const { label = 'Start' } = data || {};
+function StartNode({ data, selected }: NodeProps) {
+  const { label = 'Start', tags } = (data as BaseNodeData) || {};
 
   return (
     <div className="relative">
@@ -46,6 +47,14 @@ function StartNode({ data, selected }: NodeProps<BaseNodeData>) {
         >
           {label}
         </span>
+      </div>
+
+      {/* Tags indicator below label */}
+      <div
+        className="absolute pointer-events-none"
+        style={{ bottom: -36, left: '50%', transform: 'translateX(-50%)' }}
+      >
+        <NodeTags tags={tags} />
       </div>
     </div>
   );

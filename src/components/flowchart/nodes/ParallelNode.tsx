@@ -1,23 +1,27 @@
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { GitBranch, ArrowRight } from 'lucide-react';
-import type { BaseNodeData, ProcessNodeData } from '../../../types/index';
+import type { BaseNodeData } from '../../../types/index';
+import NodeTags from './NodeTags';
 
-interface ParallelNodeData extends BaseNodeData, Partial<ProcessNodeData> {
+interface ParallelNodeData extends BaseNodeData {
   /** Whether this is a fork (split) or join (merge) point */
   parallelType?: 'fork' | 'join';
+  /** Number of parallel paths */
+  parallelCapacity?: number;
 }
 
 /**
  * ParallelNode - Cyan node for fork/join operations
  * Used to represent parallel processing paths in the flowchart
  */
-function ParallelNode({ data, selected }: NodeProps<ParallelNodeData>) {
+function ParallelNode({ data, selected }: NodeProps) {
   const {
     label = 'Parallel',
     parallelType = 'fork',
     parallelCapacity = 2,
-  } = data || {};
+    tags,
+  } = (data as ParallelNodeData) || {};
 
   const isFork = parallelType === 'fork';
 
@@ -99,6 +103,9 @@ function ParallelNode({ data, selected }: NodeProps<ParallelNodeData>) {
           )}
         </div>
       </div>
+
+      {/* Tags indicator */}
+      <NodeTags tags={tags} className="justify-center" />
 
       {/* Fork: Multiple Source Handles on Right (for multiple outgoing paths) */}
       {isFork && (

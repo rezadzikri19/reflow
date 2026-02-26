@@ -2,13 +2,14 @@ import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { HelpCircle } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
+import NodeTags from './NodeTags';
 
 /**
  * DecisionNode - Amber diamond-shaped node with Yes/No branch labels
  * Used for conditional branching in the process flow
  */
-function DecisionNode({ data, selected }: NodeProps<BaseNodeData>) {
-  const { label = 'Decision' } = data || {};
+function DecisionNode({ data, selected }: NodeProps) {
+  const { label = 'Decision', tags } = (data as BaseNodeData) || {};
 
   // Diamond dimensions
   const diamondSize = 60;
@@ -105,6 +106,14 @@ function DecisionNode({ data, selected }: NodeProps<BaseNodeData>) {
         >
           {label}
         </span>
+      </div>
+
+      {/* Tags indicator below label */}
+      <div
+        className="absolute pointer-events-none"
+        style={{ bottom: -64, left: centerOffset, transform: 'translateX(-50%)' }}
+      >
+        <NodeTags tags={tags} />
       </div>
     </div>
   );
