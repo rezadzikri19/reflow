@@ -66,16 +66,16 @@ function DecisionNode({ data, selected }: NodeProps<BaseNodeData>) {
 
       {/* Yes Label - Right side */}
       <div
-        className="absolute text-xs font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded"
-        style={{ right: -8, top: 36 }}
+        className="absolute text-xs font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded pointer-events-none"
+        style={{ right: -24, top: 40 }}
       >
         Yes
       </div>
 
       {/* No Label - Bottom */}
       <div
-        className="absolute text-xs font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded"
-        style={{ bottom: -8, left: '50%', transform: 'translateX(-50%)' }}
+        className="absolute text-xs font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded pointer-events-none"
+        style={{ bottom: -20, left: '50%', transform: 'translateX(-50%)' }}
       >
         No
       </div>
