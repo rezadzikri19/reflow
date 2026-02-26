@@ -105,10 +105,28 @@ export const useFlowchartStore = create<FlowchartStore>()(
               label: `${type.charAt(0).toUpperCase() + type.slice(1)} ${state.nodes.length + 1}`,
               nodeType: type,
               ...DEFAULT_PROCESS_NODE_DATA,
+              // Set parentId if we're inside a subprocess sheet
+              ...(state.activeSheetId ? { parentId: state.activeSheetId } : {}),
             } as ProcessNodeData,
           };
 
           state.nodes.push(newNode);
+
+          // If inside a subprocess sheet, also update the parent's childNodeIds
+          if (state.activeSheetId) {
+            const parentIndex = state.nodes.findIndex((n) => n.id === state.activeSheetId);
+            if (parentIndex !== -1) {
+              const parentNode = state.nodes[parentIndex];
+              state.nodes[parentIndex] = {
+                ...parentNode,
+                data: {
+                  ...parentNode.data,
+                  childNodeIds: [...(parentNode.data.childNodeIds || []), id],
+                },
+              };
+            }
+          }
+
           state.isDirty = true;
         });
       },
@@ -128,8 +146,27 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
       deleteNode: (nodeId: string) => {
         set((state) => {
+          // Find the node being deleted to check if it has a parent
+          const nodeToDelete = state.nodes.find((n) => n.id === nodeId);
+          const parentId = nodeToDelete?.data?.parentId;
+
           // Remove the node
           state.nodes = state.nodes.filter((n) => n.id !== nodeId);
+
+          // If node was inside a subprocess, remove from parent's childNodeIds
+          if (parentId) {
+            const parentIndex = state.nodes.findIndex((n) => n.id === parentId);
+            if (parentIndex !== -1) {
+              const parentNode = state.nodes[parentIndex];
+              state.nodes[parentIndex] = {
+                ...parentNode,
+                data: {
+                  ...parentNode.data,
+                  childNodeIds: (parentNode.data.childNodeIds || []).filter((id) => id !== nodeId),
+                },
+              };
+            }
+          }
 
           // Remove all edges connected to this node
           state.edges = state.edges.filter(
@@ -151,8 +188,36 @@ export const useFlowchartStore = create<FlowchartStore>()(
         set((state) => {
           const idsSet = new Set(nodeIds);
 
+          // Find all nodes being deleted and group by parent
+          const nodesByParent = new Map<string, string[]>();
+          state.nodes.forEach((n) => {
+            if (idsSet.has(n.id) && n.data?.parentId) {
+              const parentList = nodesByParent.get(n.data.parentId) || [];
+              parentList.push(n.id);
+              nodesByParent.set(n.data.parentId, parentList);
+            }
+          });
+
           // Remove the nodes
           state.nodes = state.nodes.filter((n) => !idsSet.has(n.id));
+
+          // Update each parent's childNodeIds
+          nodesByParent.forEach((removedIds, parentId) => {
+            const parentIndex = state.nodes.findIndex((n) => n.id === parentId);
+            if (parentIndex !== -1) {
+              const parentNode = state.nodes[parentIndex];
+              const removedSet = new Set(removedIds);
+              state.nodes[parentIndex] = {
+                ...parentNode,
+                data: {
+                  ...parentNode.data,
+                  childNodeIds: (parentNode.data.childNodeIds || []).filter(
+                    (id) => !removedSet.has(id)
+                  ),
+                },
+              };
+            }
+          });
 
           // Remove all edges connected to any of the deleted nodes
           state.edges = state.edges.filter(
