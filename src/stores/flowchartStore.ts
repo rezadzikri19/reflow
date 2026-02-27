@@ -659,7 +659,6 @@ export const useFlowchartStore = create<FlowchartStore>()(
         flowchartName: state.flowchartName,
         showGrid: state.showGrid,
         showMinimap: state.showMinimap,
-        activeSheetId: state.activeSheetId,
         defaultEdgeType: state.defaultEdgeType,
       }),
     }
