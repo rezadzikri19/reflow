@@ -69,7 +69,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
   return (
     <div
       className={`
-        flex flex-col gap-2
+        relative
         min-w-[180px] max-w-[240px]
         bg-purple-500 hover:bg-purple-600
         rounded-lg
@@ -90,7 +90,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
             position={Position.Left}
             id={port.id}
             style={{ top: getPortPosition(index, inputPorts.length) }}
-            className="!w-3 !h-3 !bg-purple-300 !border-2 !border-purple-700 hover:!bg-purple-200"
+            className="!w-3 !h-3 !bg-green-400 !border-2 !border-green-600 hover:!bg-green-300"
           />
         ))
       ) : (
@@ -102,72 +102,6 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
         />
       )}
 
-      {/* Header with icon and label */}
-      <div className="flex items-center gap-2">
-        <Layers className="w-5 h-5 text-purple-200 shrink-0" />
-        <span className="text-white font-semibold text-sm truncate flex-1" title={label}>
-          {label}
-        </span>
-      </div>
-
-      {/* Child count and port indicators */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5">
-          <div className="flex gap-0.5">
-            <div className="w-1 h-4 bg-purple-300 rounded-sm" />
-            <div className="w-1 h-4 bg-purple-400 rounded-sm" />
-            <div className="w-1 h-4 bg-purple-300 rounded-sm" />
-          </div>
-          <span className="text-purple-100 text-xs">
-            {childCount} node{childCount !== 1 ? 's' : ''}
-          </span>
-        </div>
-
-        {/* Port count indicators */}
-        {(inputPorts.length > 0 || outputPorts.length > 0) && (
-          <div className="flex items-center gap-2 text-xs text-purple-100">
-            {inputPorts.length > 0 && (
-              <div className="flex items-center gap-0.5" title={`${inputPorts.length} input${inputPorts.length !== 1 ? 's' : ''}`}>
-                <ArrowLeft className="w-3 h-3" />
-                <span>{inputPorts.length}</span>
-              </div>
-            )}
-            {outputPorts.length > 0 && (
-              <div className="flex items-center gap-0.5" title={`${outputPorts.length} output${outputPorts.length !== 1 ? 's' : ''}`}>
-                <ArrowRight className="w-3 h-3" />
-                <span>{outputPorts.length}</span>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Description (if provided) */}
-      {description && (
-        <div className="border-t border-purple-400 pt-2 mt-1">
-          <span
-            className="text-purple-100 text-xs line-clamp-2"
-            title={description}
-          >
-            {description}
-          </span>
-        </div>
-      )}
-
-      {/* Open button */}
-      <div className="flex items-center justify-end">
-        <button
-          onClick={handleOpenSheet}
-          className="flex items-center gap-1 text-purple-200 text-xs hover:text-white transition-colors"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-          <span>Open</span>
-        </button>
-      </div>
-
-      {/* Tags indicator */}
-      <NodeTags tags={tags} className="justify-center" />
-
       {/* Dynamic Output Handles - Right side for outgoing connections */}
       {outputPorts.length > 0 ? (
         outputPorts.map((port, index) => (
@@ -177,7 +111,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
             position={Position.Right}
             id={port.id}
             style={{ top: getPortPosition(index, outputPorts.length) }}
-            className="!w-3 !h-3 !bg-purple-300 !border-2 !border-purple-700 hover:!bg-purple-200"
+            className="!w-3 !h-3 !bg-blue-400 !border-2 !border-blue-600 hover:!bg-blue-300"
           />
         ))
       ) : (
@@ -188,6 +122,75 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
           className="!w-3 !h-3 !bg-purple-300 !border-2 !border-purple-700 hover:!bg-purple-200"
         />
       )}
+
+      {/* Content container */}
+      <div className="flex flex-col gap-2">
+        {/* Header with icon and label */}
+        <div className="flex items-center gap-2">
+          <Layers className="w-5 h-5 text-purple-200 shrink-0" />
+          <span className="text-white font-semibold text-sm truncate flex-1" title={label}>
+            {label}
+          </span>
+        </div>
+
+        {/* Child count and port indicators */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <div className="flex gap-0.5">
+              <div className="w-1 h-4 bg-purple-300 rounded-sm" />
+              <div className="w-1 h-4 bg-purple-400 rounded-sm" />
+              <div className="w-1 h-4 bg-purple-300 rounded-sm" />
+            </div>
+            <span className="text-purple-100 text-xs">
+              {childCount} node{childCount !== 1 ? 's' : ''}
+            </span>
+          </div>
+
+          {/* Port count indicators */}
+          {(inputPorts.length > 0 || outputPorts.length > 0) && (
+            <div className="flex items-center gap-2 text-xs text-purple-100">
+              {inputPorts.length > 0 && (
+                <div className="flex items-center gap-0.5" title={`${inputPorts.length} input${inputPorts.length !== 1 ? 's' : ''}`}>
+                  <ArrowLeft className="w-3 h-3" />
+                  <span>{inputPorts.length}</span>
+                </div>
+              )}
+              {outputPorts.length > 0 && (
+                <div className="flex items-center gap-0.5" title={`${outputPorts.length} output${outputPorts.length !== 1 ? 's' : ''}`}>
+                  <ArrowRight className="w-3 h-3" />
+                  <span>{outputPorts.length}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Description (if provided) */}
+        {description && (
+          <div className="border-t border-purple-400 pt-2 mt-1">
+            <span
+              className="text-purple-100 text-xs line-clamp-2"
+              title={description}
+            >
+              {description}
+            </span>
+          </div>
+        )}
+
+        {/* Open button */}
+        <div className="flex items-center justify-end">
+          <button
+            onClick={handleOpenSheet}
+            className="flex items-center gap-1 text-purple-200 text-xs hover:text-white transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>Open</span>
+          </button>
+        </div>
+
+        {/* Tags indicator */}
+        <NodeTags tags={tags} className="justify-center" />
+      </div>
     </div>
   );
 }
