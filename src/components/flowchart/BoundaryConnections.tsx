@@ -129,9 +129,54 @@ function BoundaryConnections({ subprocessId }: BoundaryConnectionsProps) {
     return null;
   }
 
-  // Calculate label positions
-  const inputLabelYPositions = inputPorts.map((_, index) => 60 + index * 45);
-  const outputLabelYPositions = outputPorts.map((_, index) => 60 + index * 45);
+  // =============================================================================
+  // Label Position Calculations
+  // Must match the actual CSS layout of the labels below
+  // =============================================================================
+
+  // Input labels: container at left-2 (8px), top-12 (48px)
+  // Header: ~20px height, gap-1 (4px), then labels with marginTop
+  // Label dimensions: px-2 (8px each), py-1.5 (6px each), border-2 (2px each)
+  // Label content: dot (10px) + gap-1 (4px) + text (max 100px) ≈ 114px + 16px padding + 4px border ≈ 134px
+  const INPUT_LABEL_LEFT = 8; // left-2
+  const INPUT_LABEL_WIDTH = 130; // approximate width with typical text
+  const INPUT_LABEL_HEIGHT = 28; // py-1.5 (12px) + text (~16px)
+  const INPUT_LABEL_RIGHT = INPUT_LABEL_LEFT + INPUT_LABEL_WIDTH; // center-right x position
+
+  // Calculate Y positions for input labels
+  // Container top: 48px (top-12)
+  // Header height: ~20px
+  // gap-1: 4px
+  // First label marginTop: 4px, subsequent: 2px
+  const INPUT_CONTAINER_TOP = 48;
+  const HEADER_HEIGHT = 20;
+  const HEADER_GAP = 4;
+  const FIRST_LABEL_MARGIN = 4;
+  const SUBSEQUENT_LABEL_MARGIN = 2;
+
+  const inputLabelPositions = inputPorts.map((_, index) => {
+    const labelTop = INPUT_CONTAINER_TOP + HEADER_HEIGHT + HEADER_GAP +
+                     (index === 0 ? FIRST_LABEL_MARGIN : FIRST_LABEL_MARGIN + (index * (INPUT_LABEL_HEIGHT + SUBSEQUENT_LABEL_MARGIN)));
+    return {
+      y: labelTop + INPUT_LABEL_HEIGHT / 2, // center Y
+    };
+  });
+
+  // Output labels: container at right-2 (8px from right), top-12 (48px)
+  // Same dimensions as input labels
+  const OUTPUT_LABEL_WIDTH = 130;
+  const OUTPUT_LABEL_HEIGHT = 28;
+
+  const outputLabelPositions = outputPorts.map((_, index) => {
+    const labelTop = INPUT_CONTAINER_TOP + HEADER_HEIGHT + HEADER_GAP +
+                     (index === 0 ? FIRST_LABEL_MARGIN : FIRST_LABEL_MARGIN + (index * (OUTPUT_LABEL_HEIGHT + SUBSEQUENT_LABEL_MARGIN)));
+    return {
+      y: labelTop + OUTPUT_LABEL_HEIGHT / 2, // center Y
+    };
+  });
+
+  const svgWidth = containerBounds?.width || 800;
+  const OUTPUT_LABEL_LEFT = svgWidth - 8 - OUTPUT_LABEL_WIDTH; // left edge of output label
 
   return (
     <div
@@ -168,14 +213,14 @@ function BoundaryConnections({ subprocessId }: BoundaryConnectionsProps) {
           </marker>
         </defs>
 
-        {/* Input connection lines */}
+        {/* Input connection lines - from center-right of input label to internal node */}
         {inputPorts.map((port, index) => {
           const internalNode = internalNodePositions[port.internalNodeId];
           if (!internalNode) return null;
 
-          const labelY = inputLabelYPositions[index];
-          const startX = 120; // Right edge of input label area
-          const startY = labelY + 12; // Center of label
+          const labelPos = inputLabelPositions[index];
+          const startX = INPUT_LABEL_RIGHT; // Center-right of input label
+          const startY = labelPos.y; // Vertically centered
           const endX = internalNode.screenX;
           const endY = internalNode.screenY + (internalNode.height * zoom) / 2;
 
@@ -196,17 +241,16 @@ function BoundaryConnections({ subprocessId }: BoundaryConnectionsProps) {
           );
         })}
 
-        {/* Output connection lines */}
+        {/* Output connection lines - from internal node to center-left of output label */}
         {outputPorts.map((port, index) => {
           const internalNode = internalNodePositions[port.internalNodeId];
           if (!internalNode) return null;
 
-          const labelY = outputLabelYPositions[index];
-          const svgWidth = containerBounds?.width || 800;
-          const endX = svgWidth - 120; // Left edge of output label area
-          const endY = labelY + 12; // Center of label
+          const labelPos = outputLabelPositions[index];
           const startX = internalNode.screenX + internalNode.width * zoom;
           const startY = internalNode.screenY + (internalNode.height * zoom) / 2;
+          const endX = OUTPUT_LABEL_LEFT; // Center-left of output label
+          const endY = labelPos.y; // Vertically centered
 
           // Create a smooth curve
           const midX = (startX + endX) / 2;
@@ -235,11 +279,11 @@ function BoundaryConnections({ subprocessId }: BoundaryConnectionsProps) {
         {inputPorts.map((port, index) => (
           <div
             key={`input-label-${port.edgeId}`}
-            className="flex items-center gap-1 px-2 py-1.5 bg-green-100 border-2 border-green-400 rounded-md text-xs text-green-700 shadow-sm pointer-events-auto"
+            className="flex items-center gap-1 px-2 py-1.5 bg-green-100 border-2 border-green-400 rounded-md text-xs text-green-700 shadow-sm pointer-events-auto w-[130px]"
             style={{ marginTop: index === 0 ? '4px' : '2px' }}
           >
-            <div className="w-2.5 h-2.5 bg-green-500 rounded-full" />
-            <span className="font-semibold truncate max-w-[100px]" title={port.externalNodeName}>
+            <div className="w-2.5 h-2.5 bg-green-500 rounded-full shrink-0" />
+            <span className="font-semibold truncate flex-1" title={port.externalNodeName}>
               {port.externalNodeName}
             </span>
           </div>
@@ -255,13 +299,13 @@ function BoundaryConnections({ subprocessId }: BoundaryConnectionsProps) {
         {outputPorts.map((port, index) => (
           <div
             key={`output-label-${port.edgeId}`}
-            className="flex items-center gap-1 px-2 py-1.5 bg-blue-100 border-2 border-blue-400 rounded-md text-xs text-blue-700 shadow-sm pointer-events-auto"
+            className="flex items-center gap-1 px-2 py-1.5 bg-blue-100 border-2 border-blue-400 rounded-md text-xs text-blue-700 shadow-sm pointer-events-auto w-[130px]"
             style={{ marginTop: index === 0 ? '4px' : '2px' }}
           >
-            <span className="font-semibold truncate max-w-[100px]" title={port.externalNodeName}>
+            <span className="font-semibold truncate flex-1 text-right" title={port.externalNodeName}>
               {port.externalNodeName}
             </span>
-            <div className="w-2.5 h-2.5 bg-blue-500 rounded-full" />
+            <div className="w-2.5 h-2.5 bg-blue-500 rounded-full shrink-0" />
           </div>
         ))}
       </div>
