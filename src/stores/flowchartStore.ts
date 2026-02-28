@@ -503,23 +503,27 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
           // Incoming edge (external -> child) - redirect target to subprocess
           if (!sourceIsChild && targetIsChild) {
+            // Generate port ID for multi-handle connection
+            const portId = `input-${edge.target}${edge.targetHandle ? `-${edge.targetHandle}` : ''}`;
             return {
               ...edge,
               originalTarget: edge.target,
               originalTargetHandle: edge.targetHandle,
               target: subprocessId,
-              targetHandle: null,
+              targetHandle: portId, // Port ID for multi-handle connection
             };
           }
 
           // Outgoing edge (child -> external) - redirect source to subprocess
           if (sourceIsChild && !targetIsChild) {
+            // Generate port ID for multi-handle connection
+            const portId = `output-${edge.source}${edge.sourceHandle ? `-${edge.sourceHandle}` : ''}`;
             return {
               ...edge,
               originalSource: edge.source,
               originalSourceHandle: edge.sourceHandle,
               source: subprocessId,
-              sourceHandle: null,
+              sourceHandle: portId, // Port ID for multi-handle connection
             };
           }
 

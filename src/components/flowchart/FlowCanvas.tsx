@@ -26,6 +26,7 @@ import { useFlowchartStore } from '../../stores/flowchartStore';
 import type { FlowchartNode, FlowchartEdge, ProcessNodeType } from '../../types';
 import ContextMenu from './ContextMenu';
 import SheetBar, { type SheetInfo } from './SheetBar';
+import BoundaryConnections from './BoundaryConnections';
 
 // =============================================================================
 // Local Types
@@ -431,6 +432,43 @@ function FlowCanvasInner({
     });
   }, [edges, visibleNodes]);
 
+  /**
+   * Compute boundary ports (inputs/outputs) for sheet view
+   * Used to show external connections when viewing a subprocess sheet
+   */
+  const boundaryPorts = useMemo(() => {
+    if (!activeSheetId) return { inputs: [], outputs: [] };
+
+    const inputs: Array<{ edgeId: string; externalNodeName: string; internalNodeId: string; internalHandleId?: string | null }> = [];
+    const outputs: Array<{ edgeId: string; externalNodeName: string; internalNodeId: string; internalHandleId?: string | null }> = [];
+
+    edges.forEach((edge) => {
+      // Incoming edge (external -> subprocess) - input port
+      if (edge.target === activeSheetId && edge.originalTarget) {
+        const externalNode = nodes.find((n) => n.id === edge.source);
+        inputs.push({
+          edgeId: edge.id,
+          externalNodeName: externalNode?.data?.label || 'Unknown',
+          internalNodeId: edge.originalTarget,
+          internalHandleId: edge.originalTargetHandle,
+        });
+      }
+
+      // Outgoing edge (subprocess -> external) - output port
+      if (edge.source === activeSheetId && edge.originalSource) {
+        const externalNode = nodes.find((n) => n.id === edge.target);
+        outputs.push({
+          edgeId: edge.id,
+          externalNodeName: externalNode?.data?.label || 'Unknown',
+          internalNodeId: edge.originalSource,
+          internalHandleId: edge.originalSourceHandle,
+        });
+      }
+    });
+
+    return { inputs, outputs };
+  }, [activeSheetId, edges, nodes]);
+
   // =============================================================================
   // Edge Options
   // =============================================================================
@@ -542,6 +580,11 @@ function FlowCanvasInner({
               )}
             </div>
           </Panel>
+
+          {/* Boundary Connections for subprocess sheet view */}
+          {activeSheetId && (
+            <BoundaryConnections subprocessId={activeSheetId} />
+          )}
 
           {/* Keyboard shortcuts hint */}
           <Panel position="bottom-right" className="!m-2">

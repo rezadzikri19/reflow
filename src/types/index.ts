@@ -63,6 +63,24 @@ export interface BaseNodeData {
 }
 
 // ============================================================================
+// Subprocess Port Types
+// ============================================================================
+
+/**
+ * Port information for subprocess nodes
+ */
+export interface SubprocessPort {
+  /** Unique port ID (e.g., "input-node123", "output-node456-yes") */
+  id: string;
+  /** The internal node ID this port connects to */
+  internalNodeId: string;
+  /** The handle ID on the internal node (if applicable) */
+  internalHandleId?: string | null;
+  /** Whether this is an input or output port */
+  direction: 'input' | 'output';
+}
+
+// ============================================================================
 // Process Node Data
 // ============================================================================
 
@@ -94,6 +112,8 @@ export interface ProcessNodeData extends BaseNodeData {
   parentId?: string;
   /** Child node IDs (for subprocess nodes) */
   childNodeIds?: string[];
+  /** Input/output ports for subprocess nodes (computed from edges) */
+  ports?: SubprocessPort[];
 }
 
 // ============================================================================
