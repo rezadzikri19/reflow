@@ -13,9 +13,11 @@ export { default as DecisionNode } from './DecisionNode';
 export { default as SubprocessNode } from './SubprocessNode';
 export { default as ParallelNode } from './ParallelNode';
 export { default as DelayNode } from './DelayNode';
+export { default as BoundaryPortNode } from './BoundaryPortNode';
 
 // Type exports for external use
 export type { ProcessNodeData, BaseNodeData } from '../../../types/index';
+export type { BoundaryPortNodeData } from './BoundaryPortNode';
 
 /**
  * Node types map for React Flow
@@ -35,6 +37,7 @@ import DecisionNode from './DecisionNode';
 import SubprocessNode from './SubprocessNode';
 import ParallelNode from './ParallelNode';
 import DelayNode from './DelayNode';
+import BoundaryPortNode from './BoundaryPortNode';
 
 export const nodeTypes = {
   start: StartNode,
@@ -44,6 +47,7 @@ export const nodeTypes = {
   subprocess: SubprocessNode,
   parallel: ParallelNode,
   delay: DelayNode,
+  boundaryPort: BoundaryPortNode,
 } as const;
 
 /**
