@@ -1,18 +1,13 @@
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
+import type { BoundaryPortNodeData } from '../../../types/index';
 
 // =============================================================================
 // Types
 // =============================================================================
 
-export interface BoundaryPortNodeData {
-  label: string;
-  direction: 'input' | 'output';
-  edgeId: string;
-  internalNodeId: string;
-  internalHandleId?: string | null;
-}
+export type { BoundaryPortNodeData } from '../../../types/index';
 
 // =============================================================================
 // BoundaryPortNode Component

@@ -14,7 +14,8 @@ export type ProcessNodeType =
   | 'decision'
   | 'subprocess'
   | 'parallel'
-  | 'delay';
+  | 'delay'
+  | 'boundaryPort';
 
 // ============================================================================
 // Edge Types
@@ -80,6 +81,22 @@ export interface SubprocessPort {
   direction: 'input' | 'output';
 }
 
+/**
+ * Data for boundary port nodes (virtual nodes in sheet view)
+ */
+export interface BoundaryPortNodeData {
+  /** Display label showing the external node name */
+  label: string;
+  /** Whether this is an input or output port */
+  direction: 'input' | 'output';
+  /** The edge ID this port represents */
+  edgeId: string;
+  /** The internal node ID this port connects to */
+  internalNodeId: string;
+  /** The handle ID on the internal node (if applicable) */
+  internalHandleId?: string | null;
+}
+
 // ============================================================================
 // Process Node Data
 // ============================================================================
@@ -122,8 +139,11 @@ export interface ProcessNodeData extends BaseNodeData {
 
 /**
  * Custom flowchart node extending React Flow's Node type
+ * Supports both process nodes and boundary port nodes
  */
-export type FlowchartNode = Node<ProcessNodeData, ProcessNodeType>;
+export type FlowchartNode =
+  | Node<ProcessNodeData, Exclude<ProcessNodeType, 'boundaryPort'>>
+  | Node<BoundaryPortNodeData, 'boundaryPort'>;
 
 /**
  * Custom flowchart edge extending React Flow's Edge type

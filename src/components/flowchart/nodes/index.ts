@@ -16,8 +16,7 @@ export { default as DelayNode } from './DelayNode';
 export { default as BoundaryPortNode } from './BoundaryPortNode';
 
 // Type exports for external use
-export type { ProcessNodeData, BaseNodeData } from '../../../types/index';
-export type { BoundaryPortNodeData } from './BoundaryPortNode';
+export type { ProcessNodeData, BaseNodeData, BoundaryPortNodeData } from '../../../types/index';
 
 /**
  * Node types map for React Flow
