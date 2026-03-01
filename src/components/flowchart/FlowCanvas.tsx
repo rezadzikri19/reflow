@@ -115,25 +115,19 @@ function FlowCanvasInner({
     output: { x: 0, y: 0 },
   });
 
-  // Track initial positions when drag starts
-  const boundaryDragStartRef = useRef<{
-    inputY: number | null;
-    outputY: number | null;
-    initialOffset: { input: { x: number; y: number }; output: { x: number; y: number } };
+  // Track previous position during drag for smooth delta calculation
+  const boundaryDragPrevRef = useRef<{
+    input: { x: number; y: number } | null;
+    output: { x: number; y: number } | null;
   }>({
-    inputY: null,
-    outputY: null,
-    initialOffset: { input: { x: 0, y: 0 }, output: { x: 0, y: 0 } },
+    input: null,
+    output: null,
   });
 
   // Reset offsets when sheet changes
   useEffect(() => {
     setBoundaryPortOffsets({ input: { x: 0, y: 0 }, output: { x: 0, y: 0 } });
-    boundaryDragStartRef.current = {
-      inputY: null,
-      outputY: null,
-      initialOffset: { input: { x: 0, y: 0 }, output: { x: 0, y: 0 } },
-    };
+    boundaryDragPrevRef.current = { input: null, output: null };
   }, [activeSheetId]);
 
   // Use custom node types if provided, otherwise use defaults
@@ -157,37 +151,58 @@ function FlowCanvasInner({
 
       // If boundary port nodes are being dragged, update group offsets instead
       if (boundaryPortPositionChanges.length > 0) {
+        let inputDelta = { x: 0, y: 0 };
+        let outputDelta = { x: 0, y: 0 };
+        let hasInputChange = false;
+        let hasOutputChange = false;
+
         boundaryPortPositionChanges.forEach((change) => {
           if (change.type !== 'position' || !change.position) return;
 
           const isInput = change.id.startsWith('boundary-input-');
           const direction = isInput ? 'input' : 'output';
 
-          // On drag start, capture initial position
-          if (change.dragging && boundaryDragStartRef.current[`${direction}Y` as keyof typeof boundaryDragStartRef.current] === null) {
-            boundaryDragStartRef.current[`${direction}Y` as keyof typeof boundaryDragStartRef.current] = change.position.y;
-            boundaryDragStartRef.current.initialOffset = { ...boundaryPortOffsets };
+          // On drag start, capture current position
+          if (change.dragging && !boundaryDragPrevRef.current[direction]) {
+            boundaryDragPrevRef.current[direction] = { ...change.position };
           }
 
-          // Calculate delta from initial position and update offset
-          if (boundaryDragStartRef.current[`${direction}Y` as keyof typeof boundaryDragStartRef.current] !== null) {
-            const initialY = boundaryDragStartRef.current[`${direction}Y` as keyof typeof boundaryDragStartRef.current] as number;
-            const deltaY = change.position.y - initialY;
+          const prevPos = boundaryDragPrevRef.current[direction];
+          if (prevPos) {
+            const delta = {
+              x: change.position.x - prevPos.x,
+              y: change.position.y - prevPos.y,
+            };
 
-            setBoundaryPortOffsets((prev) => ({
-              ...prev,
-              [direction]: {
-                x: 0, // Only allow vertical movement
-                y: boundaryDragStartRef.current.initialOffset[direction].y + deltaY,
-              },
-            }));
+            if (isInput) {
+              inputDelta = delta;
+              hasInputChange = true;
+            } else {
+              outputDelta = delta;
+              hasOutputChange = true;
+            }
+
+            // Update previous position for next frame
+            boundaryDragPrevRef.current[direction] = { ...change.position };
           }
 
           // Reset on drag end
           if (!change.dragging) {
-            boundaryDragStartRef.current[`${direction}Y` as keyof typeof boundaryDragStartRef.current] = null;
+            boundaryDragPrevRef.current[direction] = null;
           }
         });
+
+        // Update offsets based on deltas
+        if (hasInputChange || hasOutputChange) {
+          setBoundaryPortOffsets((prev) => ({
+            input: hasInputChange
+              ? { x: prev.input.x + inputDelta.x, y: prev.input.y + inputDelta.y }
+              : prev.input,
+            output: hasOutputChange
+              ? { x: prev.output.x + outputDelta.x, y: prev.output.y + outputDelta.y }
+              : prev.output,
+          }));
+        }
 
         // Filter out boundary port position changes so they don't affect the store
         const otherChanges = changes.filter(
@@ -237,7 +252,7 @@ function FlowCanvasInner({
         }
       });
     },
-    [nodes, readOnly, deleteNode, setSelectedNode, selectedNodeId, setNodes, markDirty, boundaryPortOffsets]
+    [nodes, readOnly, deleteNode, setSelectedNode, selectedNodeId, setNodes, markDirty]
   );
 
   /**
