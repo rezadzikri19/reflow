@@ -109,32 +109,25 @@ function FlowCanvasInner({
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState<ContextMenuPosition>({ x: 0, y: 0 });
 
-  // Boundary port positions - stored separately for smooth dragging
-  // These are absolute positions, not offsets
-  const [boundaryPortPositions, setBoundaryPortPositions] = useState<Record<string, { x: number; y: number }>>({});
-
-  // Track which port is being dragged and its starting position
-  const boundaryDragStateRef = useRef<{
-    dragStartPositions: Record<string, { x: number; y: number }>;
-    draggedPortId: string | null;
-    draggedDirection: 'input' | 'output' | null;
-    startPosition: { x: number; y: number } | null;
-  }>({
-    dragStartPositions: {},
-    draggedPortId: null,
-    draggedDirection: null,
-    startPosition: null,
+  // Boundary port group offsets (for dragging input/output groups together)
+  const [boundaryPortOffsets, setBoundaryPortOffsets] = useState({
+    input: { x: 0, y: 0 },
+    output: { x: 0, y: 0 },
   });
 
-  // Reset positions when sheet changes
+  // Track previous position during drag for smooth delta calculation
+  const boundaryDragPrevRef = useRef<{
+    input: { x: number; y: number } | null;
+    output: { x: number; y: number } | null;
+  }>({
+    input: null,
+    output: null,
+  });
+
+  // Reset offsets when sheet changes
   useEffect(() => {
-    setBoundaryPortPositions({});
-    boundaryDragStateRef.current = {
-      dragStartPositions: {},
-      draggedPortId: null,
-      draggedDirection: null,
-      startPosition: null,
-    };
+    setBoundaryPortOffsets({ input: { x: 0, y: 0 }, output: { x: 0, y: 0 } });
+    boundaryDragPrevRef.current = { input: null, output: null };
   }, [activeSheetId]);
 
   // Use custom node types if provided, otherwise use defaults
@@ -156,67 +149,60 @@ function FlowCanvasInner({
           (change.id.startsWith('boundary-input-') || change.id.startsWith('boundary-output-'))
       );
 
-      // If boundary port nodes are being dragged, update all ports of same direction together
+      // If boundary port nodes are being dragged, update group offsets instead
       if (boundaryPortPositionChanges.length > 0) {
+        let inputDelta = { x: 0, y: 0 };
+        let outputDelta = { x: 0, y: 0 };
+        let hasInputChange = false;
+        let hasOutputChange = false;
+
         boundaryPortPositionChanges.forEach((change) => {
           if (change.type !== 'position' || !change.position) return;
 
           const isInput = change.id.startsWith('boundary-input-');
           const direction = isInput ? 'input' : 'output';
 
-          // On drag start, capture all port positions of the same direction
-          if (change.dragging && !boundaryDragStateRef.current.draggedPortId) {
-            boundaryDragStateRef.current.draggedPortId = change.id;
-            boundaryDragStateRef.current.draggedDirection = direction;
-            boundaryDragStateRef.current.startPosition = { ...change.position };
-            // Store all current positions
-            boundaryDragStateRef.current.dragStartPositions = { ...boundaryPortPositions };
+          // On drag start, capture current position
+          if (change.dragging && !boundaryDragPrevRef.current[direction]) {
+            boundaryDragPrevRef.current[direction] = { ...change.position };
           }
 
-          // Calculate delta from start position
-          const startPos = boundaryDragStateRef.current.startPosition;
-          if (startPos) {
-            const deltaX = change.position.x - startPos.x;
-            const deltaY = change.position.y - startPos.y;
+          const prevPos = boundaryDragPrevRef.current[direction];
+          if (prevPos) {
+            const delta = {
+              x: change.position.x - prevPos.x,
+              y: change.position.y - prevPos.y,
+            };
 
-            // Update all ports of the same direction
-            setBoundaryPortPositions((prev) => {
-              const updated = { ...prev };
+            if (isInput) {
+              inputDelta = delta;
+              hasInputChange = true;
+            } else {
+              outputDelta = delta;
+              hasOutputChange = true;
+            }
 
-              // Get all port IDs of the same direction from dragStartPositions
-              Object.keys(boundaryDragStateRef.current.dragStartPositions).forEach((portId) => {
-                if ((direction === 'input' && portId.startsWith('boundary-input-')) ||
-                    (direction === 'output' && portId.startsWith('boundary-output-'))) {
-                  const originalPos = boundaryDragStateRef.current.dragStartPositions[portId];
-                  if (originalPos) {
-                    updated[portId] = {
-                      x: originalPos.x + deltaX,
-                      y: originalPos.y + deltaY,
-                    };
-                  }
-                }
-              });
-
-              // Also initialize any ports that weren't in dragStartPositions
-              // This handles the case where ports were just created
-              if (!updated[change.id]) {
-                updated[change.id] = { ...change.position };
-              }
-
-              return updated;
-            });
+            // Update previous position for next frame
+            boundaryDragPrevRef.current[direction] = { ...change.position };
           }
 
           // Reset on drag end
           if (!change.dragging) {
-            boundaryDragStateRef.current = {
-              dragStartPositions: {},
-              draggedPortId: null,
-              draggedDirection: null,
-              startPosition: null,
-            };
+            boundaryDragPrevRef.current[direction] = null;
           }
         });
+
+        // Update offsets based on deltas
+        if (hasInputChange || hasOutputChange) {
+          setBoundaryPortOffsets((prev) => ({
+            input: hasInputChange
+              ? { x: prev.input.x + inputDelta.x, y: prev.input.y + inputDelta.y }
+              : prev.input,
+            output: hasOutputChange
+              ? { x: prev.output.x + outputDelta.x, y: prev.output.y + outputDelta.y }
+              : prev.output,
+          }));
+        }
 
         // Filter out boundary port position changes so they don't affect the store
         const otherChanges = changes.filter(
@@ -266,7 +252,7 @@ function FlowCanvasInner({
         }
       });
     },
-    [nodes, readOnly, deleteNode, setSelectedNode, selectedNodeId, setNodes, markDirty, boundaryPortPositions]
+    [nodes, readOnly, deleteNode, setSelectedNode, selectedNodeId, setNodes, markDirty]
   );
 
   /**
@@ -607,38 +593,34 @@ function FlowCanvasInner({
     // Get boundary port nodes
     const { inputs, outputs } = boundaryPortNodes;
 
-    // Calculate default positions for boundary port nodes based on internal nodes
+    // Calculate positions for boundary port nodes based on internal nodes
     if (internalNodes.length > 0) {
       const minX = Math.min(...internalNodes.map(n => n.position.x));
       const maxX = Math.max(...internalNodes.map(n => n.position.x + (n.measured?.width || 180)));
       const yPositions = internalNodes.map(n => n.position.y);
       const avgY = yPositions.reduce((a, b) => a + b, 0) / yPositions.length;
 
-      // Position input ports on the left side, distributed vertically
+      // Position input ports on the left side, distributed vertically with offset
       const inputStartY = avgY - ((inputs.length - 1) * 50) / 2;
       inputs.forEach((port, index) => {
-        const defaultPos = {
-          x: minX - 180,
-          y: inputStartY + index * 50,
+        port.position = {
+          x: minX - 180 + boundaryPortOffsets.input.x,
+          y: inputStartY + index * 50 + boundaryPortOffsets.input.y,
         };
-        // Use stored position if available, otherwise use default
-        port.position = boundaryPortPositions[port.id] || defaultPos;
       });
 
-      // Position output ports on the right side, distributed vertically
+      // Position output ports on the right side, distributed vertically with offset
       const outputStartY = avgY - ((outputs.length - 1) * 50) / 2;
       outputs.forEach((port, index) => {
-        const defaultPos = {
-          x: maxX + 60,
-          y: outputStartY + index * 50,
+        port.position = {
+          x: maxX + 60 + boundaryPortOffsets.output.x,
+          y: outputStartY + index * 50 + boundaryPortOffsets.output.y,
         };
-        // Use stored position if available, otherwise use default
-        port.position = boundaryPortPositions[port.id] || defaultPos;
       });
     }
 
     return [...inputs, ...internalNodes, ...outputs];
-  }, [nodes, activeSheetId, boundaryPortNodes, boundaryPortPositions]);
+  }, [nodes, activeSheetId, boundaryPortNodes, boundaryPortOffsets]);
 
   /**
    * Filter edges to show based on visible nodes
