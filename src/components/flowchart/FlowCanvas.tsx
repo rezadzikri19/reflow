@@ -412,89 +412,96 @@ function FlowCanvasInner({
   // =============================================================================
 
   /**
+   * Compute boundary port nodes for sheet view
+   */
+  const boundaryPortNodes = useMemo(() => {
+    if (!activeSheetId) return { inputs: [] as FlowchartNode[], outputs: [] as FlowchartNode[] };
+
+    const inputPorts: FlowchartNode[] = [];
+    const outputPorts: FlowchartNode[] = [];
+
+    edges.forEach((edge) => {
+      // Incoming edge (external -> subprocess) - input port
+      if (edge.target === activeSheetId && edge.originalTarget) {
+        const externalNode = nodes.find((n) => n.id === edge.source);
+        const portId = `boundary-input-${edge.id}`;
+        inputPorts.push({
+          id: portId,
+          type: 'boundaryPort',
+          position: { x: 0, y: 0 }, // Will be positioned later
+          measured: { width: 120, height: 32 }, // Provide measured dimensions
+          data: {
+            label: externalNode?.data?.label || 'Unknown',
+            direction: 'input',
+            edgeId: edge.id,
+            internalNodeId: edge.originalTarget,
+            internalHandleId: edge.originalTargetHandle,
+          } as BoundaryPortNodeData,
+        });
+      }
+
+      // Outgoing edge (subprocess -> external) - output port
+      if (edge.source === activeSheetId && edge.originalSource) {
+        const externalNode = nodes.find((n) => n.id === edge.target);
+        const portId = `boundary-output-${edge.id}`;
+        outputPorts.push({
+          id: portId,
+          type: 'boundaryPort',
+          position: { x: 0, y: 0 }, // Will be positioned later
+          measured: { width: 120, height: 32 }, // Provide measured dimensions
+          data: {
+            label: externalNode?.data?.label || 'Unknown',
+            direction: 'output',
+            edgeId: edge.id,
+            internalNodeId: edge.originalSource,
+            internalHandleId: edge.originalSourceHandle,
+          } as BoundaryPortNodeData,
+        });
+      }
+    });
+
+    return { inputs: inputPorts, outputs: outputPorts };
+  }, [activeSheetId, edges, nodes]);
+
+  /**
    * Filter nodes to show based on active sheet
    * - Main view (null): show all nodes NOT inside a subprocess
    * - Sheet view (ID): show only children of that subprocess + boundary port nodes
    */
   const visibleNodes = useMemo(() => {
-    let result: FlowchartNode[];
-
     if (activeSheetId === null) {
       // Main view: show all nodes NOT inside a subprocess
-      result = nodes.filter((node) => !node.data.parentId);
-    } else {
-      // Sheet view: show only children of this subprocess
-      result = nodes.filter((node) => node.data.parentId === activeSheetId);
-
-      // Add boundary port nodes for inputs and outputs
-      const inputPorts: FlowchartNode[] = [];
-      const outputPorts: FlowchartNode[] = [];
-
-      edges.forEach((edge) => {
-        // Incoming edge (external -> subprocess) - input port
-        if (edge.target === activeSheetId && edge.originalTarget) {
-          const externalNode = nodes.find((n) => n.id === edge.source);
-          const portId = `boundary-input-${edge.id}`;
-          inputPorts.push({
-            id: portId,
-            type: 'boundaryPort',
-            position: { x: 0, y: 0 }, // Will be positioned below
-            data: {
-              label: externalNode?.data?.label || 'Unknown',
-              direction: 'input',
-              edgeId: edge.id,
-              internalNodeId: edge.originalTarget,
-              internalHandleId: edge.originalTargetHandle,
-            } as BoundaryPortNodeData,
-          });
-        }
-
-        // Outgoing edge (subprocess -> external) - output port
-        if (edge.source === activeSheetId && edge.originalSource) {
-          const externalNode = nodes.find((n) => n.id === edge.target);
-          const portId = `boundary-output-${edge.id}`;
-          outputPorts.push({
-            id: portId,
-            type: 'boundaryPort',
-            position: { x: 0, y: 0 }, // Will be positioned below
-            data: {
-              label: externalNode?.data?.label || 'Unknown',
-              direction: 'output',
-              edgeId: edge.id,
-              internalNodeId: edge.originalSource,
-              internalHandleId: edge.originalSourceHandle,
-            } as BoundaryPortNodeData,
-          });
-        }
-      });
-
-      // Calculate positions for boundary port nodes
-      // Get the bounding box of internal nodes
-      const internalNodes = result;
-      if (internalNodes.length > 0) {
-        const minX = Math.min(...internalNodes.map(n => n.position.x));
-        const maxX = Math.max(...internalNodes.map(n => n.position.x + (n.measured?.width || 180)));
-        const yPositions = internalNodes.map(n => n.position.y);
-        const avgY = yPositions.reduce((a, b) => a + b, 0) / yPositions.length;
-
-        // Position input ports on the left side
-        const inputStartY = avgY - ((inputPorts.length - 1) * 50) / 2;
-        inputPorts.forEach((port, index) => {
-          port.position = { x: minX - 180, y: inputStartY + index * 50 };
-        });
-
-        // Position output ports on the right side
-        const outputStartY = avgY - ((outputPorts.length - 1) * 50) / 2;
-        outputPorts.forEach((port, index) => {
-          port.position = { x: maxX + 60, y: outputStartY + index * 50 };
-        });
-      }
-
-      result = [...inputPorts, ...result, ...outputPorts];
+      return nodes.filter((node) => !node.data.parentId);
     }
 
-    return result;
-  }, [nodes, activeSheetId, edges]);
+    // Sheet view: show only children of this subprocess
+    const internalNodes = nodes.filter((node) => node.data.parentId === activeSheetId);
+
+    // Get boundary port nodes
+    const { inputs, outputs } = boundaryPortNodes;
+
+    // Calculate positions for boundary port nodes based on internal nodes
+    if (internalNodes.length > 0) {
+      const minX = Math.min(...internalNodes.map(n => n.position.x));
+      const maxX = Math.max(...internalNodes.map(n => n.position.x + (n.measured?.width || 180)));
+      const yPositions = internalNodes.map(n => n.position.y);
+      const avgY = yPositions.reduce((a, b) => a + b, 0) / yPositions.length;
+
+      // Position input ports on the left side, distributed vertically
+      const inputStartY = avgY - ((inputs.length - 1) * 50) / 2;
+      inputs.forEach((port, index) => {
+        port.position = { x: minX - 180, y: inputStartY + index * 50 };
+      });
+
+      // Position output ports on the right side, distributed vertically
+      const outputStartY = avgY - ((outputs.length - 1) * 50) / 2;
+      outputs.forEach((port, index) => {
+        port.position = { x: maxX + 60, y: outputStartY + index * 50 };
+      });
+    }
+
+    return [...inputs, ...internalNodes, ...outputs];
+  }, [nodes, activeSheetId, boundaryPortNodes]);
 
   /**
    * Filter edges to show based on visible nodes
@@ -503,93 +510,44 @@ function FlowCanvasInner({
   const visibleEdges = useMemo(() => {
     const visibleNodeIds = new Set(visibleNodes.map(n => n.id));
 
+    // Filter edges between visible internal nodes
     let result = edges.filter((edge) => {
-      // Show edges where both source and target are visible
       return visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target);
     });
 
     // Add virtual edges from boundary port nodes to internal nodes
     if (activeSheetId) {
-      edges.forEach((edge) => {
-        // Input port edge: boundary-input-{edgeId} -> originalTarget
-        if (edge.target === activeSheetId && edge.originalTarget) {
-          const portId = `boundary-input-${edge.id}`;
-          result.push({
-            id: `boundary-edge-input-${edge.id}`,
-            source: portId,
-            target: edge.originalTarget,
-            sourceHandle: undefined,
-            targetHandle: edge.originalTargetHandle,
-            type: 'default',
-            animated: false,
-            style: { stroke: '#22C55E', strokeWidth: 2, strokeDasharray: '6,3' },
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              color: '#22C55E',
-            },
-          } as FlowchartEdge);
-        }
+      // Add input edges: boundary-input-{edgeId} -> originalTarget
+      boundaryPortNodes.inputs.forEach((port) => {
+        const portData = port.data as BoundaryPortNodeData;
+        result.push({
+          id: `boundary-edge-input-${portData.edgeId}`,
+          source: port.id,
+          target: portData.internalNodeId,
+          sourceHandle: undefined,
+          targetHandle: portData.internalHandleId,
+          // Don't specify type - let it inherit from defaultEdgeOptions
+          style: { stroke: '#22C55E', strokeWidth: 2, strokeDasharray: '6,3' },
+        } as FlowchartEdge);
+      });
 
-        // Output port edge: originalSource -> boundary-output-{edgeId}
-        if (edge.source === activeSheetId && edge.originalSource) {
-          const portId = `boundary-output-${edge.id}`;
-          result.push({
-            id: `boundary-edge-output-${edge.id}`,
-            source: edge.originalSource,
-            target: portId,
-            sourceHandle: edge.originalSourceHandle,
-            targetHandle: undefined,
-            type: 'default',
-            animated: false,
-            style: { stroke: '#3B82F6', strokeWidth: 2, strokeDasharray: '6,3' },
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              color: '#3B82F6',
-            },
-          } as FlowchartEdge);
-        }
+      // Add output edges: originalSource -> boundary-output-{edgeId}
+      boundaryPortNodes.outputs.forEach((port) => {
+        const portData = port.data as BoundaryPortNodeData;
+        result.push({
+          id: `boundary-edge-output-${portData.edgeId}`,
+          source: portData.internalNodeId,
+          target: port.id,
+          sourceHandle: portData.internalHandleId,
+          targetHandle: undefined,
+          // Don't specify type - let it inherit from defaultEdgeOptions
+          style: { stroke: '#3B82F6', strokeWidth: 2, strokeDasharray: '6,3' },
+        } as FlowchartEdge);
       });
     }
 
     return result;
-  }, [edges, visibleNodes, activeSheetId]);
-
-  /**
-   * Compute boundary ports (inputs/outputs) for sheet view
-   * Used to show external connections when viewing a subprocess sheet
-   */
-  const boundaryPorts = useMemo(() => {
-    if (!activeSheetId) return { inputs: [], outputs: [] };
-
-    const inputs: Array<{ edgeId: string; externalNodeName: string; internalNodeId: string; internalHandleId?: string | null }> = [];
-    const outputs: Array<{ edgeId: string; externalNodeName: string; internalNodeId: string; internalHandleId?: string | null }> = [];
-
-    edges.forEach((edge) => {
-      // Incoming edge (external -> subprocess) - input port
-      if (edge.target === activeSheetId && edge.originalTarget) {
-        const externalNode = nodes.find((n) => n.id === edge.source);
-        inputs.push({
-          edgeId: edge.id,
-          externalNodeName: externalNode?.data?.label || 'Unknown',
-          internalNodeId: edge.originalTarget,
-          internalHandleId: edge.originalTargetHandle,
-        });
-      }
-
-      // Outgoing edge (subprocess -> external) - output port
-      if (edge.source === activeSheetId && edge.originalSource) {
-        const externalNode = nodes.find((n) => n.id === edge.target);
-        outputs.push({
-          edgeId: edge.id,
-          externalNodeName: externalNode?.data?.label || 'Unknown',
-          internalNodeId: edge.originalSource,
-          internalHandleId: edge.originalSourceHandle,
-        });
-      }
-    });
-
-    return { inputs, outputs };
-  }, [activeSheetId, edges, nodes]);
+  }, [edges, visibleNodes, activeSheetId, boundaryPortNodes]);
 
   // =============================================================================
   // Edge Options
