@@ -107,6 +107,7 @@ function FlowCanvasInner({
   const closeActiveSheet = useFlowchartStore((state) => state.closeActiveSheet);
   const groupNodesIntoSubprocess = useFlowchartStore((state) => state.groupNodesIntoSubprocess);
   const defaultEdgeType = useFlowchartStore((state) => state.defaultEdgeType);
+  const addBoundaryPortEdge = useFlowchartStore((state) => state.addBoundaryPortEdge);
 
   // Context menu state
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
@@ -165,23 +166,50 @@ function FlowCanvasInner({
 
   /**
    * Handle edge changes
+   * Also handles deletion of virtual boundary port edges by deleting the original edge
    */
   const onEdgesChange: OnEdgesChange<FlowchartEdge> = useCallback(
     (changes) => {
-      const updatedEdges = applyEdgeChanges(changes, edges);
-      setEdges(updatedEdges);
-
+      // Handle virtual edge deletion (boundary port edges)
       changes.forEach((change) => {
         if (change.type === 'remove') {
+          // Check if this is a virtual boundary edge
+          if (change.id.startsWith('boundary-edge-input-')) {
+            // Extract original edge ID and delete it
+            const originalEdgeId = change.id.replace('boundary-edge-input-', '');
+            deleteEdge(originalEdgeId);
+            return;
+          }
+          if (change.id.startsWith('boundary-edge-output-')) {
+            // Extract original edge ID and delete it
+            const originalEdgeId = change.id.replace('boundary-edge-output-', '');
+            deleteEdge(originalEdgeId);
+            return;
+          }
+          // Regular edge deletion
           deleteEdge(change.id);
         }
       });
+
+      // Apply changes to edges (for non-virtual edges)
+      // Filter out virtual edge changes since we handle them manually
+      const nonVirtualChanges = changes.filter((change) =>
+        !change.id.startsWith('boundary-edge-input-') &&
+        !change.id.startsWith('boundary-edge-output-')
+      );
+
+      if (nonVirtualChanges.length > 0) {
+        const updatedEdges = applyEdgeChanges(nonVirtualChanges, edges);
+        setEdges(updatedEdges);
+      }
     },
     [edges, deleteEdge, setEdges]
   );
 
   /**
    * Handle new connections between nodes
+   * Also handles connections from boundary port nodes to internal nodes
+   * Supports multiple connections from the same boundary port
    */
   const onConnect: OnConnect = useCallback(
     (connection: Connection) => {
@@ -191,14 +219,70 @@ function FlowCanvasInner({
       // Prevent self-connections
       if (connection.source === connection.target) return;
 
+      const sourceId = connection.source;
+      const targetId = connection.target;
+
+      // Check if source is a boundary port
+      const isSourceBoundaryInput = sourceId.startsWith('boundary-input-');
+      const isSourceBoundaryOutput = sourceId.startsWith('boundary-output-');
+
+      // Check if target is a boundary port
+      const isTargetBoundaryInput = targetId.startsWith('boundary-input-');
+      const isTargetBoundaryOutput = targetId.startsWith('boundary-output-');
+
+      // Handle input boundary port as source (input port -> internal node)
+      // This creates a NEW edge from the external source to the new internal target
+      if (isSourceBoundaryInput) {
+        // Don't allow connection to another boundary port
+        if (isTargetBoundaryInput || isTargetBoundaryOutput) return;
+
+        // Get the original edge ID to create a new boundary port edge
+        const originalEdgeId = sourceId.replace('boundary-input-', '');
+
+        // Create a new boundary port edge (supports multiple connections)
+        addBoundaryPortEdge(
+          originalEdgeId,
+          'input',
+          targetId,
+          connection.targetHandle
+        );
+        return;
+      }
+
+      // Handle output boundary port as target (internal node -> output port)
+      // This creates a NEW edge from the new internal source to the external target
+      if (isTargetBoundaryOutput) {
+        // Don't allow connection from another boundary port
+        if (isSourceBoundaryInput || isSourceBoundaryOutput) return;
+
+        // Get the original edge ID to create a new boundary port edge
+        const originalEdgeId = targetId.replace('boundary-output-', '');
+
+        // Create a new boundary port edge (supports multiple connections)
+        addBoundaryPortEdge(
+          originalEdgeId,
+          'output',
+          sourceId,
+          connection.sourceHandle
+        );
+        return;
+      }
+
+      // Prevent invalid connections to boundary ports
+      // (connecting TO input port or FROM output port is not allowed)
+      if (isTargetBoundaryInput || isSourceBoundaryOutput) {
+        return;
+      }
+
+      // Regular connection between non-boundary nodes
       addEdge(
-        connection.source,
-        connection.target,
+        sourceId,
+        targetId,
         connection.sourceHandle,
         connection.targetHandle
       );
     },
-    [readOnly, addEdge]
+    [readOnly, addEdge, addBoundaryPortEdge]
   );
 
   /**

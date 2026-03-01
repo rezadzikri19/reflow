@@ -67,6 +67,20 @@ interface FlowchartActions {
   // Sheet navigation actions
   openSubprocessSheet: (subprocessId: string) => void;
   closeActiveSheet: () => void;
+  // Boundary port connection actions
+  updateBoundaryPortConnection: (
+    originalEdgeId: string,
+    direction: 'input' | 'output',
+    newInternalNodeId: string,
+    newHandleId?: string | null
+  ) => void;
+  // Add a new boundary port connection (creates a new edge for multiple connections support)
+  addBoundaryPortEdge: (
+    originalEdgeId: string,
+    direction: 'input' | 'output',
+    newInternalNodeId: string,
+    newHandleId?: string | null
+  ) => void;
 }
 
 type FlowchartStore = FlowchartState & FlowchartActions;
@@ -245,12 +259,17 @@ export const useFlowchartStore = create<FlowchartStore>()(
       },
 
       addEdge: (source: string, target: string, sourceHandle?: string, targetHandle?: string) => {
-        const id = `edge-${source}-${sourceHandle || 'default'}-${target}`;
+        // Normalize handle values (treat null and undefined as equivalent)
+        const normalizedSourceHandle = sourceHandle || null;
+        const normalizedTargetHandle = targetHandle || null;
+        const id = `edge-${source}-${normalizedSourceHandle || 'default'}-${target}-${normalizedTargetHandle || 'default'}`;
 
         set((state) => {
-          // Check if edge already exists
+          // Check if edge already exists (check both sourceHandle and targetHandle)
           const edgeExists = state.edges.some(
-            (e) => e.source === source && e.target === target && e.sourceHandle === sourceHandle
+            (e) => e.source === source && e.target === target &&
+                   (e.sourceHandle || null) === normalizedSourceHandle &&
+                   (e.targetHandle || null) === normalizedTargetHandle
           );
 
           if (!edgeExists) {
@@ -258,8 +277,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
               id,
               source,
               target,
-              sourceHandle,
-              targetHandle,
+              sourceHandle: normalizedSourceHandle,
+              targetHandle: normalizedTargetHandle,
               type: state.defaultEdgeType,
             };
 
@@ -648,6 +667,82 @@ export const useFlowchartStore = create<FlowchartStore>()(
         set((state) => {
           state.activeSheetId = null;
           state.selectedNodeId = null; // Clear selection when closing sheet
+        });
+      },
+
+      /**
+       * Update a boundary port connection to point to a different internal node
+       * This modifies the original edge's originalSource or originalTarget
+       */
+      updateBoundaryPortConnection: (
+        originalEdgeId: string,
+        direction: 'input' | 'output',
+        newInternalNodeId: string,
+        newHandleId?: string | null
+      ) => {
+        set((state) => {
+          const edge = state.edges.find((e) => e.id === originalEdgeId);
+          if (!edge) return;
+
+          if (direction === 'input') {
+            // Input port: update originalTarget (the internal node the edge connects to)
+            edge.originalTarget = newInternalNodeId;
+            edge.originalTargetHandle = newHandleId || null;
+          } else {
+            // Output port: update originalSource (the internal node the edge comes from)
+            edge.originalSource = newInternalNodeId;
+            edge.originalSourceHandle = newHandleId || null;
+          }
+          state.isDirty = true;
+        });
+      },
+
+      /**
+       * Add a new boundary port edge (for multiple connections support)
+       * Creates a new edge similar to the original but connecting to a different internal node
+       */
+      addBoundaryPortEdge: (
+        originalEdgeId: string,
+        direction: 'input' | 'output',
+        newInternalNodeId: string,
+        newHandleId?: string | null
+      ) => {
+        set((state) => {
+          const originalEdge = state.edges.find((e) => e.id === originalEdgeId);
+          if (!originalEdge) return;
+
+          const newEdgeId = `edge-${direction === 'input' ? originalEdge.source : newInternalNodeId}-${direction === 'input' ? newInternalNodeId : originalEdge.target}-${Date.now()}`;
+
+          if (direction === 'input') {
+            // Create a new incoming edge: external -> subprocess (with new originalTarget)
+            const portId = `input-${newInternalNodeId}${newHandleId ? `-${newHandleId}` : ''}`;
+            const newEdge: FlowchartEdge = {
+              id: newEdgeId,
+              source: originalEdge.source,
+              target: originalEdge.target, // This is the subprocess ID
+              sourceHandle: originalEdge.sourceHandle,
+              targetHandle: portId,
+              originalTarget: newInternalNodeId,
+              originalTargetHandle: newHandleId || null,
+              type: state.defaultEdgeType,
+            };
+            state.edges.push(newEdge);
+          } else {
+            // Create a new outgoing edge: subprocess -> external (with new originalSource)
+            const portId = `output-${newInternalNodeId}${newHandleId ? `-${newHandleId}` : ''}`;
+            const newEdge: FlowchartEdge = {
+              id: newEdgeId,
+              source: originalEdge.source, // This is the subprocess ID
+              target: originalEdge.target,
+              sourceHandle: portId,
+              targetHandle: originalEdge.targetHandle,
+              originalSource: newInternalNodeId,
+              originalSourceHandle: newHandleId || null,
+              type: state.defaultEdgeType,
+            };
+            state.edges.push(newEdge);
+          }
+          state.isDirty = true;
         });
       },
 
