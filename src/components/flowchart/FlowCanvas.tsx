@@ -431,7 +431,8 @@ function FlowCanvasInner({
     const currentNodes = getNodes();
     const selectedNodes = currentNodes.filter((node) => node.selected);
 
-    // Only show context menu if there are selected nodes
+    // Show context menu if there are selected nodes OR if a single subprocess is selected
+    // (subprocess might be the only selected node for ungrouping)
     if (selectedNodes.length > 0) {
       setContextMenuPosition({ x: event.clientX, y: event.clientY });
       setContextMenuOpen(true);
@@ -518,6 +519,7 @@ function FlowCanvasInner({
 
   /**
    * Compute boundary port nodes for sheet view
+   * Creates one boundary port per unique external connection
    */
   const boundaryPortNodes = useMemo(() => {
     if (!activeSheetId) return { inputs: [] as FlowchartNode[], outputs: [] as FlowchartNode[] };
@@ -527,9 +529,16 @@ function FlowCanvasInner({
 
     edges.forEach((edge) => {
       // Incoming edge (external -> subprocess) - input port
-      if (edge.target === activeSheetId && edge.originalTarget) {
+      // One port per edge (edge represents unique external source)
+      if (edge.target === activeSheetId && (edge.originalTarget || edge.originalTargets)) {
         const externalNode = nodes.find((n) => n.id === edge.source);
         const portId = `boundary-input-${edge.id}`;
+
+        // Get all internal targets this port connects to
+        const internalTargets = edge.originalTargets || [
+          { nodeId: edge.originalTarget!, handleId: edge.originalTargetHandle }
+        ];
+
         inputPorts.push({
           id: portId,
           type: 'boundaryPort',
@@ -539,16 +548,25 @@ function FlowCanvasInner({
             label: externalNode?.data?.label || 'Unknown',
             direction: 'input',
             edgeId: edge.id,
-            internalNodeId: edge.originalTarget,
-            internalHandleId: edge.originalTargetHandle,
+            internalNodeId: internalTargets[0].nodeId, // Primary connection (first)
+            internalHandleId: internalTargets[0].handleId,
+            // Store all internal connections for this port
+            allInternalConnections: internalTargets,
           } as BoundaryPortNodeData,
         });
       }
 
       // Outgoing edge (subprocess -> external) - output port
-      if (edge.source === activeSheetId && edge.originalSource) {
+      // One port per edge (edge represents unique external target)
+      if (edge.source === activeSheetId && (edge.originalSource || edge.originalSources)) {
         const externalNode = nodes.find((n) => n.id === edge.target);
         const portId = `boundary-output-${edge.id}`;
+
+        // Get all internal sources this port connects from
+        const internalSources = edge.originalSources || [
+          { nodeId: edge.originalSource!, handleId: edge.originalSourceHandle }
+        ];
+
         outputPorts.push({
           id: portId,
           type: 'boundaryPort',
@@ -558,8 +576,10 @@ function FlowCanvasInner({
             label: externalNode?.data?.label || 'Unknown',
             direction: 'output',
             edgeId: edge.id,
-            internalNodeId: edge.originalSource,
-            internalHandleId: edge.originalSourceHandle,
+            internalNodeId: internalSources[0].nodeId, // Primary connection (first)
+            internalHandleId: internalSources[0].handleId,
+            // Store all internal connections for this port
+            allInternalConnections: internalSources,
           } as BoundaryPortNodeData,
         });
       }
@@ -623,7 +643,7 @@ function FlowCanvasInner({
 
   /**
    * Filter edges to show based on visible nodes
-   * Also add virtual edges from boundary ports to internal nodes
+   * Also add virtual edges from boundary ports to ALL internal nodes they connect to
    */
   const visibleEdges = useMemo(() => {
     const visibleNodeIds = new Set(visibleNodes.map(n => n.id));
@@ -633,34 +653,52 @@ function FlowCanvasInner({
       return visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target);
     });
 
-    // Add virtual edges from boundary port nodes to internal nodes
+    // Add virtual edges from boundary port nodes to ALL internal nodes they connect to
     if (activeSheetId) {
-      // Add input edges: boundary-input-{edgeId} -> originalTarget
+      // Add input edges: boundary-input-{edgeId} -> each internal target
       boundaryPortNodes.inputs.forEach((port) => {
         const portData = port.data as BoundaryPortNodeData;
-        result.push({
-          id: `boundary-edge-input-${portData.edgeId}`,
-          source: port.id,
-          target: portData.internalNodeId,
-          sourceHandle: undefined,
-          targetHandle: portData.internalHandleId,
-          // Don't specify type - let it inherit from defaultEdgeOptions
-          style: { stroke: '#22C55E', strokeWidth: 2, strokeDasharray: '6,3' },
-        } as FlowchartEdge);
+        const connections = portData.allInternalConnections || [
+          { nodeId: portData.internalNodeId, handleId: portData.internalHandleId }
+        ];
+
+        // Create an edge to each internal connection
+        connections.forEach((conn, index) => {
+          result.push({
+            id: index === 0
+              ? `boundary-edge-input-${portData.edgeId}`
+              : `boundary-edge-input-${portData.edgeId}-${index}`,
+            source: port.id,
+            target: conn.nodeId,
+            sourceHandle: undefined,
+            targetHandle: conn.handleId,
+            // Don't specify type - let it inherit from defaultEdgeOptions
+            style: { stroke: '#22C55E', strokeWidth: 2, strokeDasharray: '6,3' },
+          } as FlowchartEdge);
+        });
       });
 
-      // Add output edges: originalSource -> boundary-output-{edgeId}
+      // Add output edges: each internal source -> boundary-output-{edgeId}
       boundaryPortNodes.outputs.forEach((port) => {
         const portData = port.data as BoundaryPortNodeData;
-        result.push({
-          id: `boundary-edge-output-${portData.edgeId}`,
-          source: portData.internalNodeId,
-          target: port.id,
-          sourceHandle: portData.internalHandleId,
-          targetHandle: undefined,
-          // Don't specify type - let it inherit from defaultEdgeOptions
-          style: { stroke: '#3B82F6', strokeWidth: 2, strokeDasharray: '6,3' },
-        } as FlowchartEdge);
+        const connections = portData.allInternalConnections || [
+          { nodeId: portData.internalNodeId, handleId: portData.internalHandleId }
+        ];
+
+        // Create an edge from each internal connection
+        connections.forEach((conn, index) => {
+          result.push({
+            id: index === 0
+              ? `boundary-edge-output-${portData.edgeId}`
+              : `boundary-edge-output-${portData.edgeId}-${index}`,
+            source: conn.nodeId,
+            target: port.id,
+            sourceHandle: conn.handleId,
+            targetHandle: undefined,
+            // Don't specify type - let it inherit from defaultEdgeOptions
+            style: { stroke: '#3B82F6', strokeWidth: 2, strokeDasharray: '6,3' },
+          } as FlowchartEdge);
+        });
       });
     }
 

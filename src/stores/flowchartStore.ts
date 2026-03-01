@@ -507,48 +507,120 @@ export const useFlowchartStore = create<FlowchartStore>()(
           return node;
         });
 
-        // Transform edges
-        const updatedEdges = state.edges.map(edge => {
+        // Transform edges - group by unique external connections
+        // Step 1: Categorize all edges
+        const internalEdges: FlowchartEdge[] = [];
+        const incomingEdges: FlowchartEdge[] = []; // external -> child
+        const outgoingEdges: FlowchartEdge[] = []; // child -> external
+        const externalEdges: FlowchartEdge[] = [];
+
+        state.edges.forEach(edge => {
           const sourceIsChild = nodeIds.includes(edge.source);
           const targetIsChild = nodeIds.includes(edge.target);
 
-          // Internal edge (between children) - keep unchanged but mark with subprocessId
           if (sourceIsChild && targetIsChild) {
-            return {
+            // Internal edge (between children)
+            internalEdges.push({
               ...edge,
               subprocessId: subprocessId,
-            };
+            });
+          } else if (!sourceIsChild && targetIsChild) {
+            // Incoming edge (external -> child)
+            incomingEdges.push(edge);
+          } else if (sourceIsChild && !targetIsChild) {
+            // Outgoing edge (child -> external)
+            outgoingEdges.push(edge);
+          } else {
+            // External edge (unrelated to subprocess)
+            externalEdges.push(edge);
           }
-
-          // Incoming edge (external -> child) - redirect target to subprocess
-          if (!sourceIsChild && targetIsChild) {
-            // Generate port ID for multi-handle connection
-            const portId = `input-${edge.target}${edge.targetHandle ? `-${edge.targetHandle}` : ''}`;
-            return {
-              ...edge,
-              originalTarget: edge.target,
-              originalTargetHandle: edge.targetHandle,
-              target: subprocessId,
-              targetHandle: portId, // Port ID for multi-handle connection
-            };
-          }
-
-          // Outgoing edge (child -> external) - redirect source to subprocess
-          if (sourceIsChild && !targetIsChild) {
-            // Generate port ID for multi-handle connection
-            const portId = `output-${edge.source}${edge.sourceHandle ? `-${edge.sourceHandle}` : ''}`;
-            return {
-              ...edge,
-              originalSource: edge.source,
-              originalSourceHandle: edge.sourceHandle,
-              source: subprocessId,
-              sourceHandle: portId, // Port ID for multi-handle connection
-            };
-          }
-
-          // External edge - keep unchanged
-          return edge;
         });
+
+        // Step 2: Group incoming edges by unique external SOURCE
+        // One input port per unique external source, tracking all internal targets
+        const incomingBySource = new Map<string, FlowchartEdge[]>();
+        incomingEdges.forEach(edge => {
+          const sourceKey = edge.source; // Group by external source
+          if (!incomingBySource.has(sourceKey)) {
+            incomingBySource.set(sourceKey, []);
+          }
+          incomingBySource.get(sourceKey)!.push(edge);
+        });
+
+        // Create merged incoming edges (one per unique external source)
+        const mergedIncomingEdges: FlowchartEdge[] = [];
+        incomingBySource.forEach((edges, externalSourceId) => {
+          // Collect all internal targets
+          const originalTargets = edges.map(e => ({
+            nodeId: e.target,
+            handleId: e.targetHandle,
+          }));
+
+          // Use the first edge as the base, but track all internal connections
+          const baseEdge = edges[0];
+          const portId = `input-${externalSourceId}`;
+
+          mergedIncomingEdges.push({
+            id: `edge-${externalSourceId}-${subprocessId}-input`,
+            source: externalSourceId,
+            target: subprocessId,
+            sourceHandle: baseEdge.sourceHandle,
+            targetHandle: portId,
+            type: baseEdge.type,
+            // Keep first target for backward compatibility
+            originalTarget: baseEdge.target,
+            originalTargetHandle: baseEdge.targetHandle,
+            // Store ALL internal targets for the boundary port
+            originalTargets: originalTargets,
+          });
+        });
+
+        // Step 3: Group outgoing edges by unique external TARGET
+        // One output port per unique external target, tracking all internal sources
+        const outgoingByTarget = new Map<string, FlowchartEdge[]>();
+        outgoingEdges.forEach(edge => {
+          const targetKey = edge.target; // Group by external target
+          if (!outgoingByTarget.has(targetKey)) {
+            outgoingByTarget.set(targetKey, []);
+          }
+          outgoingByTarget.get(targetKey)!.push(edge);
+        });
+
+        // Create merged outgoing edges (one per unique external target)
+        const mergedOutgoingEdges: FlowchartEdge[] = [];
+        outgoingByTarget.forEach((edges, externalTargetId) => {
+          // Collect all internal sources
+          const originalSources = edges.map(e => ({
+            nodeId: e.source,
+            handleId: e.sourceHandle,
+          }));
+
+          // Use the first edge as the base, but track all internal connections
+          const baseEdge = edges[0];
+          const portId = `output-${externalTargetId}`;
+
+          mergedOutgoingEdges.push({
+            id: `edge-${subprocessId}-${externalTargetId}-output`,
+            source: subprocessId,
+            target: externalTargetId,
+            sourceHandle: portId,
+            targetHandle: baseEdge.targetHandle,
+            type: baseEdge.type,
+            // Keep first source for backward compatibility
+            originalSource: baseEdge.source,
+            originalSourceHandle: baseEdge.sourceHandle,
+            // Store ALL internal sources for the boundary port
+            originalSources: originalSources,
+          });
+        });
+
+        // Combine all edges
+        const updatedEdges = [
+          ...internalEdges,
+          ...mergedIncomingEdges,
+          ...mergedOutgoingEdges,
+          ...externalEdges,
+        ];
 
         set((state) => {
           state.nodes = [...updatedNodes, subprocessNode];
@@ -572,71 +644,101 @@ export const useFlowchartStore = create<FlowchartStore>()(
           return;
         }
 
-        const childIds = subprocessNode.data.childNodeIds || [];
+        const childIds = new Set(subprocessNode.data.childNodeIds || []);
 
-        // Update child nodes: remove parentId and convert back to absolute positions
-        const updatedNodes = state.nodes
-          .filter(n => n.id !== subprocessId) // Remove subprocess node
-          .map(node => {
-            if (childIds.includes(node.id)) {
-              return {
-                ...node,
-                position: {
-                  x: node.position.x + subprocessNode.position.x,
-                  y: node.position.y + subprocessNode.position.y,
-                },
-                data: {
-                  ...node.data,
-                  parentId: undefined,
-                } as ProcessNodeData,
-              };
-            }
-            return node;
-          });
+        // Restore edges - expand merged edges back to individual connections
+        const restoredEdges: FlowchartEdge[] = [];
 
-        // Restore edges
-        const updatedEdges = state.edges
-          .map(edge => {
-            // Internal edges (between children) - keep them, just remove subprocessId marker
-            if (edge.subprocessId === subprocessId) {
-              const { subprocessId: _, ...restEdge } = edge;
-              return restEdge as FlowchartEdge;
-            }
+        state.edges.forEach(edge => {
+          // Internal edges (between children) - keep them, just remove subprocessId marker
+          if (edge.subprocessId === subprocessId) {
+            const { subprocessId: _, ...restEdge } = edge;
+            restoredEdges.push(restEdge as FlowchartEdge);
+            return;
+          }
 
-            // Restore incoming edges (external -> child, now redirected to subprocess)
-            if (edge.target === subprocessId && edge.originalTarget) {
-              const { originalTarget, originalTargetHandle, ...restEdge } = edge;
-              return {
-                ...restEdge,
-                target: originalTarget,
-                targetHandle: originalTargetHandle,
-              } as FlowchartEdge;
-            }
+          // Expand incoming edges (external -> subprocess) back to individual edges
+          if (edge.target === subprocessId && edge.originalTargets) {
+            // Create one edge per internal target
+            edge.originalTargets.forEach((conn, index) => {
+              restoredEdges.push({
+                id: index === 0 ? edge.id : `edge-${edge.source}-${conn.nodeId}-${index}`,
+                source: edge.source,
+                target: conn.nodeId,
+                sourceHandle: edge.sourceHandle,
+                targetHandle: conn.handleId,
+                type: edge.type,
+              } as FlowchartEdge);
+            });
+            return;
+          }
 
-            // Restore outgoing edges (child -> external, now redirected from subprocess)
-            if (edge.source === subprocessId && edge.originalSource) {
-              const { originalSource, originalSourceHandle, ...restEdge } = edge;
-              return {
-                ...restEdge,
-                source: originalSource,
-                sourceHandle: originalSourceHandle,
-              } as FlowchartEdge;
-            }
+          // Fallback for old format incoming edges (single originalTarget)
+          if (edge.target === subprocessId && edge.originalTarget) {
+            const { originalTarget, originalTargetHandle, originalTargets, ...restEdge } = edge;
+            restoredEdges.push({
+              ...restEdge,
+              target: originalTarget,
+              targetHandle: originalTargetHandle,
+            } as FlowchartEdge);
+            return;
+          }
 
-            return edge;
-          })
-          .filter(edge => {
-            // Remove edges that were connected to the subprocess but have no original target/source
-            // (these shouldn't exist, but just in case)
-            if (edge.source === subprocessId || edge.target === subprocessId) {
-              return false;
-            }
-            return true;
-          });
+          // Expand outgoing edges (subprocess -> external) back to individual edges
+          if (edge.source === subprocessId && edge.originalSources) {
+            // Create one edge per internal source
+            edge.originalSources.forEach((conn, index) => {
+              restoredEdges.push({
+                id: index === 0 ? edge.id : `edge-${conn.nodeId}-${edge.target}-${index}`,
+                source: conn.nodeId,
+                target: edge.target,
+                sourceHandle: conn.handleId,
+                targetHandle: edge.targetHandle,
+                type: edge.type,
+              } as FlowchartEdge);
+            });
+            return;
+          }
+
+          // Fallback for old format outgoing edges (single originalSource)
+          if (edge.source === subprocessId && edge.originalSource) {
+            const { originalSource, originalSourceHandle, originalSources, ...restEdge } = edge;
+            restoredEdges.push({
+              ...restEdge,
+              source: originalSource,
+              sourceHandle: originalSourceHandle,
+            } as FlowchartEdge);
+            return;
+          }
+
+          // External edge - keep unchanged
+          if (edge.source !== subprocessId && edge.target !== subprocessId) {
+            restoredEdges.push(edge);
+          }
+        });
 
         set((state) => {
-          state.nodes = updatedNodes;
-          state.edges = updatedEdges;
+          // Update child nodes: remove parentId and convert back to absolute positions
+          state.nodes = state.nodes
+            .filter(n => n.id !== subprocessId) // Remove subprocess node
+            .map(node => {
+              if (childIds.has(node.id)) {
+                return {
+                  ...node,
+                  position: {
+                    x: node.position.x + subprocessNode.position.x,
+                    y: node.position.y + subprocessNode.position.y,
+                  },
+                  data: {
+                    ...node.data,
+                    parentId: undefined,
+                  } as ProcessNodeData,
+                };
+              }
+              return node;
+            });
+
+          state.edges = restoredEdges;
           // Close sheet if viewing this subprocess
           if (state.activeSheetId === subprocessId) {
             state.activeSheetId = null;
@@ -699,7 +801,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
       /**
        * Add a new boundary port edge (for multiple connections support)
-       * Creates a new edge similar to the original but connecting to a different internal node
+       * Reuses existing boundary ports when the external source/target is the same,
+       * instead of creating duplicate ports.
        */
       addBoundaryPortEdge: (
         originalEdgeId: string,
@@ -711,36 +814,89 @@ export const useFlowchartStore = create<FlowchartStore>()(
           const originalEdge = state.edges.find((e) => e.id === originalEdgeId);
           if (!originalEdge) return;
 
-          const newEdgeId = `edge-${direction === 'input' ? originalEdge.source : newInternalNodeId}-${direction === 'input' ? newInternalNodeId : originalEdge.target}-${Date.now()}`;
+          const subprocessId = originalEdge.target; // for input
+          const normalizedHandle = newHandleId || null;
 
           if (direction === 'input') {
-            // Create a new incoming edge: external -> subprocess (with new originalTarget)
-            const portId = `input-${newInternalNodeId}${newHandleId ? `-${newHandleId}` : ''}`;
-            const newEdge: FlowchartEdge = {
-              id: newEdgeId,
-              source: originalEdge.source,
-              target: originalEdge.target, // This is the subprocess ID
-              sourceHandle: originalEdge.sourceHandle,
-              targetHandle: portId,
-              originalTarget: newInternalNodeId,
-              originalTargetHandle: newHandleId || null,
-              type: state.defaultEdgeType,
-            };
-            state.edges.push(newEdge);
+            // For input ports: check if an edge already exists with the same external source
+            // and the same subprocess as target
+            const existingEdge = state.edges.find((e) =>
+              e.source === originalEdge.source &&
+              e.target === subprocessId &&
+              (e.sourceHandle || null) === (originalEdge.sourceHandle || null) &&
+              e.originalTargets
+            );
+
+            if (existingEdge) {
+              // Reuse existing edge: add new internal node to originalTargets array
+              const newTarget = { nodeId: newInternalNodeId, handleId: normalizedHandle };
+              if (!existingEdge.originalTargets) {
+                existingEdge.originalTargets = [];
+              }
+              // Check if this node is already in the targets
+              const alreadyExists = existingEdge.originalTargets.some(
+                t => t.nodeId === newInternalNodeId && (t.handleId || null) === normalizedHandle
+              );
+              if (!alreadyExists) {
+                existingEdge.originalTargets.push(newTarget);
+              }
+            } else {
+              // Create a new incoming edge: external -> subprocess (with new originalTarget)
+              const newEdgeId = `edge-${originalEdge.source}-${subprocessId}-${Date.now()}`;
+              const portId = `input-${originalEdge.source}`;
+              const newEdge: FlowchartEdge = {
+                id: newEdgeId,
+                source: originalEdge.source,
+                target: subprocessId,
+                sourceHandle: originalEdge.sourceHandle,
+                targetHandle: portId,
+                originalTarget: newInternalNodeId,
+                originalTargetHandle: normalizedHandle,
+                originalTargets: [{ nodeId: newInternalNodeId, handleId: normalizedHandle }],
+                type: state.defaultEdgeType,
+              };
+              state.edges.push(newEdge);
+            }
           } else {
-            // Create a new outgoing edge: subprocess -> external (with new originalSource)
-            const portId = `output-${newInternalNodeId}${newHandleId ? `-${newHandleId}` : ''}`;
-            const newEdge: FlowchartEdge = {
-              id: newEdgeId,
-              source: originalEdge.source, // This is the subprocess ID
-              target: originalEdge.target,
-              sourceHandle: portId,
-              targetHandle: originalEdge.targetHandle,
-              originalSource: newInternalNodeId,
-              originalSourceHandle: newHandleId || null,
-              type: state.defaultEdgeType,
-            };
-            state.edges.push(newEdge);
+            // For output ports: check if an edge already exists with the subprocess as source
+            // and the same external target
+            const existingEdge = state.edges.find((e) =>
+              e.source === originalEdge.source &&
+              e.target === originalEdge.target &&
+              (e.targetHandle || null) === (originalEdge.targetHandle || null) &&
+              e.originalSources
+            );
+
+            if (existingEdge) {
+              // Reuse existing edge: add new internal node to originalSources array
+              const newSource = { nodeId: newInternalNodeId, handleId: normalizedHandle };
+              if (!existingEdge.originalSources) {
+                existingEdge.originalSources = [];
+              }
+              // Check if this node is already in the sources
+              const alreadyExists = existingEdge.originalSources.some(
+                s => s.nodeId === newInternalNodeId && (s.handleId || null) === normalizedHandle
+              );
+              if (!alreadyExists) {
+                existingEdge.originalSources.push(newSource);
+              }
+            } else {
+              // Create a new outgoing edge: subprocess -> external (with new originalSource)
+              const newEdgeId = `edge-${originalEdge.source}-${originalEdge.target}-${Date.now()}`;
+              const portId = `output-${originalEdge.target}`;
+              const newEdge: FlowchartEdge = {
+                id: newEdgeId,
+                source: originalEdge.source, // This is the subprocess ID
+                target: originalEdge.target,
+                sourceHandle: portId,
+                targetHandle: originalEdge.targetHandle,
+                originalSource: newInternalNodeId,
+                originalSourceHandle: normalizedHandle,
+                originalSources: [{ nodeId: newInternalNodeId, handleId: normalizedHandle }],
+                type: state.defaultEdgeType,
+              };
+              state.edges.push(newEdge);
+            }
           }
           state.isDirty = true;
         });
@@ -785,6 +941,11 @@ export const useSelectedNode = () => {
   if (!selectedNodeId) return null;
   return nodes.find((n) => n.id === selectedNodeId) || null;
 };
+
+// Expose store to window for debugging (only in development)
+if (typeof window !== 'undefined' && import.meta.env?.DEV) {
+  (window as unknown as Record<string, unknown>).flowchartStore = useFlowchartStore;
+}
 
 // =============================================================================
 // Utility Functions

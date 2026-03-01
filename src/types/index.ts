@@ -91,10 +91,12 @@ export interface BoundaryPortNodeData {
   direction: 'input' | 'output';
   /** The edge ID this port represents */
   edgeId: string;
-  /** The internal node ID this port connects to */
+  /** The internal node ID this port connects to (primary connection) */
   internalNodeId: string;
   /** The handle ID on the internal node (if applicable) */
   internalHandleId?: string | null;
+  /** All internal connections this port has (for multi-connection boundary ports) */
+  allInternalConnections?: InternalNodeConnection[];
 }
 
 // ============================================================================
@@ -146,6 +148,16 @@ export type FlowchartNode =
   | Node<BoundaryPortNodeData, 'boundaryPort'>;
 
 /**
+ * Information about an internal node connection for boundary ports
+ */
+export interface InternalNodeConnection {
+  /** The internal node ID */
+  nodeId: string;
+  /** The handle ID on the internal node (if applicable) */
+  handleId?: string | null;
+}
+
+/**
  * Custom flowchart edge extending React Flow's Edge type
  */
 export interface FlowchartEdge {
@@ -167,14 +179,18 @@ export interface FlowchartEdge {
   label?: string;
   style?: React.CSSProperties;
   className?: string;
-  /** Original source before grouping (for ungrouping restoration) */
+  /** Original source before grouping (for ungrouping restoration) - single connection */
   originalSource?: string;
-  /** Original target before grouping (for ungrouping restoration) */
+  /** Original target before grouping (for ungrouping restoration) - single connection */
   originalTarget?: string;
-  /** Original source handle before grouping */
+  /** Original source handle before grouping - single connection */
   originalSourceHandle?: string | null;
-  /** Original target handle before grouping */
+  /** Original target handle before grouping - single connection */
   originalTargetHandle?: string | null;
+  /** All internal source nodes this boundary port connects to (for grouped boundary ports) */
+  originalSources?: InternalNodeConnection[];
+  /** All internal target nodes this boundary port connects to (for grouped boundary ports) */
+  originalTargets?: InternalNodeConnection[];
   /** ID of the subprocess this edge belongs to (for internal edges) */
   subprocessId?: string;
 }

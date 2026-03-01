@@ -2,7 +2,7 @@ import { memo, useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { useReactFlow, useViewport } from '@xyflow/react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useFlowchartStore } from '../../stores/flowchartStore';
-import type { FlowchartEdge, FlowchartNode } from '../../types';
+import type { FlowchartEdge, FlowchartNode, InternalNodeConnection } from '../../types';
 
 // =============================================================================
 // Types
@@ -17,6 +17,8 @@ interface PortInfo {
   externalNodeName: string;
   internalNodeId: string;
   internalHandleId?: string | null;
+  /** All internal connections for this port */
+  allInternalConnections?: InternalNodeConnection[];
 }
 
 // =============================================================================
@@ -68,24 +70,34 @@ function BoundaryConnections({ subprocessId }: BoundaryConnectionsProps) {
 
     edges.forEach((edge: FlowchartEdge) => {
       // Incoming edge (external -> subprocess) - input port
-      if (edge.target === subprocessId && edge.originalTarget) {
+      if (edge.target === subprocessId && (edge.originalTarget || edge.originalTargets)) {
         const externalNode = nodes.find((n: FlowchartNode) => n.id === edge.source);
+        // Get all internal targets
+        const internalTargets = edge.originalTargets || [
+          { nodeId: edge.originalTarget!, handleId: edge.originalTargetHandle }
+        ];
         inputs.push({
           edgeId: edge.id,
           externalNodeName: externalNode?.data?.label || 'Unknown',
-          internalNodeId: edge.originalTarget,
-          internalHandleId: edge.originalTargetHandle,
+          internalNodeId: internalTargets[0].nodeId,
+          internalHandleId: internalTargets[0].handleId,
+          allInternalConnections: internalTargets,
         });
       }
 
       // Outgoing edge (subprocess -> external) - output port
-      if (edge.source === subprocessId && edge.originalSource) {
+      if (edge.source === subprocessId && (edge.originalSource || edge.originalSources)) {
         const externalNode = nodes.find((n: FlowchartNode) => n.id === edge.target);
+        // Get all internal sources
+        const internalSources = edge.originalSources || [
+          { nodeId: edge.originalSource!, handleId: edge.originalSourceHandle }
+        ];
         outputs.push({
           edgeId: edge.id,
           externalNodeName: externalNode?.data?.label || 'Unknown',
-          internalNodeId: edge.originalSource,
-          internalHandleId: edge.originalSourceHandle,
+          internalNodeId: internalSources[0].nodeId,
+          internalHandleId: internalSources[0].handleId,
+          allInternalConnections: internalSources,
         });
       }
     });
@@ -213,60 +225,78 @@ function BoundaryConnections({ subprocessId }: BoundaryConnectionsProps) {
           </marker>
         </defs>
 
-        {/* Input connection lines - from center-right of input label to internal node */}
+        {/* Input connection lines - from center-right of input label to ALL internal nodes */}
         {inputPorts.map((port, index) => {
-          const internalNode = internalNodePositions[port.internalNodeId];
-          if (!internalNode) return null;
-
           const labelPos = inputLabelPositions[index];
           const startX = INPUT_LABEL_RIGHT; // Center-right of input label
           const startY = labelPos.y; // Vertically centered
-          const endX = internalNode.screenX;
-          const endY = internalNode.screenY + (internalNode.height * zoom) / 2;
 
-          // Create a smooth curve
-          const midX = (startX + endX) / 2;
+          // Get all internal connections for this port
+          const connections = port.allInternalConnections || [
+            { nodeId: port.internalNodeId, handleId: port.internalHandleId }
+          ];
 
-          return (
-            <path
-              key={`input-line-${port.edgeId}`}
-              d={`M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`}
-              fill="none"
-              stroke="#22C55E"
-              strokeWidth={2}
-              strokeDasharray="6,3"
-              markerEnd="url(#boundary-arrow-green)"
-              opacity={0.8}
-            />
-          );
+          // Draw a line to each internal node
+          return connections.map((conn, connIndex) => {
+            const internalNode = internalNodePositions[conn.nodeId];
+            if (!internalNode) return null;
+
+            const endX = internalNode.screenX;
+            const endY = internalNode.screenY + (internalNode.height * zoom) / 2;
+
+            // Create a smooth curve
+            const midX = (startX + endX) / 2;
+
+            return (
+              <path
+                key={`input-line-${port.edgeId}-${connIndex}`}
+                d={`M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`}
+                fill="none"
+                stroke="#22C55E"
+                strokeWidth={2}
+                strokeDasharray="6,3"
+                markerEnd="url(#boundary-arrow-green)"
+                opacity={0.8}
+              />
+            );
+          });
         })}
 
-        {/* Output connection lines - from internal node to center-left of output label */}
+        {/* Output connection lines - from ALL internal nodes to center-left of output label */}
         {outputPorts.map((port, index) => {
-          const internalNode = internalNodePositions[port.internalNodeId];
-          if (!internalNode) return null;
-
           const labelPos = outputLabelPositions[index];
-          const startX = internalNode.screenX + internalNode.width * zoom;
-          const startY = internalNode.screenY + (internalNode.height * zoom) / 2;
           const endX = OUTPUT_LABEL_LEFT; // Center-left of output label
           const endY = labelPos.y; // Vertically centered
 
-          // Create a smooth curve
-          const midX = (startX + endX) / 2;
+          // Get all internal connections for this port
+          const connections = port.allInternalConnections || [
+            { nodeId: port.internalNodeId, handleId: port.internalHandleId }
+          ];
 
-          return (
-            <path
-              key={`output-line-${port.edgeId}`}
-              d={`M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`}
-              fill="none"
-              stroke="#3B82F6"
-              strokeWidth={2}
-              strokeDasharray="6,3"
-              markerEnd="url(#boundary-arrow-blue)"
-              opacity={0.8}
-            />
-          );
+          // Draw a line from each internal node
+          return connections.map((conn, connIndex) => {
+            const internalNode = internalNodePositions[conn.nodeId];
+            if (!internalNode) return null;
+
+            const startX = internalNode.screenX + internalNode.width * zoom;
+            const startY = internalNode.screenY + (internalNode.height * zoom) / 2;
+
+            // Create a smooth curve
+            const midX = (startX + endX) / 2;
+
+            return (
+              <path
+                key={`output-line-${port.edgeId}-${connIndex}`}
+                d={`M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`}
+                fill="none"
+                stroke="#3B82F6"
+                strokeWidth={2}
+                strokeDasharray="6,3"
+                markerEnd="url(#boundary-arrow-blue)"
+                opacity={0.8}
+              />
+            );
+          });
         })}
       </svg>
 

@@ -37,21 +37,39 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
 
     edges.forEach((edge) => {
       // Incoming edge (external -> subprocess) - this is an input port
-      if (edge.target === id && edge.originalTarget) {
+      // Check for both originalTarget (single connection) and originalTargets (multiple connections)
+      if (edge.target === id && (edge.originalTarget || edge.originalTargets)) {
+        // Get the targetHandle which contains the port ID (e.g., "input-{externalSourceId}")
+        const portId = edge.targetHandle || `input-${edge.source}`;
+
+        // If we have multiple internal targets, use the first one for the port display
+        const internalTargets = edge.originalTargets || [
+          { nodeId: edge.originalTarget!, handleId: edge.originalTargetHandle }
+        ];
+
         inputs.push({
-          id: `input-${edge.originalTarget}${edge.originalTargetHandle ? `-${edge.originalTargetHandle}` : ''}`,
-          internalNodeId: edge.originalTarget,
-          internalHandleId: edge.originalTargetHandle,
+          id: portId,
+          internalNodeId: internalTargets[0].nodeId,
+          internalHandleId: internalTargets[0].handleId,
           direction: 'input',
         });
       }
 
       // Outgoing edge (subprocess -> external) - this is an output port
-      if (edge.source === id && edge.originalSource) {
+      // Check for both originalSource (single connection) and originalSources (multiple connections)
+      if (edge.source === id && (edge.originalSource || edge.originalSources)) {
+        // Get the sourceHandle which contains the port ID (e.g., "output-{externalTargetId}")
+        const portId = edge.sourceHandle || `output-${edge.target}`;
+
+        // If we have multiple internal sources, use the first one for the port display
+        const internalSources = edge.originalSources || [
+          { nodeId: edge.originalSource!, handleId: edge.originalSourceHandle }
+        ];
+
         outputs.push({
-          id: `output-${edge.originalSource}${edge.originalSourceHandle ? `-${edge.originalSourceHandle}` : ''}`,
-          internalNodeId: edge.originalSource,
-          internalHandleId: edge.originalSourceHandle,
+          id: portId,
+          internalNodeId: internalSources[0].nodeId,
+          internalHandleId: internalSources[0].handleId,
           direction: 'output',
         });
       }
