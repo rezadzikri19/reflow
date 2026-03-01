@@ -12,6 +12,7 @@ import {
 /**
  * CustomEdge - Edge component with visual selection feedback
  * Supports multiple edge types: smoothstep, bezier, straight, simplebezier
+ * Supports labels and custom styles
  */
 function CustomEdge({
   id,
@@ -26,9 +27,16 @@ function CustomEdge({
   selected,
   type = 'smoothstep',
   interactionWidth,
+  label,
+  labelBgStyle,
+  labelBgPadding,
+  labelBgBorderRadius,
+  labelStyle,
 }: EdgeProps) {
   // Get the appropriate path based on edge type
   let edgePath: string;
+  let labelX: number;
+  let labelY: number;
 
   const pathParams = {
     sourceX,
@@ -41,17 +49,17 @@ function CustomEdge({
 
   switch (type) {
     case 'bezier':
-      [edgePath] = getBezierPath(pathParams);
+      [edgePath, labelX, labelY] = getBezierPath(pathParams);
       break;
     case 'straight':
-      [edgePath] = getStraightPath(pathParams);
+      [edgePath, labelX, labelY] = getStraightPath(pathParams);
       break;
     case 'simplebezier':
-      [edgePath] = getSimpleBezierPath(pathParams);
+      [edgePath, labelX, labelY] = getSimpleBezierPath(pathParams);
       break;
     case 'smoothstep':
     default:
-      [edgePath] = getSmoothStepPath(pathParams);
+      [edgePath, labelX, labelY] = getSmoothStepPath(pathParams);
       break;
   }
 
@@ -80,6 +88,36 @@ function CustomEdge({
           stroke: selected ? '#3B82F6' : style.stroke || '#6B7280',
         }}
       />
+      {/* Edge label */}
+      {label && (
+        <g transform={`translate(${labelX}, ${labelY})`}>
+          <rect
+            x={-(labelBgPadding?.[0] ?? 8)}
+            y={-(labelBgPadding?.[1] ?? 10)}
+            width={(labelBgPadding?.[0] ?? 8) * 2 + (typeof label === 'string' ? label.length * 6 : 60)}
+            height={(labelBgPadding?.[1] ?? 10) * 2}
+            fill={labelBgStyle?.fill || '#ffffff'}
+            stroke={labelBgStyle?.stroke || '#e5e7eb'}
+            strokeWidth={1}
+            rx={labelBgBorderRadius ?? 4}
+            ry={labelBgBorderRadius ?? 4}
+            className="pointer-events-none"
+          />
+          <text
+            textAnchor="middle"
+            dominantBaseline="middle"
+            style={{
+              fontSize: '12px',
+              fontFamily: 'system-ui, -apple-system, sans-serif',
+              fill: '#374151',
+              ...labelStyle,
+            }}
+            className="pointer-events-none"
+          >
+            {label}
+          </text>
+        </g>
+      )}
     </>
   );
 }

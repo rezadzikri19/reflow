@@ -114,6 +114,7 @@ function FlowCanvasInner({
   const defaultEdgeType = useFlowchartStore((state) => state.defaultEdgeType);
   const addBoundaryPortEdge = useFlowchartStore((state) => state.addBoundaryPortEdge);
   const removeBoundaryPortConnection = useFlowchartStore((state) => state.removeBoundaryPortConnection);
+  const setSelectedEdgeId = useFlowchartStore((state) => state.setSelectedEdgeId);
 
   // Context menu state
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
@@ -178,6 +179,7 @@ function FlowCanvasInner({
   const onEdgesChange: OnEdgesChange<FlowchartEdge> = useCallback(
     (changes) => {
       let hasVirtualEdgeChanges = false;
+      let newSelectedEdgeId: string | null = null;
 
       // Process all changes
       changes.forEach((change) => {
@@ -221,14 +223,20 @@ function FlowCanvasInner({
         } else if (change.type === 'remove' && !isVirtualEdge) {
           // Regular edge deletion
           deleteEdge(change.id);
-        } else if (change.type === 'select' && isVirtualEdge) {
-          // Track virtual edge selection state
+        } else if (change.type === 'select') {
+          // Track edge selection state
           if (change.selected) {
-            virtualEdgeSelectionRef.current.add(change.id);
+            newSelectedEdgeId = change.id;
+            if (isVirtualEdge) {
+              virtualEdgeSelectionRef.current.add(change.id);
+              hasVirtualEdgeChanges = true;
+            }
           } else {
-            virtualEdgeSelectionRef.current.delete(change.id);
+            if (isVirtualEdge) {
+              virtualEdgeSelectionRef.current.delete(change.id);
+              hasVirtualEdgeChanges = true;
+            }
           }
-          hasVirtualEdgeChanges = true;
         }
       });
 
@@ -242,7 +250,19 @@ function FlowCanvasInner({
       if (regularEdgeChanges.length > 0) {
         const updatedEdges = applyEdgeChanges(regularEdgeChanges, edges);
         setEdges(updatedEdges);
+
+        // Check if any regular edge is selected after changes
+        const selectedRegularEdge = updatedEdges.find(e => e.selected);
+        if (selectedRegularEdge) {
+          newSelectedEdgeId = selectedRegularEdge.id;
+        } else if (!newSelectedEdgeId) {
+          // No edge selected, clear selection
+          newSelectedEdgeId = null;
+        }
       }
+
+      // Update selected edge ID in store
+      setSelectedEdgeId(newSelectedEdgeId);
 
       // Force re-render if virtual edge selection changed
       // We do this by updating a state that visibleEdges depends on
@@ -250,7 +270,7 @@ function FlowCanvasInner({
         setVirtualEdgeVersion(v => v + 1);
       }
     },
-    [edges, deleteEdge, setEdges, removeBoundaryPortConnection, setVirtualEdgeVersion]
+    [edges, deleteEdge, setEdges, removeBoundaryPortConnection, setVirtualEdgeVersion, setSelectedEdgeId]
   );
 
   /**
@@ -353,8 +373,9 @@ function FlowCanvasInner({
    */
   const handlePaneClick = useCallback(() => {
     setSelectedNode(null);
+    setSelectedEdgeId(null);
     onCanvasClick?.();
-  }, [setSelectedNode, onCanvasClick]);
+  }, [setSelectedNode, setSelectedEdgeId, onCanvasClick]);
 
   /**
    * Handle drag over for drop functionality
@@ -758,14 +779,26 @@ function FlowCanvasInner({
             ? `boundary-edge-input-${portData.edgeId}`
             : `boundary-edge-input-${portData.edgeId}-${index}`;
 
+          // Apply custom style if provided, otherwise use default green dashed style
+          const customStyle = conn.style;
+          const edgeStyle = customStyle
+            ? {
+                stroke: customStyle.stroke || '#22C55E',
+                strokeWidth: customStyle.strokeWidth || 2,
+                strokeDasharray: customStyle.strokeDasharray || '6,3',
+              }
+            : { stroke: '#22C55E', strokeWidth: 2, strokeDasharray: '6,3' };
+
           result.push({
             id: edgeId,
             source: port.id,
             target: conn.nodeId,
             sourceHandle: undefined,
             targetHandle: conn.handleId,
-            type: defaultEdgeType, // Explicitly set edge type
-            style: { stroke: '#22C55E', strokeWidth: 2, strokeDasharray: '6,3' },
+            type: customStyle?.edgeType || defaultEdgeType, // Use custom edge type or default
+            style: edgeStyle,
+            animated: customStyle?.animated,
+            label: conn.label, // Apply custom label if provided
             markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
             interactionWidth: 20, // Make edge easier to select (20px invisible hitbox)
             // Make virtual edges selectable and deletable
@@ -773,6 +806,12 @@ function FlowCanvasInner({
             deletable: !readOnly,
             // Apply selection state from our tracking ref
             selected: virtualEdgeSelectionRef.current.has(edgeId),
+            // Store reference to original edge and connection index for property editing
+            data: {
+              originalEdgeId: portData.edgeId,
+              direction: 'input',
+              connectionIndex: index,
+            },
           } as FlowchartEdge);
         });
       });
@@ -790,14 +829,26 @@ function FlowCanvasInner({
             ? `boundary-edge-output-${portData.edgeId}`
             : `boundary-edge-output-${portData.edgeId}-${index}`;
 
+          // Apply custom style if provided, otherwise use default blue dashed style
+          const customStyle = conn.style;
+          const edgeStyle = customStyle
+            ? {
+                stroke: customStyle.stroke || '#3B82F6',
+                strokeWidth: customStyle.strokeWidth || 2,
+                strokeDasharray: customStyle.strokeDasharray || '6,3',
+              }
+            : { stroke: '#3B82F6', strokeWidth: 2, strokeDasharray: '6,3' };
+
           result.push({
             id: edgeId,
             source: conn.nodeId,
             target: port.id,
             sourceHandle: conn.handleId,
             targetHandle: undefined,
-            type: defaultEdgeType, // Explicitly set edge type
-            style: { stroke: '#3B82F6', strokeWidth: 2, strokeDasharray: '6,3' },
+            type: customStyle?.edgeType || defaultEdgeType, // Use custom edge type or default
+            style: edgeStyle,
+            animated: customStyle?.animated,
+            label: conn.label, // Apply custom label if provided
             markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
             interactionWidth: 20, // Make edge easier to select (20px invisible hitbox)
             // Make virtual edges selectable and deletable
@@ -805,6 +856,12 @@ function FlowCanvasInner({
             deletable: !readOnly,
             // Apply selection state from our tracking ref
             selected: virtualEdgeSelectionRef.current.has(edgeId),
+            // Store reference to original edge and connection index for property editing
+            data: {
+              originalEdgeId: portData.edgeId,
+              direction: 'output',
+              connectionIndex: index,
+            },
           } as FlowchartEdge);
         });
       });

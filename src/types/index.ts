@@ -148,6 +148,22 @@ export type FlowchartNode =
   | Node<BoundaryPortNodeData, 'boundaryPort'>;
 
 /**
+ * Custom style options for edge connections
+ */
+export interface EdgeStyleOptions {
+  /** Stroke color (hex or CSS color) */
+  stroke?: string;
+  /** Stroke width in pixels */
+  strokeWidth?: number;
+  /** Dash pattern (e.g., "6,3" for dashed) */
+  strokeDasharray?: string;
+  /** Whether the edge is animated */
+  animated?: boolean;
+  /** Edge type (smoothstep, bezier, straight, simplebezier) */
+  edgeType?: EdgeType;
+}
+
+/**
  * Information about an internal node connection for boundary ports
  */
 export interface InternalNodeConnection {
@@ -155,6 +171,10 @@ export interface InternalNodeConnection {
   nodeId: string;
   /** The handle ID on the internal node (if applicable) */
   handleId?: string | null;
+  /** Optional label for this connection */
+  label?: string;
+  /** Optional custom style for this connection */
+  style?: EdgeStyleOptions;
 }
 
 /**

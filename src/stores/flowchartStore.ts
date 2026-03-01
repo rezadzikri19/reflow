@@ -9,6 +9,7 @@ import type {
   ProcessNodeData,
   ProcessNodeType,
   EdgeType,
+  EdgeStyleOptions,
 } from '../types';
 import {
   DEFAULT_PROCESS_NODE_DATA,
@@ -30,6 +31,7 @@ interface FlowchartState {
   nodes: FlowchartNode[];
   edges: FlowchartEdge[];
   selectedNodeId: string | null;
+  selectedEdgeId: string | null;
   flowchartId: string | null;
   flowchartName: string;
   isDirty: boolean;
@@ -47,6 +49,7 @@ interface FlowchartActions {
   deleteNode: (nodeId: string) => void;
   deleteNodes: (nodeIds: string[]) => void;
   setSelectedNode: (nodeId: string | null) => void;
+  setSelectedEdgeId: (edgeId: string | null) => void;
   addEdge: (source: string, target: string, sourceHandle?: string, targetHandle?: string) => void;
   updateEdge: (edgeId: string, data: Record<string, unknown>) => void;
   deleteEdge: (edgeId: string) => void;
@@ -88,6 +91,14 @@ interface FlowchartActions {
     internalNodeId: string,
     handleId?: string | null
   ) => void;
+  // Update style/label of a specific boundary port connection
+  updateBoundaryConnectionStyle: (
+    originalEdgeId: string,
+    direction: 'input' | 'output',
+    connectionIndex: number,
+    style?: EdgeStyleOptions,
+    label?: string
+  ) => void;
 }
 
 type FlowchartStore = FlowchartState & FlowchartActions;
@@ -100,6 +111,7 @@ const initialState: FlowchartState = {
   nodes: [],
   edges: [],
   selectedNodeId: null,
+  selectedEdgeId: null,
   flowchartId: null,
   flowchartName: 'Untitled Flowchart',
   isDirty: false,
@@ -262,6 +274,12 @@ export const useFlowchartStore = create<FlowchartStore>()(
       setSelectedNode: (nodeId: string | null) => {
         set((state) => {
           state.selectedNodeId = nodeId;
+        });
+      },
+
+      setSelectedEdgeId: (edgeId: string | null) => {
+        set((state) => {
+          state.selectedEdgeId = edgeId;
         });
       },
 
@@ -967,6 +985,47 @@ export const useFlowchartStore = create<FlowchartStore>()(
             if (edge.originalSources.length !== originalLength) {
               state.isDirty = true;
             }
+          }
+        });
+      },
+
+      /**
+       * Update style and/or label of a specific boundary port connection
+       * @param originalEdgeId - The ID of the original edge containing the boundary connections
+       * @param direction - 'input' for originalTargets, 'output' for originalSources
+       * @param connectionIndex - Index of the connection in the array
+       * @param style - Optional new style options
+       * @param label - Optional new label
+       */
+      updateBoundaryConnectionStyle: (
+        originalEdgeId: string,
+        direction: 'input' | 'output',
+        connectionIndex: number,
+        style?: EdgeStyleOptions,
+        label?: string
+      ) => {
+        set((state) => {
+          const edge = state.edges.find((e) => e.id === originalEdgeId);
+          if (!edge) return;
+
+          if (direction === 'input' && edge.originalTargets && edge.originalTargets[connectionIndex]) {
+            const connection = edge.originalTargets[connectionIndex];
+            if (style !== undefined) {
+              connection.style = style;
+            }
+            if (label !== undefined) {
+              connection.label = label;
+            }
+            state.isDirty = true;
+          } else if (direction === 'output' && edge.originalSources && edge.originalSources[connectionIndex]) {
+            const connection = edge.originalSources[connectionIndex];
+            if (style !== undefined) {
+              connection.style = style;
+            }
+            if (label !== undefined) {
+              connection.label = label;
+            }
+            state.isDirty = true;
           }
         });
       },

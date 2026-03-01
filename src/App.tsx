@@ -120,10 +120,10 @@ const FlowchartView: React.FC = () => {
   const showMinimap = useShowMinimap();
   const toggleGrid = useFlowchartStore((state) => state.toggleGrid);
   const toggleMinimap = useFlowchartStore((state) => state.toggleMinimap);
-  const edges = useFlowchartStore((state) => state.edges);
+  const selectedEdgeId = useFlowchartStore((state) => state.selectedEdgeId);
 
-  // Check if any edge is selected
-  const selectedEdge = edges.find((e) => e.selected);
+  // Check if any edge is selected (using store's selectedEdgeId which tracks both regular and virtual edges)
+  const selectedEdge = selectedEdgeId;
 
   return (
     <ReactFlowProvider>
