@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { GripVertical } from 'lucide-react';
 import type { BoundaryPortNodeData } from '../../../types/index';
 
 // =============================================================================
@@ -27,13 +27,15 @@ function BoundaryPortNode({ data, selected }: NodeProps) {
         transition-all duration-200
         min-w-[100px] max-w-[140px]
         ${selected ? 'ring-2 ring-offset-1 ring-purple-400' : ''}
-        ${isInput ? 'cursor-e-resize' : 'cursor-w-resize'}
+        cursor-grab active:cursor-grabbing
+        hover:shadow-md
       `}
     >
       {/* Input: dot on left, text on right */}
       {/* Output: text on left, dot on right */}
       {isInput ? (
         <>
+          <GripVertical className="w-3 h-3 text-green-400 shrink-0" />
           <div className="w-2.5 h-2.5 bg-green-500 rounded-full shrink-0" />
           <span className="font-semibold text-xs truncate flex-1" title={label}>
             {label}
@@ -55,6 +57,7 @@ function BoundaryPortNode({ data, selected }: NodeProps) {
             {label}
           </span>
           <div className="w-2.5 h-2.5 bg-blue-500 rounded-full shrink-0" />
+          <GripVertical className="w-3 h-3 text-blue-400 shrink-0" />
         </>
       )}
     </div>

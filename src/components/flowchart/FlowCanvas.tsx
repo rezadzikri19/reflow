@@ -1,4 +1,5 @@
 import { useCallback, useRef, useEffect, useState, useMemo } from 'react';
+import { isNode } from '@xyflow/react';
 import {
   ReactFlow,
   Background,
@@ -108,6 +109,33 @@ function FlowCanvasInner({
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState<ContextMenuPosition>({ x: 0, y: 0 });
 
+  // Boundary port group offsets (for dragging input/output groups together)
+  const [boundaryPortOffsets, setBoundaryPortOffsets] = useState({
+    input: { x: 0, y: 0 },
+    output: { x: 0, y: 0 },
+  });
+
+  // Track initial positions when drag starts
+  const boundaryDragStartRef = useRef<{
+    inputY: number | null;
+    outputY: number | null;
+    initialOffset: { input: { x: number; y: number }; output: { x: number; y: number } };
+  }>({
+    inputY: null,
+    outputY: null,
+    initialOffset: { input: { x: 0, y: 0 }, output: { x: 0, y: 0 } },
+  });
+
+  // Reset offsets when sheet changes
+  useEffect(() => {
+    setBoundaryPortOffsets({ input: { x: 0, y: 0 }, output: { x: 0, y: 0 } });
+    boundaryDragStartRef.current = {
+      inputY: null,
+      outputY: null,
+      initialOffset: { input: { x: 0, y: 0 }, output: { x: 0, y: 0 } },
+    };
+  }, [activeSheetId]);
+
   // Use custom node types if provided, otherwise use defaults
   const registeredNodeTypes = customNodeTypes || nodeTypes;
 
@@ -120,7 +148,77 @@ function FlowCanvasInner({
    */
   const onNodesChange: OnNodesChange<FlowchartNode> = useCallback(
     (changes) => {
-      // Apply changes to get updated nodes
+      // Handle boundary port node position changes specially
+      const boundaryPortPositionChanges = changes.filter(
+        (change) =>
+          change.type === 'position' &&
+          (change.id.startsWith('boundary-input-') || change.id.startsWith('boundary-output-'))
+      );
+
+      // If boundary port nodes are being dragged, update group offsets instead
+      if (boundaryPortPositionChanges.length > 0) {
+        boundaryPortPositionChanges.forEach((change) => {
+          if (change.type !== 'position' || !change.position) return;
+
+          const isInput = change.id.startsWith('boundary-input-');
+          const direction = isInput ? 'input' : 'output';
+
+          // On drag start, capture initial position
+          if (change.dragging && boundaryDragStartRef.current[`${direction}Y` as keyof typeof boundaryDragStartRef.current] === null) {
+            boundaryDragStartRef.current[`${direction}Y` as keyof typeof boundaryDragStartRef.current] = change.position.y;
+            boundaryDragStartRef.current.initialOffset = { ...boundaryPortOffsets };
+          }
+
+          // Calculate delta from initial position and update offset
+          if (boundaryDragStartRef.current[`${direction}Y` as keyof typeof boundaryDragStartRef.current] !== null) {
+            const initialY = boundaryDragStartRef.current[`${direction}Y` as keyof typeof boundaryDragStartRef.current] as number;
+            const deltaY = change.position.y - initialY;
+
+            setBoundaryPortOffsets((prev) => ({
+              ...prev,
+              [direction]: {
+                x: 0, // Only allow vertical movement
+                y: boundaryDragStartRef.current.initialOffset[direction].y + deltaY,
+              },
+            }));
+          }
+
+          // Reset on drag end
+          if (!change.dragging) {
+            boundaryDragStartRef.current[`${direction}Y` as keyof typeof boundaryDragStartRef.current] = null;
+          }
+        });
+
+        // Filter out boundary port position changes so they don't affect the store
+        const otherChanges = changes.filter(
+          (change) =>
+            !(change.type === 'position' &&
+              (change.id.startsWith('boundary-input-') || change.id.startsWith('boundary-output-')))
+        );
+
+        if (otherChanges.length > 0) {
+          const updatedNodes = applyNodeChanges(otherChanges, nodes);
+          setNodes(updatedNodes);
+
+          // Handle side effects for non-boundary nodes
+          otherChanges.forEach((change) => {
+            if (change.type === 'remove') {
+              deleteNode(change.id);
+            } else if (change.type === 'select') {
+              if (change.selected) {
+                setSelectedNode(change.id);
+              } else if (selectedNodeId === change.id) {
+                setSelectedNode(null);
+              }
+            } else if (change.type === 'position') {
+              markDirty();
+            }
+          });
+        }
+        return;
+      }
+
+      // Apply changes to get updated nodes (normal case)
       const updatedNodes = applyNodeChanges(changes, nodes);
       setNodes(updatedNodes);
 
@@ -139,7 +237,7 @@ function FlowCanvasInner({
         }
       });
     },
-    [nodes, readOnly, deleteNode, setSelectedNode, selectedNodeId, setNodes, markDirty]
+    [nodes, readOnly, deleteNode, setSelectedNode, selectedNodeId, setNodes, markDirty, boundaryPortOffsets]
   );
 
   /**
@@ -487,21 +585,27 @@ function FlowCanvasInner({
       const yPositions = internalNodes.map(n => n.position.y);
       const avgY = yPositions.reduce((a, b) => a + b, 0) / yPositions.length;
 
-      // Position input ports on the left side, distributed vertically
+      // Position input ports on the left side, distributed vertically with offset
       const inputStartY = avgY - ((inputs.length - 1) * 50) / 2;
       inputs.forEach((port, index) => {
-        port.position = { x: minX - 180, y: inputStartY + index * 50 };
+        port.position = {
+          x: minX - 180 + boundaryPortOffsets.input.x,
+          y: inputStartY + index * 50 + boundaryPortOffsets.input.y,
+        };
       });
 
-      // Position output ports on the right side, distributed vertically
+      // Position output ports on the right side, distributed vertically with offset
       const outputStartY = avgY - ((outputs.length - 1) * 50) / 2;
       outputs.forEach((port, index) => {
-        port.position = { x: maxX + 60, y: outputStartY + index * 50 };
+        port.position = {
+          x: maxX + 60 + boundaryPortOffsets.output.x,
+          y: outputStartY + index * 50 + boundaryPortOffsets.output.y,
+        };
       });
     }
 
     return [...inputs, ...internalNodes, ...outputs];
-  }, [nodes, activeSheetId, boundaryPortNodes]);
+  }, [nodes, activeSheetId, boundaryPortNodes, boundaryPortOffsets]);
 
   /**
    * Filter edges to show based on visible nodes
