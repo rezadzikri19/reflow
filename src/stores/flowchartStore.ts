@@ -10,6 +10,8 @@ import type {
   ProcessNodeType,
   EdgeType,
   EdgeStyleOptions,
+  ManualPort,
+  InternalNodeConnection,
 } from '../types';
 import {
   DEFAULT_PROCESS_NODE_DATA,
@@ -39,6 +41,10 @@ interface FlowchartState {
   showMinimap: boolean;
   /** Currently active sheet ID (null = main flowchart view, ID = viewing that subprocess) */
   activeSheetId: string | null;
+  /** Node version counter for forcing re-renders */
+  nodeVersion: number;
+  /** Edge version counter for forcing re-renders */
+  edgeVersion: number;
   /** Default edge type for new connections */
   defaultEdgeType: EdgeType;
 }
@@ -99,6 +105,23 @@ interface FlowchartActions {
     style?: EdgeStyleOptions,
     label?: string
   ) => void;
+  // Manual port actions for subprocess nodes
+  addManualPort: (subprocessId: string, direction: 'input' | 'output', label?: string) => string;
+  updateManualPort: (subprocessId: string, portId: string, updates: Partial<Pick<ManualPort, 'label' | 'position'>>) => void;
+  deleteManualPort: (subprocessId: string, portId: string) => void;
+  // Manual port internal connection actions
+  addManualPortConnection: (
+    subprocessId: string,
+    portId: string,
+    internalNodeId: string,
+    handleId?: string | null
+  ) => void;
+  removeManualPortConnection: (
+    subprocessId: string,
+    portId: string,
+    internalNodeId: string,
+    handleId?: string | null
+  ) => void;
 }
 
 type FlowchartStore = FlowchartState & FlowchartActions;
@@ -118,6 +141,8 @@ const initialState: FlowchartState = {
   showGrid: true,
   showMinimap: true,
   activeSheetId: null,
+  nodeVersion: 0,
+  edgeVersion: 0,
   defaultEdgeType: 'smoothstep',
 };
 
@@ -178,6 +203,55 @@ export const useFlowchartStore = create<FlowchartStore>()(
               ...data,
             } as ProcessNodeData;
             state.isDirty = true;
+
+            // If the node's label changed, update connected manual port labels
+            if (data.label !== undefined) {
+              const newLabel = data.label;
+
+              // Find all edges where this node is the source (connected to subprocess manual input ports)
+              state.edges.forEach((edge) => {
+                if (edge.source === nodeId && edge.targetHandle?.startsWith('manual-input-')) {
+                  // Find the target subprocess node and update the manual input port label
+                  const targetNodeIndex = state.nodes.findIndex((n) => n.id === edge.target);
+                  if (targetNodeIndex !== -1) {
+                    const targetNode = state.nodes[targetNodeIndex];
+                    if (targetNode.type === 'subprocess') {
+                      const targetData = targetNode.data as ProcessNodeData;
+                      const manualInputPorts = targetData.manualInputPorts || [];
+                      const portIndex = manualInputPorts.findIndex(p => p.id === edge.targetHandle);
+                      if (portIndex !== -1) {
+                        manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: newLabel };
+                        state.nodes[targetNodeIndex] = {
+                          ...targetNode,
+                          data: { ...targetData, manualInputPorts: [...manualInputPorts] } as ProcessNodeData,
+                        };
+                      }
+                    }
+                  }
+                }
+
+                // Find all edges where this node is the target (connected from subprocess manual output ports)
+                if (edge.target === nodeId && edge.sourceHandle?.startsWith('manual-output-')) {
+                  // Find the source subprocess node and update the manual output port label
+                  const sourceNodeIndex = state.nodes.findIndex((n) => n.id === edge.source);
+                  if (sourceNodeIndex !== -1) {
+                    const sourceNode = state.nodes[sourceNodeIndex];
+                    if (sourceNode.type === 'subprocess') {
+                      const sourceData = sourceNode.data as ProcessNodeData;
+                      const manualOutputPorts = sourceData.manualOutputPorts || [];
+                      const portIndex = manualOutputPorts.findIndex(p => p.id === edge.sourceHandle);
+                      if (portIndex !== -1) {
+                        manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: newLabel };
+                        state.nodes[sourceNodeIndex] = {
+                          ...sourceNode,
+                          data: { ...sourceData, manualOutputPorts: [...manualOutputPorts] } as ProcessNodeData,
+                        };
+                      }
+                    }
+                  }
+                }
+              });
+            }
           }
         });
       },
@@ -307,8 +381,56 @@ export const useFlowchartStore = create<FlowchartStore>()(
               type: state.defaultEdgeType,
             };
 
+            // For manual port connections, increment nodeVersion first to ensure handles exist
+            if ((normalizedTargetHandle && normalizedTargetHandle.startsWith('manual-input-')) ||
+                (normalizedSourceHandle && normalizedSourceHandle.startsWith('manual-output-'))) {
+              state.nodeVersion += 1;
+            }
+
             state.edges.push(newEdge);
+            state.edgeVersion += 1;
             state.isDirty = true;
+
+            // Update manual port labels when connecting external nodes
+            // Check if target is a subprocess with manual input port
+            if (normalizedTargetHandle && normalizedTargetHandle.startsWith('manual-input-')) {
+              const targetNode = state.nodes.find(n => n.id === target);
+              if (targetNode && targetNode.type === 'subprocess') {
+                const sourceNode = state.nodes.find(n => n.id === source);
+                const sourceLabel = (sourceNode?.data as ProcessNodeData)?.label || 'Unknown';
+                const manualInputPorts = (targetNode.data as ProcessNodeData).manualInputPorts || [];
+                const portIndex = manualInputPorts.findIndex(p => p.id === normalizedTargetHandle);
+                if (portIndex !== -1) {
+                  manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: sourceLabel };
+                  state.nodes = state.nodes.map(n =>
+                    n.id === target
+                      ? { ...n, data: { ...n.data, manualInputPorts: [...manualInputPorts] } as ProcessNodeData }
+                      : n
+                  );
+                  state.nodeVersion += 1;
+                }
+              }
+            }
+
+            // Check if source is a subprocess with manual output port
+            if (normalizedSourceHandle && normalizedSourceHandle.startsWith('manual-output-')) {
+              const sourceNode = state.nodes.find(n => n.id === source);
+              if (sourceNode && sourceNode.type === 'subprocess') {
+                const targetNode = state.nodes.find(n => n.id === target);
+                const targetLabel = (targetNode?.data as ProcessNodeData)?.label || 'Unknown';
+                const manualOutputPorts = (sourceNode.data as ProcessNodeData).manualOutputPorts || [];
+                const portIndex = manualOutputPorts.findIndex(p => p.id === normalizedSourceHandle);
+                if (portIndex !== -1) {
+                  manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: targetLabel };
+                  state.nodes = state.nodes.map(n =>
+                    n.id === source
+                      ? { ...n, data: { ...n.data, manualOutputPorts: [...manualOutputPorts] } as ProcessNodeData }
+                      : n
+                  );
+                  state.nodeVersion += 1;
+                }
+              }
+            }
           }
         });
       },
@@ -328,7 +450,57 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
       deleteEdge: (edgeId: string) => {
         set((state) => {
+          // Find the edge before deleting to check if it's connected to manual ports
+          const edge = state.edges.find((e) => e.id === edgeId);
+          if (!edge) return;
+          if (edge) {
+            // Reset manual input port label if edge was connected to one
+            if (edge.targetHandle?.startsWith('manual-input-')) {
+              const targetNodeIndex = state.nodes.findIndex((n) => n.id === edge.target);
+              if (targetNodeIndex !== -1) {
+                const targetNode = state.nodes[targetNodeIndex];
+                if (targetNode.type === 'subprocess') {
+                  const targetData = targetNode.data as ProcessNodeData;
+                  const manualInputPorts = targetData.manualInputPorts || [];
+                  const portIndex = manualInputPorts.findIndex(p => p.id === edge.targetHandle);
+                  if (portIndex !== -1) {
+                    // Reset to default label
+                    const defaultLabel = `Input ${portIndex + 1}`;
+                    manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: defaultLabel };
+                    state.nodes[targetNodeIndex] = {
+                      ...targetNode,
+                      data: { ...targetData, manualInputPorts: [...manualInputPorts] } as ProcessNodeData,
+                    };
+                  }
+                }
+              }
+            }
+
+            // Reset manual output port label if edge was connected from one
+            if (edge.sourceHandle?.startsWith('manual-output-')) {
+              const sourceNodeIndex = state.nodes.findIndex((n) => n.id === edge.source);
+              if (sourceNodeIndex !== -1) {
+                const sourceNode = state.nodes[sourceNodeIndex];
+                if (sourceNode.type === 'subprocess') {
+                  const sourceData = sourceNode.data as ProcessNodeData;
+                  const manualOutputPorts = sourceData.manualOutputPorts || [];
+                  const portIndex = manualOutputPorts.findIndex(p => p.id === edge.sourceHandle);
+                  if (portIndex !== -1) {
+                    // Reset to default label
+                    const defaultLabel = `Output ${portIndex + 1}`;
+                    manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: defaultLabel };
+                    state.nodes[sourceNodeIndex] = {
+                      ...sourceNode,
+                      data: { ...sourceData, manualOutputPorts: [...manualOutputPorts] } as ProcessNodeData,
+                    };
+                  }
+                }
+              }
+            }
+          }
+
           state.edges = state.edges.filter((e) => e.id !== edgeId);
+          state.edgeVersion += 1;
           state.isDirty = true;
         });
       },
@@ -338,7 +510,56 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
         set((state) => {
           const idsSet = new Set(edgeIds);
+
+          // Process each edge to reset manual port labels
+          state.edges.forEach((edge) => {
+            if (!idsSet.has(edge.id)) return;
+
+            // Reset manual input port label if edge was connected to one
+            if (edge.targetHandle?.startsWith('manual-input-')) {
+              const targetNodeIndex = state.nodes.findIndex((n) => n.id === edge.target);
+              if (targetNodeIndex !== -1) {
+                const targetNode = state.nodes[targetNodeIndex];
+                if (targetNode.type === 'subprocess') {
+                  const targetData = targetNode.data as ProcessNodeData;
+                  const manualInputPorts = targetData.manualInputPorts || [];
+                  const portIndex = manualInputPorts.findIndex(p => p.id === edge.targetHandle);
+                  if (portIndex !== -1) {
+                    const defaultLabel = `Input ${portIndex + 1}`;
+                    manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: defaultLabel };
+                    state.nodes[targetNodeIndex] = {
+                      ...targetNode,
+                      data: { ...targetData, manualInputPorts: [...manualInputPorts] } as ProcessNodeData,
+                    };
+                  }
+                }
+              }
+            }
+
+            // Reset manual output port label if edge was connected from one
+            if (edge.sourceHandle?.startsWith('manual-output-')) {
+              const sourceNodeIndex = state.nodes.findIndex((n) => n.id === edge.source);
+              if (sourceNodeIndex !== -1) {
+                const sourceNode = state.nodes[sourceNodeIndex];
+                if (sourceNode.type === 'subprocess') {
+                  const sourceData = sourceNode.data as ProcessNodeData;
+                  const manualOutputPorts = sourceData.manualOutputPorts || [];
+                  const portIndex = manualOutputPorts.findIndex(p => p.id === edge.sourceHandle);
+                  if (portIndex !== -1) {
+                    const defaultLabel = `Output ${portIndex + 1}`;
+                    manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: defaultLabel };
+                    state.nodes[sourceNodeIndex] = {
+                      ...sourceNode,
+                      data: { ...sourceData, manualOutputPorts: [...manualOutputPorts] } as ProcessNodeData,
+                    };
+                  }
+                }
+              }
+            }
+          });
+
           state.edges = state.edges.filter((e) => !idsSet.has(e.id));
+          state.edgeVersion += 1;
           state.isDirty = true;
         });
       },
@@ -346,6 +567,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
       setNodes: (nodes: FlowchartNode[]) => {
         set((state) => {
           state.nodes = nodes;
+          state.nodeVersion += 1;
           state.isDirty = true;
         });
       },
@@ -353,6 +575,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
       setEdges: (edges: FlowchartEdge[]) => {
         set((state) => {
           state.edges = edges;
+          state.edgeVersion += 1;
           state.isDirty = true;
         });
       },
@@ -1025,6 +1248,298 @@ export const useFlowchartStore = create<FlowchartStore>()(
             if (label !== undefined) {
               connection.label = label;
             }
+            state.isDirty = true;
+          }
+        });
+      },
+
+      // =============================================================================
+      // Manual Port Actions
+      // =============================================================================
+
+      /**
+       * Add a manual port to a subprocess node
+       * @param subprocessId - The ID of the subprocess node
+       * @param direction - 'input' or 'output'
+       * @param label - Optional label for the port (defaults to "Input N" or "Output N")
+       * @returns The ID of the created port
+       */
+      addManualPort: (subprocessId: string, direction: 'input' | 'output', label?: string): string => {
+        const portId = `manual-${direction}-${uuidv4()}`;
+        const defaultLabel = label || `${direction === 'input' ? 'Input' : 'Output'}`;
+
+        set((state) => {
+          const nodeIndex = state.nodes.findIndex((n) => n.id === subprocessId && n.type === 'subprocess');
+          if (nodeIndex === -1) return;
+
+          const node = state.nodes[nodeIndex];
+          const nodeData = node.data as ProcessNodeData;
+
+          // Get existing ports and count for default labeling
+          const existingPorts = direction === 'input'
+            ? (nodeData.manualInputPorts || [])
+            : (nodeData.manualOutputPorts || []);
+
+          const portLabel = label || `${defaultLabel} ${existingPorts.length + 1}`;
+
+          const newPort: ManualPort = {
+            id: portId,
+            direction,
+            label: portLabel,
+          };
+
+          if (direction === 'input') {
+            state.nodes[nodeIndex] = {
+              ...node,
+              data: {
+                ...nodeData,
+                manualInputPorts: [...existingPorts, newPort],
+              } as ProcessNodeData,
+            };
+          } else {
+            state.nodes[nodeIndex] = {
+              ...node,
+              data: {
+                ...nodeData,
+                manualOutputPorts: [...existingPorts, newPort],
+              } as ProcessNodeData,
+            };
+          }
+
+          state.nodeVersion += 1;
+          state.isDirty = true;
+        });
+
+        return portId;
+      },
+
+      /**
+       * Update a manual port's properties
+       * @param subprocessId - The ID of the subprocess node
+       * @param portId - The ID of the port to update
+       * @param updates - Partial updates (label and/or position)
+       */
+      updateManualPort: (subprocessId: string, portId: string, updates: Partial<Pick<ManualPort, 'label' | 'position'>>) => {
+        set((state) => {
+          const nodeIndex = state.nodes.findIndex((n) => n.id === subprocessId && n.type === 'subprocess');
+          if (nodeIndex === -1) return;
+
+          const node = state.nodes[nodeIndex];
+          const nodeData = node.data as ProcessNodeData;
+
+          // Check input ports
+          const inputPorts = nodeData.manualInputPorts || [];
+          const inputIndex = inputPorts.findIndex(p => p.id === portId);
+
+          if (inputIndex !== -1) {
+            inputPorts[inputIndex] = { ...inputPorts[inputIndex], ...updates };
+            state.nodes[nodeIndex] = {
+              ...node,
+              data: { ...nodeData, manualInputPorts: [...inputPorts] } as ProcessNodeData,
+            };
+            state.nodeVersion += 1;
+            state.isDirty = true;
+            return;
+          }
+
+          // Check output ports
+          const outputPorts = nodeData.manualOutputPorts || [];
+          const outputIndex = outputPorts.findIndex(p => p.id === portId);
+
+          if (outputIndex !== -1) {
+            outputPorts[outputIndex] = { ...outputPorts[outputIndex], ...updates };
+            state.nodes[nodeIndex] = {
+              ...node,
+              data: { ...nodeData, manualOutputPorts: [...outputPorts] } as ProcessNodeData,
+            };
+            state.nodeVersion += 1;
+            state.isDirty = true;
+          }
+        });
+      },
+
+      /**
+       * Delete a manual port and any associated edges
+       * @param subprocessId - The ID of the subprocess node
+       * @param portId - The ID of the port to delete
+       */
+      deleteManualPort: (subprocessId: string, portId: string) => {
+        set((state) => {
+          const nodeIndex = state.nodes.findIndex((n) => n.id === subprocessId && n.type === 'subprocess');
+          if (nodeIndex === -1) return;
+
+          const node = state.nodes[nodeIndex];
+          const nodeData = node.data as ProcessNodeData;
+
+          // Determine direction and remove from appropriate array
+          const inputPorts = nodeData.manualInputPorts || [];
+          const outputPorts = nodeData.manualOutputPorts || [];
+
+          const isInput = inputPorts.some(p => p.id === portId);
+          const isOutput = outputPorts.some(p => p.id === portId);
+
+          if (isInput) {
+            state.nodes[nodeIndex] = {
+              ...node,
+              data: {
+                ...nodeData,
+                manualInputPorts: inputPorts.filter(p => p.id !== portId),
+              } as ProcessNodeData,
+            };
+          } else if (isOutput) {
+            state.nodes[nodeIndex] = {
+              ...node,
+              data: {
+                ...nodeData,
+                manualOutputPorts: outputPorts.filter(p => p.id !== portId),
+              } as ProcessNodeData,
+            };
+          } else {
+            return; // Port not found
+          }
+
+          // Remove any edges connected to this manual port
+          // For input ports: edges where targetHandle is the portId
+          // For output ports: edges where sourceHandle is the portId
+          state.edges = state.edges.filter(edge => {
+            const targetMatches = edge.target === subprocessId && edge.targetHandle === portId;
+            const sourceMatches = edge.source === subprocessId && edge.sourceHandle === portId;
+            return !targetMatches && !sourceMatches;
+          });
+
+          state.nodeVersion += 1;
+          state.edgeVersion += 1;
+          state.isDirty = true;
+        });
+      },
+
+      /**
+       * Add an internal connection to a manual port
+       * This is called when connecting from a manual boundary port to an internal node
+       */
+      addManualPortConnection: (
+        subprocessId: string,
+        portId: string,
+        internalNodeId: string,
+        handleId?: string | null
+      ) => {
+        set((state) => {
+          const nodeIndex = state.nodes.findIndex((n) => n.id === subprocessId && n.type === 'subprocess');
+          if (nodeIndex === -1) return;
+
+          const node = state.nodes[nodeIndex];
+          const nodeData = node.data as ProcessNodeData;
+
+          // Find the port and add the connection
+          const inputPorts = nodeData.manualInputPorts || [];
+          const outputPorts = nodeData.manualOutputPorts || [];
+
+          const inputPortIndex = inputPorts.findIndex(p => p.id === portId);
+          const outputPortIndex = outputPorts.findIndex(p => p.id === portId);
+
+          const newConnection: InternalNodeConnection = {
+            nodeId: internalNodeId,
+            handleId: handleId || null,
+          };
+
+          if (inputPortIndex !== -1) {
+            const port = inputPorts[inputPortIndex];
+            const existingConnections = port.internalConnections || [];
+            // Check if connection already exists
+            const exists = existingConnections.some(
+              c => c.nodeId === internalNodeId && (c.handleId || null) === (handleId || null)
+            );
+            if (!exists) {
+              inputPorts[inputPortIndex] = {
+                ...port,
+                internalConnections: [...existingConnections, newConnection],
+              };
+              state.nodes[nodeIndex] = {
+                ...node,
+                data: { ...nodeData, manualInputPorts: [...inputPorts] } as ProcessNodeData,
+              };
+              state.nodeVersion += 1;
+              state.isDirty = true;
+            }
+          } else if (outputPortIndex !== -1) {
+            const port = outputPorts[outputPortIndex];
+            const existingConnections = port.internalConnections || [];
+            // Check if connection already exists
+            const exists = existingConnections.some(
+              c => c.nodeId === internalNodeId && (c.handleId || null) === (handleId || null)
+            );
+            if (!exists) {
+              outputPorts[outputPortIndex] = {
+                ...port,
+                internalConnections: [...existingConnections, newConnection],
+              };
+              state.nodes[nodeIndex] = {
+                ...node,
+                data: { ...nodeData, manualOutputPorts: [...outputPorts] } as ProcessNodeData,
+              };
+              state.nodeVersion += 1;
+              state.isDirty = true;
+            }
+          }
+        });
+      },
+
+      /**
+       * Remove an internal connection from a manual port
+       * This is called when deleting a virtual edge from a manual boundary port
+       */
+      removeManualPortConnection: (
+        subprocessId: string,
+        portId: string,
+        internalNodeId: string,
+        handleId?: string | null
+      ) => {
+        set((state) => {
+          const nodeIndex = state.nodes.findIndex((n) => n.id === subprocessId && n.type === 'subprocess');
+          if (nodeIndex === -1) return;
+
+          const node = state.nodes[nodeIndex];
+          const nodeData = node.data as ProcessNodeData;
+
+          const inputPorts = nodeData.manualInputPorts || [];
+          const outputPorts = nodeData.manualOutputPorts || [];
+
+          const inputPortIndex = inputPorts.findIndex(p => p.id === portId);
+          const outputPortIndex = outputPorts.findIndex(p => p.id === portId);
+
+          const normalizedHandle = handleId || null;
+
+          if (inputPortIndex !== -1) {
+            const port = inputPorts[inputPortIndex];
+            const connections = port.internalConnections || [];
+            const filteredConnections = connections.filter(
+              c => !(c.nodeId === internalNodeId && (c.handleId || null) === normalizedHandle)
+            );
+            inputPorts[inputPortIndex] = {
+              ...port,
+              internalConnections: filteredConnections,
+            };
+            state.nodes[nodeIndex] = {
+              ...node,
+              data: { ...nodeData, manualInputPorts: [...inputPorts] } as ProcessNodeData,
+            };
+            state.nodeVersion += 1;
+            state.isDirty = true;
+          } else if (outputPortIndex !== -1) {
+            const port = outputPorts[outputPortIndex];
+            const connections = port.internalConnections || [];
+            const filteredConnections = connections.filter(
+              c => !(c.nodeId === internalNodeId && (c.handleId || null) === normalizedHandle)
+            );
+            outputPorts[outputPortIndex] = {
+              ...port,
+              internalConnections: filteredConnections,
+            };
+            state.nodes[nodeIndex] = {
+              ...node,
+              data: { ...nodeData, manualOutputPorts: [...outputPorts] } as ProcessNodeData,
+            };
+            state.nodeVersion += 1;
             state.isDirty = true;
           }
         });

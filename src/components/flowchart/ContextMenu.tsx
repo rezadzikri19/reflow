@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useCallback } from 'react';
-import { Layers, Ungroup, X } from 'lucide-react';
+import { Layers, Ungroup, X, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useFlowchartStore } from '../../stores/flowchartStore';
 
 // =============================================================================
@@ -47,6 +47,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   const menuRef = useRef<HTMLDivElement>(null);
   const groupNodesIntoSubprocess = useFlowchartStore((state) => state.groupNodesIntoSubprocess);
   const ungroupSubprocess = useFlowchartStore((state) => state.ungroupSubprocess);
+  const addManualPort = useFlowchartStore((state) => state.addManualPort);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -109,6 +110,18 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     onClose();
   }, [isSubprocessSelected, selectedSubprocessId, ungroupSubprocess, onClose]);
 
+  const handleAddInputPort = useCallback(() => {
+    if (!isSubprocessSelected || !selectedSubprocessId) return;
+    addManualPort(selectedSubprocessId, 'input');
+    onClose();
+  }, [isSubprocessSelected, selectedSubprocessId, addManualPort, onClose]);
+
+  const handleAddOutputPort = useCallback(() => {
+    if (!isSubprocessSelected || !selectedSubprocessId) return;
+    addManualPort(selectedSubprocessId, 'output');
+    onClose();
+  }, [isSubprocessSelected, selectedSubprocessId, addManualPort, onClose]);
+
   if (!isOpen) return null;
 
   const adjustedPos = adjustedPosition();
@@ -148,6 +161,27 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           <Ungroup className="w-4 h-4" />
           <span>Ungroup Subprocess</span>
         </button>
+      )}
+
+      {/* Add Manual Port options (for subprocess) */}
+      {isSubprocessSelected && (
+        <>
+          <div className="my-1 border-t border-gray-100" />
+          <button
+            className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+            onClick={handleAddInputPort}
+          >
+            <ArrowLeft className="w-4 h-4 text-green-500" />
+            <span>Add Input Port</span>
+          </button>
+          <button
+            className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+            onClick={handleAddOutputPort}
+          >
+            <ArrowRight className="w-4 h-4 text-blue-500" />
+            <span>Add Output Port</span>
+          </button>
+        </>
       )}
 
       {/* Divider */}

@@ -3,7 +3,8 @@ import { useFlowchartStore, useSelectedNode, useNodes } from '../../stores/flowc
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { TagInput } from '../common/TagInput';
-import type { ProcessNodeData, UnitType, ProcessNodeType } from '../../types';
+import type { ProcessNodeData, UnitType, ProcessNodeType, ManualPort } from '../../types';
+import { Plus, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
 
 // ============================================================================
 // Types
@@ -47,6 +48,9 @@ export const NodePropertiesPanel: React.FC = () => {
   const updateNode = useFlowchartStore((state) => state.updateNode);
   const deleteNode = useFlowchartStore((state) => state.deleteNode);
   const addNode = useFlowchartStore((state) => state.addNode);
+  const addManualPort = useFlowchartStore((state) => state.addManualPort);
+  const updateManualPort = useFlowchartStore((state) => state.updateManualPort);
+  const deleteManualPort = useFlowchartStore((state) => state.deleteManualPort);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -518,6 +522,110 @@ export const NodePropertiesPanel: React.FC = () => {
             )}
           </div>
         </section>
+
+        {/* Manual Ports Section (for Subprocess nodes only) */}
+        {nodeType === 'subprocess' && (
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Manual Ports
+            </h3>
+            <p className="text-xs text-gray-400 mb-3">
+              Add ports that exist independently of connections. Useful for defining interfaces before connecting.
+            </p>
+
+            {/* Input Ports */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+                  <ArrowLeft className="w-4 h-4 text-green-500" />
+                  <span>Input Ports</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => addManualPort(selectedNode.id, 'input')}
+                  className="!p-1 !h-auto"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {(nodeData.manualInputPorts || []).length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">No manual input ports</p>
+                ) : (
+                  (nodeData.manualInputPorts || []).map((port: ManualPort) => (
+                    <div
+                      key={port.id}
+                      className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-md px-2 py-1.5"
+                    >
+                      <div className="w-2 h-2 bg-green-500 rounded-full shrink-0" />
+                      <input
+                        type="text"
+                        value={port.label}
+                        onChange={(e) => updateManualPort(selectedNode.id, port.id, { label: e.target.value })}
+                        className="flex-1 text-sm bg-transparent border-none outline-none text-gray-700"
+                        placeholder="Port name"
+                      />
+                      <button
+                        onClick={() => deleteManualPort(selectedNode.id, port.id)}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                        title="Delete port"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Output Ports */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+                  <ArrowRight className="w-4 h-4 text-blue-500" />
+                  <span>Output Ports</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => addManualPort(selectedNode.id, 'output')}
+                  className="!p-1 !h-auto"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {(nodeData.manualOutputPorts || []).length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">No manual output ports</p>
+                ) : (
+                  (nodeData.manualOutputPorts || []).map((port: ManualPort) => (
+                    <div
+                      key={port.id}
+                      className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-md px-2 py-1.5"
+                    >
+                      <div className="w-2 h-2 bg-blue-500 rounded-full shrink-0" />
+                      <input
+                        type="text"
+                        value={port.label}
+                        onChange={(e) => updateManualPort(selectedNode.id, port.id, { label: e.target.value })}
+                        className="flex-1 text-sm bg-transparent border-none outline-none text-gray-700"
+                        placeholder="Port name"
+                      />
+                      <button
+                        onClick={() => deleteManualPort(selectedNode.id, port.id)}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                        title="Delete port"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

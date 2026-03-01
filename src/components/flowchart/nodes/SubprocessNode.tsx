@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Layers, ExternalLink, ArrowLeft, ArrowRight } from 'lucide-react';
-import type { ProcessNodeData, SubprocessPort } from '../../../types/index';
+import type { ProcessNodeData, ManualPort } from '../../../types/index';
 import NodeTags from './NodeTags';
 import { useFlowchartStore } from '../../../stores/flowchartStore';
 
@@ -18,23 +18,36 @@ const getPortPosition = (index: number, total: number): string => {
   return `${((index + 1) / (total + 1)) * 100}%`;
 };
 
+/**
+ * Extended port info for rendering (includes manual port flag)
+ */
+interface PortRenderInfo {
+  id: string;
+  internalNodeId: string;
+  internalHandleId?: string | null;
+  direction: 'input' | 'output';
+  isManual: boolean;
+  label?: string;
+}
+
 // =============================================================================
 // SubprocessNode Component
 // =============================================================================
 
 function SubprocessNode({ data, selected, id }: NodeProps) {
-  const { label = 'Subprocess', description, tags, childNodeIds = [] } = (data as ProcessNodeData) || {};
+  const { label = 'Subprocess', description, tags, childNodeIds = [], manualInputPorts = [], manualOutputPorts = [] } = (data as ProcessNodeData) || {};
   const openSubprocessSheet = useFlowchartStore((state) => state.openSubprocessSheet);
   const edges = useFlowchartStore((state) => state.edges);
 
   // Get child count from childNodeIds array directly
   const childCount = childNodeIds.length;
 
-  // Compute input/output ports from edges
+  // Compute input/output ports from edges AND manual ports
   const { inputPorts, outputPorts } = useMemo(() => {
-    const inputs: SubprocessPort[] = [];
-    const outputs: SubprocessPort[] = [];
+    const inputs: PortRenderInfo[] = [];
+    const outputs: PortRenderInfo[] = [];
 
+    // First, add edge-based ports
     edges.forEach((edge) => {
       // Incoming edge (external -> subprocess) - this is an input port
       // Check for both originalTarget (single connection) and originalTargets (multiple connections)
@@ -52,6 +65,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
           internalNodeId: internalTargets[0].nodeId,
           internalHandleId: internalTargets[0].handleId,
           direction: 'input',
+          isManual: false,
         });
       }
 
@@ -71,12 +85,45 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
           internalNodeId: internalSources[0].nodeId,
           internalHandleId: internalSources[0].handleId,
           direction: 'output',
+          isManual: false,
+        });
+      }
+    });
+
+    // Then, add manual ports (avoiding duplicates if a manual port has the same ID as an edge port)
+    const existingInputIds = new Set(inputs.map(p => p.id));
+    const existingOutputIds = new Set(outputs.map(p => p.id));
+
+    // Add manual input ports
+    (manualInputPorts as ManualPort[]).forEach((port) => {
+      if (!existingInputIds.has(port.id)) {
+        inputs.push({
+          id: port.id,
+          internalNodeId: '', // Manual ports don't have a specific internal node until connected
+          internalHandleId: null,
+          direction: 'input',
+          isManual: true,
+          label: port.label,
+        });
+      }
+    });
+
+    // Add manual output ports
+    (manualOutputPorts as ManualPort[]).forEach((port) => {
+      if (!existingOutputIds.has(port.id)) {
+        outputs.push({
+          id: port.id,
+          internalNodeId: '', // Manual ports don't have a specific internal node until connected
+          internalHandleId: null,
+          direction: 'output',
+          isManual: true,
+          label: port.label,
         });
       }
     });
 
     return { inputPorts: inputs, outputPorts: outputs };
-  }, [edges, id]);
+  }, [edges, id, manualInputPorts, manualOutputPorts]);
 
   // Handle opening the subprocess sheet
   const handleOpenSheet = useCallback((e: React.MouseEvent) => {
@@ -100,46 +147,40 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
       `}
     >
       {/* Dynamic Input Handles - Left side for incoming connections */}
-      {inputPorts.length > 0 ? (
-        inputPorts.map((port, index) => (
-          <Handle
-            key={port.id}
-            type="target"
-            position={Position.Left}
-            id={port.id}
-            style={{ top: getPortPosition(index, inputPorts.length) }}
-            className="!w-3 !h-3 !bg-green-400 !border-2 !border-green-600 hover:!bg-green-300"
-          />
-        ))
-      ) : (
-        // Default single handle if no ports detected (backward compatibility)
+      {/* Only render handles when there are actual ports (manual or edge-based) */}
+      {inputPorts.map((port, index) => (
         <Handle
+          key={port.id}
           type="target"
           position={Position.Left}
-          className="!w-3 !h-3 !bg-purple-300 !border-2 !border-purple-700 hover:!bg-purple-200"
+          id={port.id}
+          style={{ top: getPortPosition(index, inputPorts.length) }}
+          className={
+            port.isManual
+              ? '!w-3 !h-3 !bg-teal-400 !border-2 !border-teal-600 hover:!bg-teal-300'
+              : '!w-3 !h-3 !bg-green-400 !border-2 !border-green-600 hover:!bg-green-300'
+          }
+          title={port.isManual ? `Manual: ${port.label}` : undefined}
         />
-      )}
+      ))}
 
       {/* Dynamic Output Handles - Right side for outgoing connections */}
-      {outputPorts.length > 0 ? (
-        outputPorts.map((port, index) => (
-          <Handle
-            key={port.id}
-            type="source"
-            position={Position.Right}
-            id={port.id}
-            style={{ top: getPortPosition(index, outputPorts.length) }}
-            className="!w-3 !h-3 !bg-blue-400 !border-2 !border-blue-600 hover:!bg-blue-300"
-          />
-        ))
-      ) : (
-        // Default single handle if no ports detected (backward compatibility)
+      {/* Only render handles when there are actual ports (manual or edge-based) */}
+      {outputPorts.map((port, index) => (
         <Handle
+          key={port.id}
           type="source"
           position={Position.Right}
-          className="!w-3 !h-3 !bg-purple-300 !border-2 !border-purple-700 hover:!bg-purple-200"
+          id={port.id}
+          style={{ top: getPortPosition(index, outputPorts.length) }}
+          className={
+            port.isManual
+              ? '!w-3 !h-3 !bg-teal-400 !border-2 !border-teal-600 hover:!bg-teal-300'
+              : '!w-3 !h-3 !bg-blue-400 !border-2 !border-blue-600 hover:!bg-blue-300'
+          }
+          title={port.isManual ? `Manual: ${port.label}` : undefined}
         />
-      )}
+      ))}
 
       {/* Content container */}
       <div className="flex flex-col gap-2">
