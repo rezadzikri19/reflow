@@ -88,6 +88,11 @@ function FlowCanvasInner({
   // This allows them to be freely moved and maintain their positions
   const boundaryPortPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
+  // Track selection state for virtual boundary edges (since they're regenerated each render)
+  const virtualEdgeSelectionRef = useRef<Set<string>>(new Set());
+  // Counter to force re-renders when virtual edge selection changes
+  const [virtualEdgeVersion, setVirtualEdgeVersion] = useState(0);
+
   // Store selectors
   const nodes = useFlowchartStore((state) => state.nodes);
   const edges = useFlowchartStore((state) => state.edges);
@@ -108,14 +113,16 @@ function FlowCanvasInner({
   const groupNodesIntoSubprocess = useFlowchartStore((state) => state.groupNodesIntoSubprocess);
   const defaultEdgeType = useFlowchartStore((state) => state.defaultEdgeType);
   const addBoundaryPortEdge = useFlowchartStore((state) => state.addBoundaryPortEdge);
+  const removeBoundaryPortConnection = useFlowchartStore((state) => state.removeBoundaryPortConnection);
 
   // Context menu state
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState<ContextMenuPosition>({ x: 0, y: 0 });
 
-  // Clear boundary port positions when switching sheets
+  // Clear boundary port positions and virtual edge selection when switching sheets
   useEffect(() => {
     boundaryPortPositionsRef.current.clear();
+    virtualEdgeSelectionRef.current.clear();
   }, [activeSheetId]);
 
   // Use custom node types if provided, otherwise use defaults
@@ -166,44 +173,84 @@ function FlowCanvasInner({
 
   /**
    * Handle edge changes
-   * Also handles deletion of virtual boundary port edges by deleting the original edge
+   * Also handles deletion of virtual boundary port edges by removing specific internal connections
    */
   const onEdgesChange: OnEdgesChange<FlowchartEdge> = useCallback(
     (changes) => {
-      // Handle virtual edge deletion (boundary port edges)
+      let hasVirtualEdgeChanges = false;
+
+      // Process all changes
       changes.forEach((change) => {
-        if (change.type === 'remove') {
-          // Check if this is a virtual boundary edge
-          if (change.id.startsWith('boundary-edge-input-')) {
-            // Extract original edge ID and delete it
-            const originalEdgeId = change.id.replace('boundary-edge-input-', '');
-            deleteEdge(originalEdgeId);
-            return;
+        if (!('id' in change)) return;
+
+        const isVirtualEdge = change.id.startsWith('boundary-edge-input-') ||
+                              change.id.startsWith('boundary-edge-output-');
+
+        if (change.type === 'remove' && isVirtualEdge) {
+          // Handle virtual edge deletion
+          const inputMatch = change.id.match(/^boundary-edge-input-(.+?)(?:-(\d+))?$/);
+          const outputMatch = change.id.match(/^boundary-edge-output-(.+?)(?:-(\d+))?$/);
+
+          if (inputMatch) {
+            const originalEdgeId = inputMatch[1];
+            const connectionIndex = inputMatch[2] ? parseInt(inputMatch[2], 10) : 0;
+            const originalEdge = edges.find(e => e.id === originalEdgeId);
+            if (originalEdge && originalEdge.originalTargets) {
+              const connection = originalEdge.originalTargets[connectionIndex];
+              if (connection) {
+                removeBoundaryPortConnection(originalEdgeId, 'input', connection.nodeId, connection.handleId);
+              }
+            }
+            // Remove from selection tracking
+            virtualEdgeSelectionRef.current.delete(change.id);
+            hasVirtualEdgeChanges = true;
+          } else if (outputMatch) {
+            const originalEdgeId = outputMatch[1];
+            const connectionIndex = outputMatch[2] ? parseInt(outputMatch[2], 10) : 0;
+            const originalEdge = edges.find(e => e.id === originalEdgeId);
+            if (originalEdge && originalEdge.originalSources) {
+              const connection = originalEdge.originalSources[connectionIndex];
+              if (connection) {
+                removeBoundaryPortConnection(originalEdgeId, 'output', connection.nodeId, connection.handleId);
+              }
+            }
+            // Remove from selection tracking
+            virtualEdgeSelectionRef.current.delete(change.id);
+            hasVirtualEdgeChanges = true;
           }
-          if (change.id.startsWith('boundary-edge-output-')) {
-            // Extract original edge ID and delete it
-            const originalEdgeId = change.id.replace('boundary-edge-output-', '');
-            deleteEdge(originalEdgeId);
-            return;
-          }
+        } else if (change.type === 'remove' && !isVirtualEdge) {
           // Regular edge deletion
           deleteEdge(change.id);
+        } else if (change.type === 'select' && isVirtualEdge) {
+          // Track virtual edge selection state
+          if (change.selected) {
+            virtualEdgeSelectionRef.current.add(change.id);
+          } else {
+            virtualEdgeSelectionRef.current.delete(change.id);
+          }
+          hasVirtualEdgeChanges = true;
         }
       });
 
-      // Apply changes to edges (for non-virtual edges)
-      // Filter out virtual edge changes since we handle them manually
-      const nonVirtualChanges = changes.filter((change) =>
-        !change.id.startsWith('boundary-edge-input-') &&
-        !change.id.startsWith('boundary-edge-output-')
-      );
+      // For regular edges, apply changes (excluding virtual edge changes)
+      const regularEdgeChanges = changes.filter((change) => {
+        if (!('id' in change)) return true;
+        return !change.id.startsWith('boundary-edge-input-') &&
+               !change.id.startsWith('boundary-edge-output-');
+      });
 
-      if (nonVirtualChanges.length > 0) {
-        const updatedEdges = applyEdgeChanges(nonVirtualChanges, edges);
+      if (regularEdgeChanges.length > 0) {
+        const updatedEdges = applyEdgeChanges(regularEdgeChanges, edges);
         setEdges(updatedEdges);
       }
+
+      // Force re-render if virtual edge selection changed
+      // We do this by updating a state that visibleEdges depends on
+      if (hasVirtualEdgeChanges) {
+        setVirtualEdgeVersion(v => v + 1);
+      }
     },
-    [edges, deleteEdge, setEdges]
+    [edges, deleteEdge, setEdges, removeBoundaryPortConnection, setVirtualEdgeVersion]
   );
 
   /**
@@ -384,9 +431,52 @@ function FlowCanvasInner({
           setSelectedNode(null);
         }
 
-        // Delete all selected edges
+        // Delete all selected edges (handle both regular and boundary edges)
         if (selectedEdgeIds.length > 0) {
-          deleteEdges(selectedEdgeIds);
+          // Separate boundary edges from regular edges
+          const boundaryEdgeIds: string[] = [];
+          const regularEdgeIds: string[] = [];
+
+          selectedEdgeIds.forEach(edgeId => {
+            if (edgeId.startsWith('boundary-edge-input-') || edgeId.startsWith('boundary-edge-output-')) {
+              boundaryEdgeIds.push(edgeId);
+            } else {
+              regularEdgeIds.push(edgeId);
+            }
+          });
+
+          // Delete regular edges using the store action
+          if (regularEdgeIds.length > 0) {
+            deleteEdges(regularEdgeIds);
+          }
+
+          // Handle boundary edge deletion - remove specific connections
+          boundaryEdgeIds.forEach(edgeId => {
+            const inputMatch = edgeId.match(/^boundary-edge-input-(.+?)(?:-(\d+))?$/);
+            const outputMatch = edgeId.match(/^boundary-edge-output-(.+?)(?:-(\d+))?$/);
+
+            if (inputMatch) {
+              const originalEdgeId = inputMatch[1];
+              const connectionIndex = inputMatch[2] ? parseInt(inputMatch[2], 10) : 0;
+              const originalEdge = edges.find(e => e.id === originalEdgeId);
+              if (originalEdge && originalEdge.originalTargets) {
+                const connection = originalEdge.originalTargets[connectionIndex];
+                if (connection) {
+                  removeBoundaryPortConnection(originalEdgeId, 'input', connection.nodeId, connection.handleId);
+                }
+              }
+            } else if (outputMatch) {
+              const originalEdgeId = outputMatch[1];
+              const connectionIndex = outputMatch[2] ? parseInt(outputMatch[2], 10) : 0;
+              const originalEdge = edges.find(e => e.id === originalEdgeId);
+              if (originalEdge && originalEdge.originalSources) {
+                const connection = originalEdge.originalSources[connectionIndex];
+                if (connection) {
+                  removeBoundaryPortConnection(originalEdgeId, 'output', connection.nodeId, connection.handleId);
+                }
+              }
+            }
+          });
         }
       }
 
@@ -414,7 +504,7 @@ function FlowCanvasInner({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [readOnly, getNodes, getEdges, deleteNodes, deleteEdges, setSelectedNode, groupNodesIntoSubprocess]);
+  }, [readOnly, getNodes, getEdges, deleteNodes, deleteEdges, setSelectedNode, groupNodesIntoSubprocess, edges, removeBoundaryPortConnection]);
 
   // =============================================================================
   // Context Menu Handling
@@ -664,16 +754,25 @@ function FlowCanvasInner({
 
         // Create an edge to each internal connection
         connections.forEach((conn, index) => {
+          const edgeId = index === 0
+            ? `boundary-edge-input-${portData.edgeId}`
+            : `boundary-edge-input-${portData.edgeId}-${index}`;
+
           result.push({
-            id: index === 0
-              ? `boundary-edge-input-${portData.edgeId}`
-              : `boundary-edge-input-${portData.edgeId}-${index}`,
+            id: edgeId,
             source: port.id,
             target: conn.nodeId,
             sourceHandle: undefined,
             targetHandle: conn.handleId,
-            // Don't specify type - let it inherit from defaultEdgeOptions
+            type: defaultEdgeType, // Explicitly set edge type
             style: { stroke: '#22C55E', strokeWidth: 2, strokeDasharray: '6,3' },
+            markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+            interactionWidth: 20, // Make edge easier to select (20px invisible hitbox)
+            // Make virtual edges selectable and deletable
+            selectable: !readOnly,
+            deletable: !readOnly,
+            // Apply selection state from our tracking ref
+            selected: virtualEdgeSelectionRef.current.has(edgeId),
           } as FlowchartEdge);
         });
       });
@@ -687,23 +786,32 @@ function FlowCanvasInner({
 
         // Create an edge from each internal connection
         connections.forEach((conn, index) => {
+          const edgeId = index === 0
+            ? `boundary-edge-output-${portData.edgeId}`
+            : `boundary-edge-output-${portData.edgeId}-${index}`;
+
           result.push({
-            id: index === 0
-              ? `boundary-edge-output-${portData.edgeId}`
-              : `boundary-edge-output-${portData.edgeId}-${index}`,
+            id: edgeId,
             source: conn.nodeId,
             target: port.id,
             sourceHandle: conn.handleId,
             targetHandle: undefined,
-            // Don't specify type - let it inherit from defaultEdgeOptions
+            type: defaultEdgeType, // Explicitly set edge type
             style: { stroke: '#3B82F6', strokeWidth: 2, strokeDasharray: '6,3' },
+            markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+            interactionWidth: 20, // Make edge easier to select (20px invisible hitbox)
+            // Make virtual edges selectable and deletable
+            selectable: !readOnly,
+            deletable: !readOnly,
+            // Apply selection state from our tracking ref
+            selected: virtualEdgeSelectionRef.current.has(edgeId),
           } as FlowchartEdge);
         });
       });
     }
 
     return result;
-  }, [edges, visibleNodes, activeSheetId, boundaryPortNodes]);
+  }, [edges, visibleNodes, activeSheetId, boundaryPortNodes, defaultEdgeType, readOnly, virtualEdgeVersion]);
 
   // =============================================================================
   // Edge Options

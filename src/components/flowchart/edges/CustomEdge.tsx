@@ -25,6 +25,7 @@ function CustomEdge({
   markerEnd,
   selected,
   type = 'smoothstep',
+  interactionWidth,
 }: EdgeProps) {
   // Get the appropriate path based on edge type
   let edgePath: string;
@@ -72,6 +73,7 @@ function CustomEdge({
         id={id}
         path={edgePath}
         markerEnd={markerEnd}
+        interactionWidth={interactionWidth}
         style={{
           ...style,
           strokeWidth: selected ? 3 : 2,

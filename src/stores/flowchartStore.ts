@@ -81,6 +81,13 @@ interface FlowchartActions {
     newInternalNodeId: string,
     newHandleId?: string | null
   ) => void;
+  // Remove a specific boundary port connection (removes one internal connection from the array)
+  removeBoundaryPortConnection: (
+    originalEdgeId: string,
+    direction: 'input' | 'output',
+    internalNodeId: string,
+    handleId?: string | null
+  ) => void;
 }
 
 type FlowchartStore = FlowchartState & FlowchartActions;
@@ -899,6 +906,68 @@ export const useFlowchartStore = create<FlowchartStore>()(
             }
           }
           state.isDirty = true;
+        });
+      },
+
+      /**
+       * Remove a specific boundary port connection
+       * Removes one internal connection from the originalSources or originalTargets array
+       * If the array becomes empty, deletes the entire edge
+       */
+      removeBoundaryPortConnection: (
+        originalEdgeId: string,
+        direction: 'input' | 'output',
+        internalNodeId: string,
+        handleId?: string | null
+      ) => {
+        set((state) => {
+          const edgeIndex = state.edges.findIndex((e) => e.id === originalEdgeId);
+          if (edgeIndex === -1) return;
+
+          const edge = state.edges[edgeIndex];
+          const normalizedHandle = handleId || null;
+
+          if (direction === 'input' && edge.originalTargets) {
+            // Remove the specific internal target from the array
+            const originalLength = edge.originalTargets.length;
+            edge.originalTargets = edge.originalTargets.filter(
+              t => !(t.nodeId === internalNodeId && (t.handleId || null) === normalizedHandle)
+            );
+
+            // If no connections remain, delete the entire edge
+            if (edge.originalTargets.length === 0) {
+              state.edges.splice(edgeIndex, 1);
+            } else {
+              // Update the primary connection (first in array) for backward compatibility
+              edge.originalTarget = edge.originalTargets[0].nodeId;
+              edge.originalTargetHandle = edge.originalTargets[0].handleId;
+            }
+
+            // Only mark dirty if something actually changed
+            if (edge.originalTargets.length !== originalLength) {
+              state.isDirty = true;
+            }
+          } else if (direction === 'output' && edge.originalSources) {
+            // Remove the specific internal source from the array
+            const originalLength = edge.originalSources.length;
+            edge.originalSources = edge.originalSources.filter(
+              s => !(s.nodeId === internalNodeId && (s.handleId || null) === normalizedHandle)
+            );
+
+            // If no connections remain, delete the entire edge
+            if (edge.originalSources.length === 0) {
+              state.edges.splice(edgeIndex, 1);
+            } else {
+              // Update the primary connection (first in array) for backward compatibility
+              edge.originalSource = edge.originalSources[0].nodeId;
+              edge.originalSourceHandle = edge.originalSources[0].handleId;
+            }
+
+            // Only mark dirty if something actually changed
+            if (edge.originalSources.length !== originalLength) {
+              state.isDirty = true;
+            }
+          }
         });
       },
 
