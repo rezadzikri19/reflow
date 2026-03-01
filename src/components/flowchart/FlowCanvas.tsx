@@ -84,6 +84,10 @@ function FlowCanvasInner({
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, getNodes, getEdges } = useReactFlow();
 
+  // Store custom positions for boundary port nodes (input/output nodes in subprocess sheets)
+  // This allows them to be freely moved and maintain their positions
+  const boundaryPortPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+
   // Store selectors
   const nodes = useFlowchartStore((state) => state.nodes);
   const edges = useFlowchartStore((state) => state.edges);
@@ -108,6 +112,11 @@ function FlowCanvasInner({
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState<ContextMenuPosition>({ x: 0, y: 0 });
 
+  // Clear boundary port positions when switching sheets
+  useEffect(() => {
+    boundaryPortPositionsRef.current.clear();
+  }, [activeSheetId]);
+
   // Use custom node types if provided, otherwise use defaults
   const registeredNodeTypes = customNodeTypes || nodeTypes;
 
@@ -120,7 +129,19 @@ function FlowCanvasInner({
    */
   const onNodesChange: OnNodesChange<FlowchartNode> = useCallback(
     (changes) => {
-      // Apply changes to get updated nodes
+      // Handle boundary port node position changes separately (they are virtual nodes)
+      changes.forEach((change) => {
+        if (change.type === 'position' && change.position) {
+          const isBoundaryPort = change.id.startsWith('boundary-input-') || change.id.startsWith('boundary-output-');
+          if (isBoundaryPort) {
+            // Store the position in our ref for boundary port nodes
+            boundaryPortPositionsRef.current.set(change.id, change.position);
+            markDirty();
+          }
+        }
+      });
+
+      // Apply changes to get updated nodes (for regular nodes only)
       const updatedNodes = applyNodeChanges(changes, nodes);
       setNodes(updatedNodes);
 
@@ -480,7 +501,8 @@ function FlowCanvasInner({
     // Get boundary port nodes
     const { inputs, outputs } = boundaryPortNodes;
 
-    // Calculate positions for boundary port nodes based on internal nodes
+    // Calculate default positions for boundary port nodes based on internal nodes
+    // But use stored custom positions if available (for free movement)
     if (internalNodes.length > 0) {
       const minX = Math.min(...internalNodes.map(n => n.position.x));
       const maxX = Math.max(...internalNodes.map(n => n.position.x + (n.measured?.width || 180)));
@@ -488,15 +510,27 @@ function FlowCanvasInner({
       const avgY = yPositions.reduce((a, b) => a + b, 0) / yPositions.length;
 
       // Position input ports on the left side, distributed vertically
+      // Use stored position if available, otherwise use calculated default
       const inputStartY = avgY - ((inputs.length - 1) * 50) / 2;
       inputs.forEach((port, index) => {
-        port.position = { x: minX - 180, y: inputStartY + index * 50 };
+        const storedPosition = boundaryPortPositionsRef.current.get(port.id);
+        if (storedPosition) {
+          port.position = storedPosition;
+        } else {
+          port.position = { x: minX - 180, y: inputStartY + index * 50 };
+        }
       });
 
       // Position output ports on the right side, distributed vertically
+      // Use stored position if available, otherwise use calculated default
       const outputStartY = avgY - ((outputs.length - 1) * 50) / 2;
       outputs.forEach((port, index) => {
-        port.position = { x: maxX + 60, y: outputStartY + index * 50 };
+        const storedPosition = boundaryPortPositionsRef.current.get(port.id);
+        if (storedPosition) {
+          port.position = storedPosition;
+        } else {
+          port.position = { x: maxX + 60, y: outputStartY + index * 50 };
+        }
       });
     }
 

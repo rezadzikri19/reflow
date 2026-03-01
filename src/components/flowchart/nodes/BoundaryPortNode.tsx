@@ -27,7 +27,7 @@ function BoundaryPortNode({ data, selected }: NodeProps) {
         transition-all duration-200
         min-w-[100px] max-w-[140px]
         ${selected ? 'ring-2 ring-offset-1 ring-purple-400' : ''}
-        ${isInput ? 'cursor-e-resize' : 'cursor-w-resize'}
+        cursor-move
       `}
     >
       {/* Input: dot on left, text on right */}
