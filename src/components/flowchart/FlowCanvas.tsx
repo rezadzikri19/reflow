@@ -928,8 +928,8 @@ function FlowCanvasInner({
           { nodeId: portData.internalNodeId, handleId: portData.internalHandleId }
         ];
 
-        // Determine edge color based on whether it's a manual port
-        const baseColor = portData.isManual ? '#14B8A6' : '#22C55E'; // teal for manual, green for edge-based
+        // Green for all input ports
+        const baseColor = '#22C55E';
 
         // Create an edge to each internal connection
         connections.forEach((conn, index) => {
@@ -986,8 +986,8 @@ function FlowCanvasInner({
           { nodeId: portData.internalNodeId, handleId: portData.internalHandleId }
         ];
 
-        // Determine edge color based on whether it's a manual port
-        const baseColor = portData.isManual ? '#14B8A6' : '#3B82F6'; // teal for manual, blue for edge-based
+        // Blue for all output ports
+        const baseColor = '#3B82F6';
 
         // Create an edge from each internal connection
         connections.forEach((conn, index) => {

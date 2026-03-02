@@ -45,6 +45,7 @@ const NODE_TYPE_LABELS: Record<ProcessNodeType, string> = {
 export const NodePropertiesPanel: React.FC = () => {
   const selectedNode = useSelectedNode();
   const nodes = useNodes();
+  const edges = useFlowchartStore((state) => state.edges);
   const updateNode = useFlowchartStore((state) => state.updateNode);
   const deleteNode = useFlowchartStore((state) => state.deleteNode);
   const addNode = useFlowchartStore((state) => state.addNode);
@@ -63,6 +64,79 @@ export const NodePropertiesPanel: React.FC = () => {
     });
     return Array.from(tagSet).sort();
   }, [nodes]);
+
+  // Compute all ports (edge-based + manual) for subprocess nodes
+  const { allInputPorts, allOutputPorts } = useMemo(() => {
+    if (!selectedNode || (selectedNode.data as ProcessNodeData).nodeType !== 'subprocess') {
+      return { allInputPorts: [], allOutputPorts: [] };
+    }
+
+    const nodeId = selectedNode.id;
+    const nodeData = selectedNode.data as ProcessNodeData;
+    const inputs: { id: string; label: string; isManual: boolean }[] = [];
+    const outputs: { id: string; label: string; isManual: boolean }[] = [];
+
+    // Add edge-based ports
+    edges.forEach((edge) => {
+      // Incoming edge (external -> subprocess) - input port
+      if (edge.target === nodeId && (edge.originalTarget || edge.originalTargets)) {
+        const portId = edge.targetHandle || `input-${edge.source}`;
+        const internalTargets = edge.originalTargets || [
+          { nodeId: edge.originalTarget!, handleId: edge.originalTargetHandle }
+        ];
+        const internalNode = nodes.find(n => n.id === internalTargets[0].nodeId);
+        const label = internalNode ? (internalNode.data as ProcessNodeData).label || internalTargets[0].nodeId : internalTargets[0].nodeId;
+
+        inputs.push({
+          id: portId,
+          label: `From: ${label}`,
+          isManual: false,
+        });
+      }
+
+      // Outgoing edge (subprocess -> external) - output port
+      if (edge.source === nodeId && (edge.originalSource || edge.originalSources)) {
+        const portId = edge.sourceHandle || `output-${edge.target}`;
+        const internalSources = edge.originalSources || [
+          { nodeId: edge.originalSource!, handleId: edge.originalSourceHandle }
+        ];
+        const internalNode = nodes.find(n => n.id === internalSources[0].nodeId);
+        const label = internalNode ? (internalNode.data as ProcessNodeData).label || internalSources[0].nodeId : internalSources[0].nodeId;
+
+        outputs.push({
+          id: portId,
+          label: `To: ${label}`,
+          isManual: false,
+        });
+      }
+    });
+
+    // Add manual ports
+    const existingInputIds = new Set(inputs.map(p => p.id));
+    const existingOutputIds = new Set(outputs.map(p => p.id));
+
+    (nodeData.manualInputPorts || []).forEach((port: ManualPort) => {
+      if (!existingInputIds.has(port.id)) {
+        inputs.push({
+          id: port.id,
+          label: port.label || 'Input',
+          isManual: true,
+        });
+      }
+    });
+
+    (nodeData.manualOutputPorts || []).forEach((port: ManualPort) => {
+      if (!existingOutputIds.has(port.id)) {
+        outputs.push({
+          id: port.id,
+          label: port.label || 'Output',
+          isManual: true,
+        });
+      }
+    });
+
+    return { allInputPorts: inputs, allOutputPorts: outputs };
+  }, [selectedNode, edges, nodes]);
 
   const handleLabelChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -523,14 +597,14 @@ export const NodePropertiesPanel: React.FC = () => {
           </div>
         </section>
 
-        {/* Manual Ports Section (for Subprocess nodes only) */}
+        {/* Ports Section (for Subprocess nodes only) */}
         {nodeType === 'subprocess' && (
           <section>
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Manual Ports
+              Ports
             </h3>
             <p className="text-xs text-gray-400 mb-3">
-              Add ports that exist independently of connections. Useful for defining interfaces before connecting.
+              Add ports to define connection points for the subprocess.
             </p>
 
             {/* Input Ports */}
@@ -550,29 +624,35 @@ export const NodePropertiesPanel: React.FC = () => {
                 </Button>
               </div>
               <div className="space-y-2">
-                {(nodeData.manualInputPorts || []).length === 0 ? (
-                  <p className="text-xs text-gray-400 italic">No manual input ports</p>
+                {allInputPorts.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">No input ports</p>
                 ) : (
-                  (nodeData.manualInputPorts || []).map((port: ManualPort) => (
+                  allInputPorts.map((port) => (
                     <div
                       key={port.id}
                       className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-md px-2 py-1.5"
                     >
                       <div className="w-2 h-2 bg-green-500 rounded-full shrink-0" />
-                      <input
-                        type="text"
-                        value={port.label}
-                        onChange={(e) => updateManualPort(selectedNode.id, port.id, { label: e.target.value })}
-                        className="flex-1 text-sm bg-transparent border-none outline-none text-gray-700"
-                        placeholder="Port name"
-                      />
-                      <button
-                        onClick={() => deleteManualPort(selectedNode.id, port.id)}
-                        className="text-gray-400 hover:text-red-500 transition-colors"
-                        title="Delete port"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {port.isManual ? (
+                        <input
+                          type="text"
+                          value={port.label}
+                          onChange={(e) => updateManualPort(selectedNode.id, port.id, { label: e.target.value })}
+                          className="flex-1 text-sm bg-transparent border-none outline-none text-gray-700"
+                          placeholder="Port name"
+                        />
+                      ) : (
+                        <span className="flex-1 text-sm text-gray-600">{port.label}</span>
+                      )}
+                      {port.isManual && (
+                        <button
+                          onClick={() => deleteManualPort(selectedNode.id, port.id)}
+                          className="text-gray-400 hover:text-red-500 transition-colors"
+                          title="Delete port"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   ))
                 )}
@@ -596,29 +676,35 @@ export const NodePropertiesPanel: React.FC = () => {
                 </Button>
               </div>
               <div className="space-y-2">
-                {(nodeData.manualOutputPorts || []).length === 0 ? (
-                  <p className="text-xs text-gray-400 italic">No manual output ports</p>
+                {allOutputPorts.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">No output ports</p>
                 ) : (
-                  (nodeData.manualOutputPorts || []).map((port: ManualPort) => (
+                  allOutputPorts.map((port) => (
                     <div
                       key={port.id}
                       className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-md px-2 py-1.5"
                     >
                       <div className="w-2 h-2 bg-blue-500 rounded-full shrink-0" />
-                      <input
-                        type="text"
-                        value={port.label}
-                        onChange={(e) => updateManualPort(selectedNode.id, port.id, { label: e.target.value })}
-                        className="flex-1 text-sm bg-transparent border-none outline-none text-gray-700"
-                        placeholder="Port name"
-                      />
-                      <button
-                        onClick={() => deleteManualPort(selectedNode.id, port.id)}
-                        className="text-gray-400 hover:text-red-500 transition-colors"
-                        title="Delete port"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {port.isManual ? (
+                        <input
+                          type="text"
+                          value={port.label}
+                          onChange={(e) => updateManualPort(selectedNode.id, port.id, { label: e.target.value })}
+                          className="flex-1 text-sm bg-transparent border-none outline-none text-gray-700"
+                          placeholder="Port name"
+                        />
+                      ) : (
+                        <span className="flex-1 text-sm text-gray-600">{port.label}</span>
+                      )}
+                      {port.isManual && (
+                        <button
+                          onClick={() => deleteManualPort(selectedNode.id, port.id)}
+                          className="text-gray-400 hover:text-red-500 transition-colors"
+                          title="Delete port"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   ))
                 )}

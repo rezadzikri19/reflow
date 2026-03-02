@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { CircleDot } from 'lucide-react';
 import type { BoundaryPortNodeData } from '../../../types/index';
 
 // =============================================================================
@@ -17,18 +16,8 @@ function BoundaryPortNode({ data, selected }: NodeProps) {
   const { label, direction, isManual } = data as BoundaryPortNodeData;
   const isInput = direction === 'input';
 
-  // Determine colors based on direction and whether it's manual
+  // Determine colors based on direction (same for manual and auto-created ports)
   const getColors = () => {
-    if (isManual) {
-      // Teal for manual ports
-      return {
-        bg: 'bg-teal-100',
-        border: 'border-teal-400',
-        text: 'text-teal-700',
-        dot: 'bg-teal-500',
-        handle: '!bg-teal-500 !border-teal-600 hover:!bg-teal-400',
-      };
-    }
     if (isInput) {
       // Green for input ports
       return {
@@ -64,17 +53,13 @@ function BoundaryPortNode({ data, selected }: NodeProps) {
         cursor-move
         ${isManual ? 'border-dashed' : ''}
       `}
-      title={isManual ? `Manual port: ${label}` : undefined}
+      title={label}
     >
       {/* Input: dot on left, text on right */}
       {/* Output: text on left, dot on right */}
       {isInput ? (
         <>
-          {isManual ? (
-            <CircleDot className="w-3 h-3 text-teal-500 shrink-0" />
-          ) : (
-            <div className={`w-2.5 h-2.5 ${colors.dot} rounded-full shrink-0`} />
-          )}
+          <div className={`w-2.5 h-2.5 ${colors.dot} rounded-full shrink-0`} />
           <span className="font-semibold text-xs truncate flex-1" title={label}>
             {label}
           </span>
@@ -94,11 +79,7 @@ function BoundaryPortNode({ data, selected }: NodeProps) {
           <span className="font-semibold text-xs truncate flex-1 text-right" title={label}>
             {label}
           </span>
-          {isManual ? (
-            <CircleDot className="w-3 h-3 text-teal-500 shrink-0" />
-          ) : (
-            <div className={`w-2.5 h-2.5 ${colors.dot} rounded-full shrink-0`} />
-          )}
+          <div className={`w-2.5 h-2.5 ${colors.dot} rounded-full shrink-0`} />
         </>
       )}
     </div>

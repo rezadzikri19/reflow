@@ -40,6 +40,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
   const { label = 'Subprocess', description, tags, childNodeIds = [], manualInputPorts = [], manualOutputPorts = [] } = (data as ProcessNodeData) || {};
   const openSubprocessSheet = useFlowchartStore((state) => state.openSubprocessSheet);
   const edges = useFlowchartStore((state) => state.edges);
+  const nodeVersion = useFlowchartStore((state) => state.nodeVersion);
   const flowOrder = useFlowOrder(id);
 
   // Get child count from childNodeIds array directly
@@ -126,7 +127,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
     });
 
     return { inputPorts: inputs, outputPorts: outputs };
-  }, [edges, id, manualInputPorts, manualOutputPorts]);
+  }, [edges, id, manualInputPorts, manualOutputPorts, nodeVersion]);
 
   // Handle opening the subprocess sheet
   const handleOpenSheet = useCallback((e: React.MouseEvent) => {
@@ -161,12 +162,8 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
           position={Position.Left}
           id={port.id}
           style={{ top: getPortPosition(index, inputPorts.length) }}
-          className={
-            port.isManual
-              ? '!w-3 !h-3 !bg-teal-400 !border-2 !border-teal-600 hover:!bg-teal-300'
-              : '!w-3 !h-3 !bg-green-400 !border-2 !border-green-600 hover:!bg-green-300'
-          }
-          title={port.isManual ? `Manual: ${port.label}` : undefined}
+          className="!w-3 !h-3 !bg-green-400 !border-2 !border-green-600 hover:!bg-green-300"
+          title={port.label}
         />
       ))}
 
@@ -179,12 +176,8 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
           position={Position.Right}
           id={port.id}
           style={{ top: getPortPosition(index, outputPorts.length) }}
-          className={
-            port.isManual
-              ? '!w-3 !h-3 !bg-teal-400 !border-2 !border-teal-600 hover:!bg-teal-300'
-              : '!w-3 !h-3 !bg-blue-400 !border-2 !border-blue-600 hover:!bg-blue-300'
-          }
-          title={port.isManual ? `Manual: ${port.label}` : undefined}
+          className="!w-3 !h-3 !bg-blue-400 !border-2 !border-blue-600 hover:!bg-blue-300"
+          title={port.label}
         />
       ))}
 
