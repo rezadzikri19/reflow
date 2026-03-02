@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import type { ProcessNodeData, UnitType } from '../../../types/index';
 import NodeTags from './NodeTags';
+import FlowOrderBadge from './FlowOrderBadge';
+import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 
 /**
  * Maps unit types to their corresponding icons
@@ -43,7 +45,7 @@ function formatTime(minutes: number): string {
  * ProcessNode - Blue rectangular node showing process details
  * Displays label, unit type icon, unit time, quantity, and calculated time
  */
-function ProcessNode({ data, selected }: NodeProps) {
+function ProcessNode({ id, data, selected }: NodeProps) {
   const {
     label = 'Process',
     unitType = 'documents',
@@ -55,6 +57,7 @@ function ProcessNode({ data, selected }: NodeProps) {
 
   const UnitIcon = unitTypeIcons[unitType];
   const calculatedTime = unitTimeMinutes * defaultQuantity;
+  const flowOrder = useFlowOrder(id);
 
   return (
     <div
@@ -68,9 +71,12 @@ function ProcessNode({ data, selected }: NodeProps) {
         transition-all duration-200
         cursor-pointer
         p-3
+        relative
         ${selected ? 'ring-2 ring-blue-400 ring-offset-2' : ''}
       `}
     >
+      {/* Flow Order Badge */}
+      <FlowOrderBadge order={flowOrder} />
       {/* Target Handle - Left side for incoming connections */}
       <Handle
         type="target"

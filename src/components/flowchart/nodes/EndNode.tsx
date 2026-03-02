@@ -3,16 +3,22 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Square } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
+import FlowOrderBadge from './FlowOrderBadge';
+import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 
 /**
  * EndNode - Red circular end node with stop icon
  * This node represents the ending point of a process flowchart
  */
-function EndNode({ data, selected }: NodeProps) {
+function EndNode({ id, data, selected }: NodeProps) {
   const { label = 'End', tags } = (data as BaseNodeData) || {};
+  const flowOrder = useFlowOrder(id);
 
   return (
     <div className="relative">
+      {/* Flow Order Badge */}
+      <FlowOrderBadge order={flowOrder} />
+
       <div
         className={`
           flex items-center justify-center

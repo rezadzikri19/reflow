@@ -3,16 +3,22 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Play } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
+import FlowOrderBadge from './FlowOrderBadge';
+import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 
 /**
  * StartNode - Green circular start node with play icon
  * This node represents the starting point of a process flowchart
  */
-function StartNode({ data, selected }: NodeProps) {
+function StartNode({ id, data, selected }: NodeProps) {
   const { label = 'Start', tags } = (data as BaseNodeData) || {};
+  const flowOrder = useFlowOrder(id);
 
   return (
     <div className="relative">
+      {/* Flow Order Badge */}
+      <FlowOrderBadge order={flowOrder} />
+
       <div
         className={`
           flex items-center justify-center

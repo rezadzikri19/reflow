@@ -3,6 +3,8 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Timer, Clock } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
+import FlowOrderBadge from './FlowOrderBadge';
+import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 
 interface DelayNodeData extends BaseNodeData {
   /** Delay duration in minutes */
@@ -32,17 +34,19 @@ function formatDelay(minutes: number): string {
  * DelayNode - Gray node for wait times
  * Represents a delay or waiting period in the process
  */
-function DelayNode({ data, selected }: NodeProps) {
+function DelayNode({ id, data, selected }: NodeProps) {
   const {
     label = 'Delay',
     unitTimeMinutes = 0,
     delayReason,
     tags,
   } = (data as DelayNodeData) || {};
+  const flowOrder = useFlowOrder(id);
 
   return (
     <div
       className={`
+        relative
         flex flex-col gap-2
         min-w-[140px] max-w-[200px]
         bg-gray-400 hover:bg-gray-500
@@ -55,6 +59,8 @@ function DelayNode({ data, selected }: NodeProps) {
         ${selected ? 'ring-2 ring-gray-400 ring-offset-2' : ''}
       `}
     >
+      {/* Flow Order Badge */}
+      <FlowOrderBadge order={flowOrder} />
       {/* Target Handle - Left side for incoming connections */}
       <Handle
         type="target"

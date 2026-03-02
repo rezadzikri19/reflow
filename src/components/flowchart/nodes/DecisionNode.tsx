@@ -3,13 +3,16 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { HelpCircle } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
+import FlowOrderBadge from './FlowOrderBadge';
+import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 
 /**
  * DecisionNode - Amber diamond-shaped node with Yes/No branch labels
  * Used for conditional branching in the process flow
  */
-function DecisionNode({ data, selected }: NodeProps) {
+function DecisionNode({ id, data, selected }: NodeProps) {
   const { label = 'Decision', tags } = (data as BaseNodeData) || {};
+  const flowOrder = useFlowOrder(id);
 
   // Diamond dimensions
   const diamondSize = 60;
@@ -23,6 +26,8 @@ function DecisionNode({ data, selected }: NodeProps) {
 
   return (
     <div className="relative" style={{ width: containerSize, height: containerSize }}>
+      {/* Flow Order Badge */}
+      <FlowOrderBadge order={flowOrder} />
       {/* Target Handle - Left corner of diamond */}
       <Handle
         type="target"

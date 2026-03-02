@@ -439,3 +439,37 @@ export function validateGraphIntegrity(
     missingNodes,
   };
 }
+
+/**
+ * Calculates the flow order for each node based on topological sort.
+ * Returns a map of node IDs to their 1-based order in the flow.
+ *
+ * @param nodes - Array of flowchart nodes
+ * @param edges - Array of flowchart edges
+ * @returns Map of node ID to flow order (1-based), empty map if cycle detected
+ */
+export function calculateFlowOrder(
+  nodes: FlowchartNode[],
+  edges: FlowchartEdge[]
+): Map<string, number> {
+  const flowOrderMap = new Map<string, number>();
+
+  if (nodes.length === 0) {
+    return flowOrderMap;
+  }
+
+  const { sorted, hasCycle } = topologicalSort(nodes, edges);
+
+  // If there's a cycle, we can't determine a valid flow order
+  if (hasCycle) {
+    // Still assign orders based on the partial sort result
+    // This ensures nodes still show numbers even with cycles
+  }
+
+  // Assign 1-based order to each node
+  sorted.forEach((nodeId, index) => {
+    flowOrderMap.set(nodeId, index + 1);
+  });
+
+  return flowOrderMap;
+}

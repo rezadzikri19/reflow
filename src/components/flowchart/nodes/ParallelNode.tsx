@@ -3,6 +3,8 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { GitBranch, ArrowRight } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
+import FlowOrderBadge from './FlowOrderBadge';
+import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 
 interface ParallelNodeData extends BaseNodeData {
   /** Whether this is a fork (split) or join (merge) point */
@@ -15,19 +17,21 @@ interface ParallelNodeData extends BaseNodeData {
  * ParallelNode - Cyan node for fork/join operations
  * Used to represent parallel processing paths in the flowchart
  */
-function ParallelNode({ data, selected }: NodeProps) {
+function ParallelNode({ id, data, selected }: NodeProps) {
   const {
     label = 'Parallel',
     parallelType = 'fork',
     parallelCapacity = 2,
     tags,
   } = (data as ParallelNodeData) || {};
+  const flowOrder = useFlowOrder(id);
 
   const isFork = parallelType === 'fork';
 
   return (
     <div
       className={`
+        relative
         flex flex-col gap-2
         min-w-[140px] max-w-[200px]
         bg-cyan-500 hover:bg-cyan-600
@@ -40,6 +44,8 @@ function ParallelNode({ data, selected }: NodeProps) {
         ${selected ? 'ring-2 ring-cyan-400 ring-offset-2' : ''}
       `}
     >
+      {/* Flow Order Badge */}
+      <FlowOrderBadge order={flowOrder} />
       {/* Fork: Target Handle on Left */}
       {isFork && (
         <Handle

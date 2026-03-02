@@ -3,6 +3,8 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Layers, ExternalLink, ArrowLeft, ArrowRight } from 'lucide-react';
 import type { ProcessNodeData, ManualPort } from '../../../types/index';
 import NodeTags from './NodeTags';
+import FlowOrderBadge from './FlowOrderBadge';
+import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import { useFlowchartStore } from '../../../stores/flowchartStore';
 
 // =============================================================================
@@ -38,6 +40,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
   const { label = 'Subprocess', description, tags, childNodeIds = [], manualInputPorts = [], manualOutputPorts = [] } = (data as ProcessNodeData) || {};
   const openSubprocessSheet = useFlowchartStore((state) => state.openSubprocessSheet);
   const edges = useFlowchartStore((state) => state.edges);
+  const flowOrder = useFlowOrder(id);
 
   // Get child count from childNodeIds array directly
   const childCount = childNodeIds.length;
@@ -146,6 +149,9 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
         ${selected ? 'ring-2 ring-purple-400 ring-offset-2' : ''}
       `}
     >
+      {/* Flow Order Badge */}
+      <FlowOrderBadge order={flowOrder} />
+
       {/* Dynamic Input Handles - Left side for incoming connections */}
       {/* Only render handles when there are actual ports (manual or edge-based) */}
       {inputPorts.map((port, index) => (

@@ -28,6 +28,7 @@ import type { BoundaryPortNodeData } from './nodes/BoundaryPortNode';
 import ContextMenu from './ContextMenu';
 import SheetBar, { type SheetInfo } from './SheetBar';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { FlowOrderProvider } from '../../contexts/FlowOrderContext';
 
 // =============================================================================
 // Local Types
@@ -1069,6 +1070,7 @@ function FlowCanvasInner({
         className={`flex-1 ${className}`}
         onContextMenu={handleContextMenu}
       >
+        <FlowOrderProvider nodes={visibleNodes} edges={visibleEdges}>
         <ReactFlow
           nodes={visibleNodes}
           edges={visibleEdges}
@@ -1196,6 +1198,7 @@ function FlowCanvasInner({
             </div>
           </Panel>
         </ReactFlow>
+        </FlowOrderProvider>
 
         {/* Context Menu for grouping/ungrouping */}
         <ContextMenu
