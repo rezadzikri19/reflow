@@ -14,6 +14,7 @@ export { default as SubprocessNode } from './SubprocessNode';
 export { default as ParallelNode } from './ParallelNode';
 export { default as DelayNode } from './DelayNode';
 export { default as BoundaryPortNode } from './BoundaryPortNode';
+export { default as JunctionNode } from './JunctionNode';
 
 // Type exports for external use
 export type { ProcessNodeData, BaseNodeData, BoundaryPortNodeData } from '../../../types/index';
@@ -37,6 +38,7 @@ import SubprocessNode from './SubprocessNode';
 import ParallelNode from './ParallelNode';
 import DelayNode from './DelayNode';
 import BoundaryPortNode from './BoundaryPortNode';
+import JunctionNode from './JunctionNode';
 
 export const nodeTypes = {
   start: StartNode,
@@ -47,6 +49,7 @@ export const nodeTypes = {
   parallel: ParallelNode,
   delay: DelayNode,
   boundaryPort: BoundaryPortNode,
+  junction: JunctionNode,
 } as const;
 
 /**

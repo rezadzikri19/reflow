@@ -36,6 +36,8 @@ const NODE_TYPE_LABELS: Record<ProcessNodeType, string> = {
   subprocess: 'Subprocess',
   parallel: 'Parallel',
   delay: 'Delay',
+  boundaryPort: 'Boundary Port',
+  junction: 'Junction',
 };
 
 // ============================================================================

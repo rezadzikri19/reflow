@@ -74,6 +74,21 @@ const NODE_TYPES: NodeTypeInfo[] = [
       </svg>
     ),
   },
+  {
+    type: 'junction',
+    name: 'Junction',
+    description: 'Connection hub where multiple paths merge into one',
+    category: 'flow-control',
+    color: 'text-violet-600',
+    bgColor: 'bg-violet-50',
+    borderColor: 'border-violet-300',
+    icon: (
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8" />
+        <text x="12" y="16" textAnchor="middle" fontSize="10" fill="white" fontWeight="bold">N</text>
+      </svg>
+    ),
+  },
   // Process Steps
   {
     type: 'process',
