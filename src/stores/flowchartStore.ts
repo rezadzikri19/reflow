@@ -893,15 +893,19 @@ export const useFlowchartStore = create<FlowchartStore>()(
         }
 
         const childIds = new Set(subprocessNode.data.childNodeIds || []);
+        const manualInputPorts = (subprocessNode.data.manualInputPorts || []) as ManualPort[];
+        const manualOutputPorts = (subprocessNode.data.manualOutputPorts || []) as ManualPort[];
 
         // Restore edges - expand merged edges back to individual connections
         const restoredEdges: FlowchartEdge[] = [];
+        const processedEdgeIds = new Set<string>();
 
         state.edges.forEach(edge => {
           // Internal edges (between children) - keep them, just remove subprocessId marker
           if (edge.subprocessId === subprocessId) {
             const { subprocessId: _, ...restEdge } = edge;
             restoredEdges.push(restEdge as FlowchartEdge);
+            processedEdgeIds.add(edge.id);
             return;
           }
 
@@ -918,6 +922,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 type: edge.type,
               } as FlowchartEdge);
             });
+            processedEdgeIds.add(edge.id);
             return;
           }
 
@@ -929,6 +934,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
               target: originalTarget,
               targetHandle: originalTargetHandle,
             } as FlowchartEdge);
+            processedEdgeIds.add(edge.id);
             return;
           }
 
@@ -945,6 +951,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 type: edge.type,
               } as FlowchartEdge);
             });
+            processedEdgeIds.add(edge.id);
             return;
           }
 
@@ -956,13 +963,79 @@ export const useFlowchartStore = create<FlowchartStore>()(
               source: originalSource,
               sourceHandle: originalSourceHandle,
             } as FlowchartEdge);
+            processedEdgeIds.add(edge.id);
             return;
           }
 
           // External edge - keep unchanged
           if (edge.source !== subprocessId && edge.target !== subprocessId) {
             restoredEdges.push(edge);
+            processedEdgeIds.add(edge.id);
           }
+        });
+
+        // Handle manual input ports - create edges from external sources to internal targets
+        manualInputPorts.forEach(port => {
+          if (!port.internalConnections || port.internalConnections.length === 0) {
+            return;
+          }
+
+          // Find external edges connected to this manual port
+          const externalEdges = state.edges.filter(
+            edge => edge.target === subprocessId && edge.targetHandle === port.id
+          );
+
+          externalEdges.forEach(externalEdge => {
+            // For each internal connection, create a new edge from the external source
+            port.internalConnections!.forEach((conn, index) => {
+              const newEdgeId = index === 0 && externalEdges.length === 1
+                ? externalEdge.id
+                : `edge-${externalEdge.source}-${conn.nodeId}-${Date.now()}-${index}`;
+              restoredEdges.push({
+                id: newEdgeId,
+                source: externalEdge.source,
+                target: conn.nodeId,
+                sourceHandle: externalEdge.sourceHandle,
+                targetHandle: conn.handleId,
+                type: externalEdge.type,
+                style: externalEdge.style,
+                animated: externalEdge.animated,
+              } as FlowchartEdge);
+            });
+            processedEdgeIds.add(externalEdge.id);
+          });
+        });
+
+        // Handle manual output ports - create edges from internal sources to external targets
+        manualOutputPorts.forEach(port => {
+          if (!port.internalConnections || port.internalConnections.length === 0) {
+            return;
+          }
+
+          // Find external edges connected from this manual port
+          const externalEdges = state.edges.filter(
+            edge => edge.source === subprocessId && edge.sourceHandle === port.id
+          );
+
+          externalEdges.forEach(externalEdge => {
+            // For each internal connection, create a new edge to the external target
+            port.internalConnections!.forEach((conn, index) => {
+              const newEdgeId = index === 0 && externalEdges.length === 1
+                ? externalEdge.id
+                : `edge-${conn.nodeId}-${externalEdge.target}-${Date.now()}-${index}`;
+              restoredEdges.push({
+                id: newEdgeId,
+                source: conn.nodeId,
+                target: externalEdge.target,
+                sourceHandle: conn.handleId,
+                targetHandle: externalEdge.targetHandle,
+                type: externalEdge.type,
+                style: externalEdge.style,
+                animated: externalEdge.animated,
+              } as FlowchartEdge);
+            });
+            processedEdgeIds.add(externalEdge.id);
+          });
         });
 
         set((state) => {
