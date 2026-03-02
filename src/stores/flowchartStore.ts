@@ -363,76 +363,107 @@ export const useFlowchartStore = create<FlowchartStore>()(
         const normalizedTargetHandle = targetHandle || null;
         const id = `edge-${source}-${normalizedSourceHandle || 'default'}-${target}-${normalizedTargetHandle || 'default'}`;
 
-        set((state) => {
-          // Check if edge already exists (check both sourceHandle and targetHandle)
-          const edgeExists = state.edges.some(
-            (e) => e.source === source && e.target === target &&
-                   (e.sourceHandle || null) === normalizedSourceHandle &&
-                   (e.targetHandle || null) === normalizedTargetHandle
-          );
+        // Check if connecting to a manual port that might not have a handle rendered yet
+        const isManualPortConnection =
+          (normalizedTargetHandle && normalizedTargetHandle.startsWith('manual-input-')) ||
+          (normalizedSourceHandle && normalizedSourceHandle.startsWith('manual-output-'));
 
-          if (!edgeExists) {
-            const newEdge: FlowchartEdge = {
-              id,
-              source,
-              target,
-              sourceHandle: normalizedSourceHandle,
-              targetHandle: normalizedTargetHandle,
-              type: state.defaultEdgeType,
-            };
+        // For manual port connections, we need to ensure the handle exists before adding the edge
+        // Increment nodeVersion first in a separate update to trigger re-render
+        if (isManualPortConnection) {
+          set((state) => {
+            state.nodeVersion += 1;
+          });
 
-            // For manual port connections, increment nodeVersion first to ensure handles exist
-            if ((normalizedTargetHandle && normalizedTargetHandle.startsWith('manual-input-')) ||
-                (normalizedSourceHandle && normalizedSourceHandle.startsWith('manual-output-'))) {
-              state.nodeVersion += 1;
-            }
+          // Use queueMicrotask to allow React to re-render before adding the edge
+          queueMicrotask(() => {
+            set((state) => {
+              // Check if edge already exists
+              const edgeExists = state.edges.some(
+                (e) => e.source === source && e.target === target &&
+                       (e.sourceHandle || null) === normalizedSourceHandle &&
+                       (e.targetHandle || null) === normalizedTargetHandle
+              );
 
-            state.edges.push(newEdge);
-            state.edgeVersion += 1;
-            state.isDirty = true;
+              if (!edgeExists) {
+                const newEdge: FlowchartEdge = {
+                  id,
+                  source,
+                  target,
+                  sourceHandle: normalizedSourceHandle,
+                  targetHandle: normalizedTargetHandle,
+                  type: state.defaultEdgeType,
+                };
 
-            // Update manual port labels when connecting external nodes
-            // Check if target is a subprocess with manual input port
-            if (normalizedTargetHandle && normalizedTargetHandle.startsWith('manual-input-')) {
-              const targetNode = state.nodes.find(n => n.id === target);
-              if (targetNode && targetNode.type === 'subprocess') {
-                const sourceNode = state.nodes.find(n => n.id === source);
-                const sourceLabel = (sourceNode?.data as ProcessNodeData)?.label || 'Unknown';
-                const manualInputPorts = (targetNode.data as ProcessNodeData).manualInputPorts || [];
-                const portIndex = manualInputPorts.findIndex(p => p.id === normalizedTargetHandle);
-                if (portIndex !== -1) {
-                  manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: sourceLabel };
-                  state.nodes = state.nodes.map(n =>
-                    n.id === target
-                      ? { ...n, data: { ...n.data, manualInputPorts: [...manualInputPorts] } as ProcessNodeData }
-                      : n
-                  );
-                  state.nodeVersion += 1;
+                state.edges.push(newEdge);
+                state.edgeVersion += 1;
+                state.isDirty = true;
+
+                // Update manual port labels when connecting external nodes
+                if (normalizedTargetHandle && normalizedTargetHandle.startsWith('manual-input-')) {
+                  const targetNode = state.nodes.find(n => n.id === target);
+                  if (targetNode && targetNode.type === 'subprocess') {
+                    const sourceNode = state.nodes.find(n => n.id === source);
+                    const sourceLabel = (sourceNode?.data as ProcessNodeData)?.label || 'Unknown';
+                    const manualInputPorts = (targetNode.data as ProcessNodeData).manualInputPorts || [];
+                    const portIndex = manualInputPorts.findIndex(p => p.id === normalizedTargetHandle);
+                    if (portIndex !== -1) {
+                      manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: sourceLabel };
+                      state.nodes = state.nodes.map(n =>
+                        n.id === target
+                          ? { ...n, data: { ...n.data, manualInputPorts: [...manualInputPorts] } as ProcessNodeData }
+                          : n
+                      );
+                    }
+                  }
+                }
+
+                if (normalizedSourceHandle && normalizedSourceHandle.startsWith('manual-output-')) {
+                  const sourceNode = state.nodes.find(n => n.id === source);
+                  if (sourceNode && sourceNode.type === 'subprocess') {
+                    const targetNode = state.nodes.find(n => n.id === target);
+                    const targetLabel = (targetNode?.data as ProcessNodeData)?.label || 'Unknown';
+                    const manualOutputPorts = (sourceNode.data as ProcessNodeData).manualOutputPorts || [];
+                    const portIndex = manualOutputPorts.findIndex(p => p.id === normalizedSourceHandle);
+                    if (portIndex !== -1) {
+                      manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: targetLabel };
+                      state.nodes = state.nodes.map(n =>
+                        n.id === source
+                          ? { ...n, data: { ...n.data, manualOutputPorts: [...manualOutputPorts] } as ProcessNodeData }
+                          : n
+                      );
+                    }
+                  }
                 }
               }
-            }
+            });
+          });
+        } else {
+          // Non-manual port connections: add edge immediately
+          set((state) => {
+            // Check if edge already exists
+            const edgeExists = state.edges.some(
+              (e) => e.source === source && e.target === target &&
+                     (e.sourceHandle || null) === normalizedSourceHandle &&
+                     (e.targetHandle || null) === normalizedTargetHandle
+            );
 
-            // Check if source is a subprocess with manual output port
-            if (normalizedSourceHandle && normalizedSourceHandle.startsWith('manual-output-')) {
-              const sourceNode = state.nodes.find(n => n.id === source);
-              if (sourceNode && sourceNode.type === 'subprocess') {
-                const targetNode = state.nodes.find(n => n.id === target);
-                const targetLabel = (targetNode?.data as ProcessNodeData)?.label || 'Unknown';
-                const manualOutputPorts = (sourceNode.data as ProcessNodeData).manualOutputPorts || [];
-                const portIndex = manualOutputPorts.findIndex(p => p.id === normalizedSourceHandle);
-                if (portIndex !== -1) {
-                  manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: targetLabel };
-                  state.nodes = state.nodes.map(n =>
-                    n.id === source
-                      ? { ...n, data: { ...n.data, manualOutputPorts: [...manualOutputPorts] } as ProcessNodeData }
-                      : n
-                  );
-                  state.nodeVersion += 1;
-                }
-              }
+            if (!edgeExists) {
+              const newEdge: FlowchartEdge = {
+                id,
+                source,
+                target,
+                sourceHandle: normalizedSourceHandle,
+                targetHandle: normalizedTargetHandle,
+                type: state.defaultEdgeType,
+              };
+
+              state.edges.push(newEdge);
+              state.edgeVersion += 1;
+              state.isDirty = true;
             }
-          }
-        });
+          });
+        }
       },
 
       updateEdge: (edgeId: string, data: Record<string, unknown>) => {
@@ -468,8 +499,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 const targetData = targetNode.data as ProcessNodeData;
                 const manualInputPorts = targetData.manualInputPorts || [];
 
-                // Get label from edge data or use default
-                const portLabel = (edge.data as { portLabel?: string })?.portLabel || 'Input';
+                // Get label from edge data, or generate based on existing port count
+                const existingPortLabel = (edge.data as { portLabel?: string })?.portLabel;
+                const portLabel = existingPortLabel || `Input ${manualInputPorts.length + 1}`;
 
                 // Check if a manual port with this label already exists
                 const existingPortWithLabel = manualInputPorts.find(p => p.label === portLabel);
@@ -504,8 +536,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 const sourceData = sourceNode.data as ProcessNodeData;
                 const manualOutputPorts = sourceData.manualOutputPorts || [];
 
-                // Get label from edge data or use default
-                const portLabel = (edge.data as { portLabel?: string })?.portLabel || 'Output';
+                // Get label from edge data, or generate based on existing port count
+                const existingPortLabel = (edge.data as { portLabel?: string })?.portLabel;
+                const portLabel = existingPortLabel || `Output ${manualOutputPorts.length + 1}`;
 
                 // Check if a manual port with this label already exists
                 const existingPortWithLabel = manualOutputPorts.find(p => p.label === portLabel);
@@ -605,8 +638,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
                   const targetData = targetNode.data as ProcessNodeData;
                   const manualInputPorts = targetData.manualInputPorts || [];
 
-                  // Get label from edge data or use default
-                  const portLabel = (edge.data as { portLabel?: string })?.portLabel || 'Input';
+                  // Get label from edge data, or generate based on existing port count
+                  const existingPortLabel = (edge.data as { portLabel?: string })?.portLabel;
+                  const portLabel = existingPortLabel || `Input ${manualInputPorts.length + 1}`;
 
                   // Check if a manual port with this label already exists
                   const existingPortWithLabel = manualInputPorts.find(p => p.label === portLabel);
@@ -641,8 +675,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
                   const sourceData = sourceNode.data as ProcessNodeData;
                   const manualOutputPorts = sourceData.manualOutputPorts || [];
 
-                  // Get label from edge data or use default
-                  const portLabel = (edge.data as { portLabel?: string })?.portLabel || 'Output';
+                  // Get label from edge data, or generate based on existing port count
+                  const existingPortLabel = (edge.data as { portLabel?: string })?.portLabel;
+                  const portLabel = existingPortLabel || `Output ${manualOutputPorts.length + 1}`;
 
                   // Check if a manual port with this label already exists
                   const existingPortWithLabel = manualOutputPorts.find(p => p.label === portLabel);
