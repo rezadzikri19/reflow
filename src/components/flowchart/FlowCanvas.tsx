@@ -846,7 +846,7 @@ function FlowCanvasInner({
     });
 
     return { inputs: inputPorts, outputs: outputPorts };
-  }, [activeSheetId, edges, nodes, edgeVersion]);
+  }, [activeSheetId, edges, nodes, edgeVersion, nodeVersion]);
 
   /**
    * Filter nodes to show based on active sheet

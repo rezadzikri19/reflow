@@ -32,6 +32,7 @@ function BoundaryConnections({ subprocessId }: BoundaryConnectionsProps) {
 
   const nodes = useFlowchartStore((state) => state.nodes);
   const edges = useFlowchartStore((state) => state.edges);
+  const nodeVersion = useFlowchartStore((state) => state.nodeVersion);
 
   // Track container bounds for positioning
   const [containerBounds, setContainerBounds] = useState<DOMRect | null>(null);
@@ -103,7 +104,7 @@ function BoundaryConnections({ subprocessId }: BoundaryConnectionsProps) {
     });
 
     return { inputPorts: inputs, outputPorts: outputs };
-  }, [edges, nodes, subprocessId]);
+  }, [edges, nodes, subprocessId, nodeVersion]);
 
   // Convert flow coordinates to screen coordinates
   const flowToScreen = useCallback((flowX: number, flowY: number) => {

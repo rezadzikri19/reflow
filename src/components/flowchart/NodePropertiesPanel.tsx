@@ -52,6 +52,8 @@ export const NodePropertiesPanel: React.FC = () => {
   const addManualPort = useFlowchartStore((state) => state.addManualPort);
   const updateManualPort = useFlowchartStore((state) => state.updateManualPort);
   const deleteManualPort = useFlowchartStore((state) => state.deleteManualPort);
+  const updateEdge = useFlowchartStore((state) => state.updateEdge);
+  const deleteEdge = useFlowchartStore((state) => state.deleteEdge);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -73,8 +75,8 @@ export const NodePropertiesPanel: React.FC = () => {
 
     const nodeId = selectedNode.id;
     const nodeData = selectedNode.data as ProcessNodeData;
-    const inputs: { id: string; label: string; isManual: boolean }[] = [];
-    const outputs: { id: string; label: string; isManual: boolean }[] = [];
+    const inputs: { id: string; label: string; isManual: boolean; edgeId?: string; direction: 'input' | 'output' }[] = [];
+    const outputs: { id: string; label: string; isManual: boolean; edgeId?: string; direction: 'input' | 'output' }[] = [];
 
     // Add edge-based ports
     edges.forEach((edge) => {
@@ -85,12 +87,14 @@ export const NodePropertiesPanel: React.FC = () => {
           { nodeId: edge.originalTarget!, handleId: edge.originalTargetHandle }
         ];
         const internalNode = nodes.find(n => n.id === internalTargets[0].nodeId);
-        const label = internalNode ? (internalNode.data as ProcessNodeData).label || internalTargets[0].nodeId : internalTargets[0].nodeId;
+        const defaultLabel = internalNode ? (internalNode.data as ProcessNodeData).label || internalTargets[0].nodeId : internalTargets[0].nodeId;
 
         inputs.push({
           id: portId,
-          label: `From: ${label}`,
+          label: (edge.data as { portLabel?: string })?.portLabel || defaultLabel,
           isManual: false,
+          edgeId: edge.id,
+          direction: 'input',
         });
       }
 
@@ -101,12 +105,14 @@ export const NodePropertiesPanel: React.FC = () => {
           { nodeId: edge.originalSource!, handleId: edge.originalSourceHandle }
         ];
         const internalNode = nodes.find(n => n.id === internalSources[0].nodeId);
-        const label = internalNode ? (internalNode.data as ProcessNodeData).label || internalSources[0].nodeId : internalSources[0].nodeId;
+        const defaultLabel = internalNode ? (internalNode.data as ProcessNodeData).label || internalSources[0].nodeId : internalSources[0].nodeId;
 
         outputs.push({
           id: portId,
-          label: `To: ${label}`,
+          label: (edge.data as { portLabel?: string })?.portLabel || defaultLabel,
           isManual: false,
+          edgeId: edge.id,
+          direction: 'output',
         });
       }
     });
@@ -121,6 +127,7 @@ export const NodePropertiesPanel: React.FC = () => {
           id: port.id,
           label: port.label || 'Input',
           isManual: true,
+          direction: 'input',
         });
       }
     });
@@ -131,12 +138,41 @@ export const NodePropertiesPanel: React.FC = () => {
           id: port.id,
           label: port.label || 'Output',
           isManual: true,
+          direction: 'output',
         });
       }
     });
 
     return { allInputPorts: inputs, allOutputPorts: outputs };
   }, [selectedNode, edges, nodes]);
+
+  // Handler for updating port label (works for both manual and edge-based ports)
+  const handlePortLabelChange = useCallback((port: { id: string; label: string; isManual: boolean; edgeId?: string; direction: 'input' | 'output' }, newLabel: string) => {
+    if (!selectedNode) return;
+
+    if (port.isManual) {
+      updateManualPort(selectedNode.id, port.id, { label: newLabel });
+    } else if (port.edgeId) {
+      // Find the edge and merge the portLabel into its data
+      const edge = edges.find(e => e.id === port.edgeId);
+      if (edge) {
+        updateEdge(port.edgeId, { data: { ...(edge.data as Record<string, unknown>), portLabel: newLabel } });
+      }
+    }
+  }, [selectedNode, updateManualPort, updateEdge, edges]);
+
+  // Handler for deleting port (works for both manual and edge-based ports)
+  const handlePortDelete = useCallback((port: { id: string; label: string; isManual: boolean; edgeId?: string; direction: 'input' | 'output' }) => {
+    if (!selectedNode) return;
+
+    if (port.isManual) {
+      deleteManualPort(selectedNode.id, port.id);
+    } else if (port.edgeId) {
+      // For edge-based ports, just delete the edge
+      // The deleteEdge function in the store will automatically create a manual port
+      deleteEdge(port.edgeId);
+    }
+  }, [selectedNode, deleteManualPort, deleteEdge]);
 
   const handleLabelChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -633,26 +669,20 @@ export const NodePropertiesPanel: React.FC = () => {
                       className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-md px-2 py-1.5"
                     >
                       <div className="w-2 h-2 bg-green-500 rounded-full shrink-0" />
-                      {port.isManual ? (
-                        <input
-                          type="text"
-                          value={port.label}
-                          onChange={(e) => updateManualPort(selectedNode.id, port.id, { label: e.target.value })}
-                          className="flex-1 text-sm bg-transparent border-none outline-none text-gray-700"
-                          placeholder="Port name"
-                        />
-                      ) : (
-                        <span className="flex-1 text-sm text-gray-600">{port.label}</span>
-                      )}
-                      {port.isManual && (
-                        <button
-                          onClick={() => deleteManualPort(selectedNode.id, port.id)}
-                          className="text-gray-400 hover:text-red-500 transition-colors"
-                          title="Delete port"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                      <input
+                        type="text"
+                        value={port.label}
+                        onChange={(e) => handlePortLabelChange(port, e.target.value)}
+                        className="flex-1 text-sm bg-transparent border-none outline-none text-gray-700"
+                        placeholder="Port name"
+                      />
+                      <button
+                        onClick={() => handlePortDelete(port)}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                        title="Delete port"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   ))
                 )}
@@ -685,26 +715,20 @@ export const NodePropertiesPanel: React.FC = () => {
                       className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-md px-2 py-1.5"
                     >
                       <div className="w-2 h-2 bg-blue-500 rounded-full shrink-0" />
-                      {port.isManual ? (
-                        <input
-                          type="text"
-                          value={port.label}
-                          onChange={(e) => updateManualPort(selectedNode.id, port.id, { label: e.target.value })}
-                          className="flex-1 text-sm bg-transparent border-none outline-none text-gray-700"
-                          placeholder="Port name"
-                        />
-                      ) : (
-                        <span className="flex-1 text-sm text-gray-600">{port.label}</span>
-                      )}
-                      {port.isManual && (
-                        <button
-                          onClick={() => deleteManualPort(selectedNode.id, port.id)}
-                          className="text-gray-400 hover:text-red-500 transition-colors"
-                          title="Delete port"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                      <input
+                        type="text"
+                        value={port.label}
+                        onChange={(e) => handlePortLabelChange(port, e.target.value)}
+                        className="flex-1 text-sm bg-transparent border-none outline-none text-gray-700"
+                        placeholder="Port name"
+                      />
+                      <button
+                        onClick={() => handlePortDelete(port)}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                        title="Delete port"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   ))
                 )}
