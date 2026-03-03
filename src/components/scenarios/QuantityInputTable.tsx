@@ -131,11 +131,11 @@ export const QuantityInputTable: React.FC<QuantityInputTableProps> = ({
   const { calculateScenario, calculateAll } = useCalculationStore();
   const calculationResults = useCalculationResults();
 
-  // Get process and delay nodes only (exclude start, end, etc.)
+  // Get process nodes only (exclude start, end, etc.)
   // Filter by tags if filterTags is provided
   const processNodes = useMemo(() => {
     const baseNodes = nodes.filter(
-      (node) => node.data.nodeType === 'process' || node.data.nodeType === 'subprocess' || node.data.nodeType === 'delay'
+      (node) => node.data.nodeType === 'process' || node.data.nodeType === 'subprocess'
     );
 
     // If no filter tags selected, show all process nodes

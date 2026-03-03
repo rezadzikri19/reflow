@@ -120,37 +120,6 @@ const NODE_TYPES: NodeTypeInfo[] = [
       </svg>
     ),
   },
-  {
-    type: 'delay',
-    name: 'Delay',
-    description: 'Waiting period or time delay in the process',
-    category: 'process-steps',
-    color: 'text-gray-600',
-    bgColor: 'bg-gray-50',
-    borderColor: 'border-gray-300',
-    icon: (
-      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
-      </svg>
-    ),
-  },
-  // Advanced
-  {
-    type: 'parallel',
-    name: 'Parallel',
-    description: 'Concurrent execution of multiple paths',
-    category: 'advanced',
-    color: 'text-cyan-600',
-    bgColor: 'bg-cyan-50',
-    borderColor: 'border-cyan-300',
-    icon: (
-      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-        <rect x="2" y="6" width="8" height="12" rx="1" />
-        <rect x="14" y="6" width="8" height="12" rx="1" />
-        <rect x="10" y="10" width="4" height="4" />
-      </svg>
-    ),
-  },
 ];
 
 const CATEGORIES = [

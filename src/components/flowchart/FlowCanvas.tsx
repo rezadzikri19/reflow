@@ -1144,8 +1144,6 @@ function FlowCanvasInner({
                   case 'process': return '#3B82F6';
                   case 'decision': return '#F59E0B';
                   case 'subprocess': return '#8B5CF6';
-                  case 'parallel': return '#06B6D4';
-                  case 'delay': return '#EC4899';
                   default: return '#6B7280';
                 }
               }}
