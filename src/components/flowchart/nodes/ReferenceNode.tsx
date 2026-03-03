@@ -2,8 +2,6 @@ import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { BaseNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
-import FlowOrderBadge from './FlowOrderBadge';
-import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 
 /**
  * ReferenceNode - Sky blue circular node that displays a configurable reference number
@@ -12,12 +10,9 @@ import { useFlowOrder } from '../../../contexts/FlowOrderContext';
  */
 function ReferenceNode({ id, data, selected }: NodeProps) {
   const { label = 'Reference', tags, referenceNumber = 1 } = (data as BaseNodeData & { referenceNumber?: number }) || {};
-  const flowOrder = useFlowOrder(id);
 
   return (
     <div className="relative">
-      {/* Flow Order Badge */}
-      <FlowOrderBadge order={flowOrder} />
 
       {/* Target Handle - Left side for incoming connections */}
       <Handle
