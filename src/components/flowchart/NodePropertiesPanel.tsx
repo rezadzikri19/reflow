@@ -35,8 +35,6 @@ const NODE_TYPE_LABELS: Record<ProcessNodeType, string> = {
   process: 'Process',
   decision: 'Decision',
   subprocess: 'Subprocess',
-  parallel: 'Parallel',
-  delay: 'Delay',
   boundaryPort: 'Boundary Port',
   junction: 'Junction',
   reference: 'Reference',
@@ -277,26 +275,6 @@ export const NodePropertiesPanel: React.FC = () => {
     [selectedNode, updateNode]
   );
 
-  const handleParallelCapacityChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (selectedNode) {
-        const value = parseInt(e.target.value, 10) || 1;
-        updateNode(selectedNode.id, { parallelCapacity: value });
-      }
-    },
-    [selectedNode, updateNode]
-  );
-
-  const handleDelayDurationChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (selectedNode) {
-        const value = parseFloat(e.target.value) || 0;
-        updateNode(selectedNode.id, { unitTimeMinutes: value });
-      }
-    },
-    [selectedNode, updateNode]
-  );
-
   const handleDeleteClick = useCallback(() => {
     setShowDeleteConfirm(true);
   }, []);
@@ -362,8 +340,6 @@ export const NodePropertiesPanel: React.FC = () => {
   const nodeData = selectedNode.data as ProcessNodeData;
   const nodeType = nodeData.nodeType;
   const isProcessNode = nodeType === 'process' || nodeType === 'subprocess';
-  const isDelayNode = nodeType === 'delay';
-  const isParallelNode = nodeType === 'parallel';
 
   return (
     <div className="h-full bg-white border-l border-gray-200 overflow-y-auto">
@@ -504,27 +480,6 @@ export const NodePropertiesPanel: React.FC = () => {
           </section>
         )}
 
-        {/* Delay Node Properties */}
-        {isDelayNode && (
-          <section>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Delay Settings
-            </h3>
-            <div className="space-y-4">
-              <Input
-                label="Delay Duration (minutes)"
-                type="number"
-                min={0}
-                step={0.1}
-                value={nodeData.unitTimeMinutes}
-                onChange={handleDelayDurationChange}
-                fullWidth
-                helperText="Duration of the delay"
-              />
-            </div>
-          </section>
-        )}
-
         {/* FTE Settings (for Process and Subprocess nodes) */}
         {isProcessNode && (
           <section>
@@ -560,27 +515,6 @@ export const NodePropertiesPanel: React.FC = () => {
                   helperText="Full-time equivalents per unit"
                 />
               )}
-            </div>
-          </section>
-        )}
-
-        {/* Parallel Capacity (for Parallel nodes) */}
-        {isParallelNode && (
-          <section>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Parallel Settings
-            </h3>
-            <div className="space-y-4">
-              <Input
-                label="Parallel Capacity"
-                type="number"
-                min={1}
-                step={1}
-                value={nodeData.parallelCapacity || 1}
-                onChange={handleParallelCapacityChange}
-                fullWidth
-                helperText="Number of parallel processes"
-              />
             </div>
           </section>
         )}

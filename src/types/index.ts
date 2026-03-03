@@ -13,8 +13,6 @@ export type ProcessNodeType =
   | 'process'
   | 'decision'
   | 'subprocess'
-  | 'parallel'
-  | 'delay'
   | 'boundaryPort'
   | 'junction'
   | 'reference';

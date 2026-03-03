@@ -11,8 +11,6 @@ export { default as EndNode } from './EndNode';
 export { default as ProcessNode } from './ProcessNode';
 export { default as DecisionNode } from './DecisionNode';
 export { default as SubprocessNode } from './SubprocessNode';
-export { default as ParallelNode } from './ParallelNode';
-export { default as DelayNode } from './DelayNode';
 export { default as BoundaryPortNode } from './BoundaryPortNode';
 export { default as JunctionNode } from './JunctionNode';
 export { default as ReferenceNode } from './ReferenceNode';
@@ -36,8 +34,6 @@ import EndNode from './EndNode';
 import ProcessNode from './ProcessNode';
 import DecisionNode from './DecisionNode';
 import SubprocessNode from './SubprocessNode';
-import ParallelNode from './ParallelNode';
-import DelayNode from './DelayNode';
 import BoundaryPortNode from './BoundaryPortNode';
 import JunctionNode from './JunctionNode';
 import ReferenceNode from './ReferenceNode';
@@ -48,8 +44,6 @@ export const nodeTypes = {
   process: ProcessNode,
   decision: DecisionNode,
   subprocess: SubprocessNode,
-  parallel: ParallelNode,
-  delay: DelayNode,
   boundaryPort: BoundaryPortNode,
   junction: JunctionNode,
   reference: ReferenceNode,
