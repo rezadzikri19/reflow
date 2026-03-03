@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import { useUpdateNodeInternals } from '@xyflow/react';
 import { useFlowchartStore, useSelectedNode, useNodes } from '../../stores/flowchartStore';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
@@ -57,6 +58,7 @@ export const NodePropertiesPanel: React.FC = () => {
   const deleteManualPort = useFlowchartStore((state) => state.deleteManualPort);
   const updateEdge = useFlowchartStore((state) => state.updateEdge);
   const deleteEdge = useFlowchartStore((state) => state.deleteEdge);
+  const updateNodeInternals = useUpdateNodeInternals();
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -189,7 +191,9 @@ export const NodePropertiesPanel: React.FC = () => {
       // The deleteEdge function in the store will automatically create a manual port
       deleteEdge(port.edgeId);
     }
-  }, [selectedNode, deleteManualPort, deleteEdge]);
+    // Force React Flow to recalculate handle positions
+    updateNodeInternals(selectedNode.id);
+  }, [selectedNode, deleteManualPort, deleteEdge, updateNodeInternals]);
 
   const handleLabelChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -704,7 +708,10 @@ export const NodePropertiesPanel: React.FC = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => addManualPort(selectedNode.id, 'input')}
+                  onClick={() => {
+                    addManualPort(selectedNode.id, 'input');
+                    updateNodeInternals(selectedNode.id);
+                  }}
                   className="!p-1 !h-auto"
                 >
                   <Plus className="w-4 h-4" />
@@ -750,7 +757,10 @@ export const NodePropertiesPanel: React.FC = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => addManualPort(selectedNode.id, 'output')}
+                  onClick={() => {
+                    addManualPort(selectedNode.id, 'output');
+                    updateNodeInternals(selectedNode.id);
+                  }}
                   className="!p-1 !h-auto"
                 >
                   <Plus className="w-4 h-4" />

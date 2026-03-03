@@ -1621,6 +1621,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
           }
 
           state.nodeVersion += 1;
+          state.edgeVersion += 1; // Trigger edge recalculation since port positions change
           state.isDirty = true;
         });
 
@@ -1652,6 +1653,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
               data: { ...nodeData, manualInputPorts: [...inputPorts] },
             } as FlowchartNode;
             state.nodeVersion += 1;
+            state.edgeVersion += 1; // Trigger edge recalculation for port position changes
             state.isDirty = true;
             return;
           }
@@ -1667,6 +1669,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
               data: { ...nodeData, manualOutputPorts: [...outputPorts] },
             } as FlowchartNode;
             state.nodeVersion += 1;
+            state.edgeVersion += 1; // Trigger edge recalculation for port position changes
             state.isDirty = true;
           }
         });
@@ -1773,6 +1776,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 data: { ...nodeData, manualInputPorts: [...inputPorts] },
               } as FlowchartNode;
               state.nodeVersion += 1;
+              state.edgeVersion += 1; // Trigger edge recalculation for virtual edges
               state.isDirty = true;
             }
           } else if (outputPortIndex !== -1) {
@@ -1792,6 +1796,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 data: { ...nodeData, manualOutputPorts: [...outputPorts] },
               } as FlowchartNode;
               state.nodeVersion += 1;
+              state.edgeVersion += 1; // Trigger edge recalculation for virtual edges
               state.isDirty = true;
             }
           }
@@ -1838,6 +1843,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
               data: { ...nodeData, manualInputPorts: [...inputPorts] },
             } as FlowchartNode;
             state.nodeVersion += 1;
+            state.edgeVersion += 1; // Trigger edge recalculation for virtual edges
             state.isDirty = true;
           } else if (outputPortIndex !== -1) {
             const port = outputPorts[outputPortIndex];
@@ -1854,6 +1860,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
               data: { ...nodeData, manualOutputPorts: [...outputPorts] },
             } as FlowchartNode;
             state.nodeVersion += 1;
+            state.edgeVersion += 1; // Trigger edge recalculation for virtual edges
             state.isDirty = true;
           }
         });

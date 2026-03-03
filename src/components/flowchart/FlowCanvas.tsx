@@ -438,9 +438,10 @@ function FlowCanvasInner({
         return;
       }
       setSelectedNode(node.id);
+      setSelectedEdgeId(null); // Clear edge selection when node is selected
       onNodeClick?.(node.id);
     },
-    [setSelectedNode, onNodeClick]
+    [setSelectedNode, setSelectedEdgeId, onNodeClick]
   );
 
   /**

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useCallback } from 'react';
+import { useUpdateNodeInternals } from '@xyflow/react';
 import { Layers, Ungroup, X, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useFlowchartStore } from '../../stores/flowchartStore';
 
@@ -48,6 +49,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   const groupNodesIntoSubprocess = useFlowchartStore((state) => state.groupNodesIntoSubprocess);
   const ungroupSubprocess = useFlowchartStore((state) => state.ungroupSubprocess);
   const addManualPort = useFlowchartStore((state) => state.addManualPort);
+  const updateNodeInternals = useUpdateNodeInternals();
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -113,14 +115,16 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   const handleAddInputPort = useCallback(() => {
     if (!isSubprocessSelected || !selectedSubprocessId) return;
     addManualPort(selectedSubprocessId, 'input');
+    updateNodeInternals(selectedSubprocessId);
     onClose();
-  }, [isSubprocessSelected, selectedSubprocessId, addManualPort, onClose]);
+  }, [isSubprocessSelected, selectedSubprocessId, addManualPort, updateNodeInternals, onClose]);
 
   const handleAddOutputPort = useCallback(() => {
     if (!isSubprocessSelected || !selectedSubprocessId) return;
     addManualPort(selectedSubprocessId, 'output');
+    updateNodeInternals(selectedSubprocessId);
     onClose();
-  }, [isSubprocessSelected, selectedSubprocessId, addManualPort, onClose]);
+  }, [isSubprocessSelected, selectedSubprocessId, addManualPort, updateNodeInternals, onClose]);
 
   if (!isOpen) return null;
 
