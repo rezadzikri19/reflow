@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { useNodes } from '../stores/flowchartStore';
 import { getTagColorByIndex, assignUniqueTagColors, type TagColor } from '../utils/tagColors';
 
+const TAG_COLOR_COUNT = 17;
+
 /**
  * Hook to manage unique tag colors across all nodes in the flowchart
  * Ensures that each tag gets a unique color within the flowchart
@@ -34,7 +36,7 @@ export function useTagColors() {
       return getTagColorByIndex(index);
     }
     // Fallback: assign a color based on tag name hash for new tags not yet in map
-    return getTagColorByIndex(hashString(tagName) % 17);
+    return getTagColorByIndex(hashString(tagName) % TAG_COLOR_COUNT);
   };
 
   /**

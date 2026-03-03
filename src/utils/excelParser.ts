@@ -219,7 +219,7 @@ export function exportToCSV(
     .map(row =>
       row.map(cell => {
         // Handle cells that need quoting
-        if (cell === null || cell === undefined) {
+        if (cell == null) {
           return '';
         }
         const cellString = String(cell);

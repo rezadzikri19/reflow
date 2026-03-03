@@ -60,6 +60,20 @@ export const NodePropertiesPanel: React.FC = () => {
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Get referenced node info for reference nodes
+  const referencedNodeInfo = useMemo(() => {
+    if (!selectedNode || (selectedNode.data as ProcessNodeData).nodeType !== 'reference') {
+      return { id: undefined, node: undefined, label: undefined };
+    }
+    const referencedNodeId = (selectedNode.data as { referencedNodeId?: string }).referencedNodeId;
+    const referencedNode = nodes.find(n => n.id === referencedNodeId);
+    return {
+      id: referencedNodeId,
+      node: referencedNode,
+      label: referencedNode ? (referencedNode.data as ProcessNodeData).label : undefined,
+    };
+  }, [selectedNode, nodes]);
+
   // Get all existing tags from all nodes for autocomplete suggestions
   const allExistingTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -574,24 +588,18 @@ export const NodePropertiesPanel: React.FC = () => {
               Reference Settings
             </h3>
             <div className="space-y-4">
-              {(() => {
-                const referencedNodeId = (nodeData as { referencedNodeId?: string }).referencedNodeId;
-                const referencedNode = nodes.find(n => n.id === referencedNodeId);
-                return (
-                  <div className="bg-sky-50 border border-sky-200 rounded-md p-3">
-                    <p className="text-xs text-sky-600 font-medium mb-1">Referenced Node</p>
-                    {referencedNode ? (
-                      <p className="text-sm text-sky-800">
-                        {(referencedNode.data as ProcessNodeData).label || referencedNodeId}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-gray-400 italic">
-                        No node referenced
-                      </p>
-                    )}
-                  </div>
-                );
-              })()}
+              <div className="bg-sky-50 border border-sky-200 rounded-md p-3">
+                <p className="text-xs text-sky-600 font-medium mb-1">Referenced Node</p>
+                {referencedNodeInfo.node ? (
+                  <p className="text-sm text-sky-800">
+                    {referencedNodeInfo.label || referencedNodeInfo.id}
+                  </p>
+                ) : (
+                  <p className="text-sm text-gray-400 italic">
+                    No node referenced
+                  </p>
+                )}
+              </div>
             </div>
           </section>
         )}
