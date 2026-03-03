@@ -15,7 +15,10 @@ export type ProcessNodeType =
   | 'subprocess'
   | 'boundaryPort'
   | 'junction'
-  | 'reference';
+  | 'reference'
+  | 'manualProcess'
+  | 'connector'
+  | 'terminator';
 
 // ============================================================================
 // Edge Types

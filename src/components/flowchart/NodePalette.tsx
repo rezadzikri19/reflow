@@ -61,6 +61,20 @@ const NODE_TYPES: NodeTypeInfo[] = [
     ),
   },
   {
+    type: 'terminator',
+    name: 'Terminator',
+    description: 'Entry or exit point within the flow',
+    category: 'flow-control',
+    color: 'text-rose-600',
+    bgColor: 'bg-rose-50',
+    borderColor: 'border-rose-300',
+    icon: (
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+        <rect x="3" y="8" width="18" height="8" rx="4" />
+      </svg>
+    ),
+  },
+  {
     type: 'decision',
     name: 'Decision',
     description: 'Conditional branch point with multiple paths',
@@ -89,6 +103,21 @@ const NODE_TYPES: NodeTypeInfo[] = [
       </svg>
     ),
   },
+  {
+    type: 'connector',
+    name: 'Connector',
+    description: 'Connects flowchart sections across pages',
+    category: 'flow-control',
+    color: 'text-teal-600',
+    bgColor: 'bg-teal-50',
+    borderColor: 'border-teal-300',
+    icon: (
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="6" />
+        <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">A</text>
+      </svg>
+    ),
+  },
   // Process Steps
   {
     type: 'process',
@@ -101,6 +130,20 @@ const NODE_TYPES: NodeTypeInfo[] = [
     icon: (
       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
         <rect x="3" y="6" width="18" height="12" rx="2" />
+      </svg>
+    ),
+  },
+  {
+    type: 'manualProcess',
+    name: 'Manual Process',
+    description: 'Manual operation requiring human intervention',
+    category: 'process-steps',
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-50',
+    borderColor: 'border-orange-300',
+    icon: (
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M4 6L20 6L18 18L2 18Z" />
       </svg>
     ),
   },

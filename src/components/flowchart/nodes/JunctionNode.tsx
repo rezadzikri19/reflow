@@ -40,11 +40,11 @@ function JunctionNode({ data, selected }: NodeProps) {
 
       {/* Label below the node */}
       <div
-        className="absolute pointer-events-none"
-        style={{ bottom: -16, left: '50%', transform: 'translateX(-50%)' }}
+        className="absolute pointer-events-none left-1/2 -translate-x-1/2 mt-1"
+        style={{ top: '100%' }}
       >
         <span
-          className="text-base font-medium text-violet-800 bg-violet-100 px-1.5 py-0.5 rounded text-wrap block text-center max-w-[120px]"
+          className="text-xs font-medium text-violet-800 bg-violet-100 px-1.5 py-0.5 rounded text-wrap block text-center max-w-[120px]"
           title={label}
         >
           {label}

@@ -1,0 +1,86 @@
+import { memo } from 'react';
+import { Handle, Position, type NodeProps } from '@xyflow/react';
+import type { BaseNodeData } from '../../../types/index';
+import NodeTags from './NodeTags';
+import FlowOrderBadge from './FlowOrderBadge';
+import { useFlowOrder } from '../../../contexts/FlowOrderContext';
+
+/**
+ * TerminatorNode - Rose elongated circle (stadium/pill shape) node
+ * Represents a terminator point in standard flowchart notation
+ * Used to indicate entry/exit points, or the start/end of a process
+ * Different from Start/End nodes - terminators are for entry/exit points within a flow
+ */
+function TerminatorNode({ id, data, selected }: NodeProps) {
+  const { label = 'Terminator', tags } = (data as BaseNodeData) || {};
+  const flowOrder = useFlowOrder(id);
+
+  return (
+    <div className="relative">
+      {/* Flow Order Badge */}
+      <FlowOrderBadge order={flowOrder} />
+
+      {/* Target Handle - Left side for incoming connections */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!w-3 !h-3 !bg-rose-300 !border-2 !border-rose-700 hover:!bg-rose-200"
+      />
+
+      {/* Stadium/Pill shape (elongated circle using rounded-full with different width/height) */}
+      <div
+        className={`
+          flex items-center justify-center
+          min-w-[120px] max-w-[180px]
+          h-10
+          rounded-full
+          bg-rose-500 hover:bg-rose-600
+          border-2 border-rose-700
+          shadow-lg hover:shadow-xl
+          transition-all duration-200
+          cursor-pointer
+          px-4
+          ${selected ? 'ring-2 ring-rose-400 ring-offset-2' : ''}
+        `}
+      >
+        {/* Source Handle - Right side for outgoing connections */}
+        <Handle
+          type="source"
+          position={Position.Right}
+          className="!w-3 !h-3 !bg-rose-300 !border-2 !border-rose-700 hover:!bg-rose-200"
+        />
+
+        {/* Label */}
+        <span
+          className="text-white font-semibold text-sm text-wrap text-center"
+          title={label}
+        >
+          {label}
+        </span>
+      </div>
+
+      {/* Label below the node */}
+      <div
+        className="absolute pointer-events-none left-1/2 -translate-x-1/2 mt-1"
+        style={{ top: '100%' }}
+      >
+        <span
+          className="text-xs font-medium text-rose-800 bg-rose-100 px-2 py-0.5 rounded text-wrap block text-center max-w-[120px]"
+          title={label}
+        >
+          {label}
+        </span>
+      </div>
+
+      {/* Tags indicator below label */}
+      <div
+        className="absolute pointer-events-none left-1/2 -translate-x-1/2 mt-1"
+        style={{ top: '100%', marginTop: '24px' }}
+      >
+        <NodeTags tags={tags} />
+      </div>
+    </div>
+  );
+}
+
+export default memo(TerminatorNode);

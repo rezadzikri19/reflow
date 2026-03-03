@@ -14,6 +14,9 @@ export { default as SubprocessNode } from './SubprocessNode';
 export { default as BoundaryPortNode } from './BoundaryPortNode';
 export { default as JunctionNode } from './JunctionNode';
 export { default as ReferenceNode } from './ReferenceNode';
+export { default as ManualProcessNode } from './ManualProcessNode';
+export { default as ConnectorNode } from './ConnectorNode';
+export { default as TerminatorNode } from './TerminatorNode';
 
 // Type exports for external use
 export type { ProcessNodeData, BaseNodeData, BoundaryPortNodeData } from '../../../types/index';
@@ -37,6 +40,9 @@ import SubprocessNode from './SubprocessNode';
 import BoundaryPortNode from './BoundaryPortNode';
 import JunctionNode from './JunctionNode';
 import ReferenceNode from './ReferenceNode';
+import ManualProcessNode from './ManualProcessNode';
+import ConnectorNode from './ConnectorNode';
+import TerminatorNode from './TerminatorNode';
 
 export const nodeTypes = {
   start: StartNode,
@@ -47,6 +53,9 @@ export const nodeTypes = {
   boundaryPort: BoundaryPortNode,
   junction: JunctionNode,
   reference: ReferenceNode,
+  manualProcess: ManualProcessNode,
+  connector: ConnectorNode,
+  terminator: TerminatorNode,
 } as const;
 
 /**

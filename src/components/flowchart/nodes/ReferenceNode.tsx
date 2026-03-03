@@ -59,11 +59,11 @@ function ReferenceNode({ id: _id, data, selected }: NodeProps) {
 
       {/* Label below the node */}
       <div
-        className="absolute pointer-events-none"
-        style={{ bottom: -20, left: '50%', transform: 'translateX(-50%)' }}
+        className="absolute pointer-events-none left-1/2 -translate-x-1/2 mt-1"
+        style={{ top: '100%' }}
       >
         <span
-          className="text-base font-medium text-sky-800 bg-sky-100 px-2 py-0.5 rounded text-wrap block text-center max-w-[120px]"
+          className="text-xs font-medium text-sky-800 bg-sky-100 px-2 py-0.5 rounded text-wrap block text-center max-w-[120px]"
           title={label}
         >
           {label}
@@ -72,8 +72,8 @@ function ReferenceNode({ id: _id, data, selected }: NodeProps) {
 
       {/* Tags indicator below label */}
       <div
-        className="absolute pointer-events-none"
-        style={{ bottom: -36, left: '50%', transform: 'translateX(-50%)' }}
+        className="absolute pointer-events-none left-1/2 -translate-x-1/2 mt-1"
+        style={{ top: '100%', marginTop: '24px' }}
       >
         <NodeTags tags={tags} />
       </div>
