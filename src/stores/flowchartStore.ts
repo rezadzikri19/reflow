@@ -170,6 +170,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
               ...DEFAULT_PROCESS_NODE_DATA,
               // Set parentId if we're inside a subprocess sheet
               ...(state.activeSheetId ? { parentId: state.activeSheetId } : {}),
+              // Reference node specific default
+              ...(type === 'reference' ? { referenceNumber: 1 } : {}),
             } as ProcessNodeData,
           };
 

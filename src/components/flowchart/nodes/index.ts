@@ -15,6 +15,7 @@ export { default as ParallelNode } from './ParallelNode';
 export { default as DelayNode } from './DelayNode';
 export { default as BoundaryPortNode } from './BoundaryPortNode';
 export { default as JunctionNode } from './JunctionNode';
+export { default as ReferenceNode } from './ReferenceNode';
 
 // Type exports for external use
 export type { ProcessNodeData, BaseNodeData, BoundaryPortNodeData } from '../../../types/index';
@@ -39,6 +40,7 @@ import ParallelNode from './ParallelNode';
 import DelayNode from './DelayNode';
 import BoundaryPortNode from './BoundaryPortNode';
 import JunctionNode from './JunctionNode';
+import ReferenceNode from './ReferenceNode';
 
 export const nodeTypes = {
   start: StartNode,
@@ -50,6 +52,7 @@ export const nodeTypes = {
   delay: DelayNode,
   boundaryPort: BoundaryPortNode,
   junction: JunctionNode,
+  reference: ReferenceNode,
 } as const;
 
 /**

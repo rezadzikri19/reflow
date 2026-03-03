@@ -38,6 +38,7 @@ const NODE_TYPE_LABELS: Record<ProcessNodeType, string> = {
   delay: 'Delay',
   boundaryPort: 'Boundary Port',
   junction: 'Junction',
+  reference: 'Reference',
 };
 
 // ============================================================================
@@ -272,6 +273,16 @@ export const NodePropertiesPanel: React.FC = () => {
       if (selectedNode) {
         const value = parseFloat(e.target.value) || 0;
         updateNode(selectedNode.id, { unitTimeMinutes: value });
+      }
+    },
+    [selectedNode, updateNode]
+  );
+
+  const handleReferenceNumberChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (selectedNode) {
+        const value = parseInt(e.target.value, 10) || 1;
+        updateNode(selectedNode.id, { referenceNumber: value });
       }
     },
     [selectedNode, updateNode]
@@ -550,6 +561,27 @@ export const NodePropertiesPanel: React.FC = () => {
                 onChange={handleParallelCapacityChange}
                 fullWidth
                 helperText="Number of parallel processes"
+              />
+            </div>
+          </section>
+        )}
+
+        {/* Reference Node Properties */}
+        {nodeType === 'reference' && (
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Reference Settings
+            </h3>
+            <div className="space-y-4">
+              <Input
+                label="Reference Number"
+                type="number"
+                min={1}
+                step={1}
+                value={(nodeData as { referenceNumber?: number }).referenceNumber || 1}
+                onChange={handleReferenceNumberChange}
+                fullWidth
+                helperText="Number displayed in the reference circle"
               />
             </div>
           </section>

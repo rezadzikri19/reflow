@@ -16,7 +16,8 @@ export type ProcessNodeType =
   | 'parallel'
   | 'delay'
   | 'boundaryPort'
-  | 'junction';
+  | 'junction'
+  | 'reference';
 
 // ============================================================================
 // Edge Types
