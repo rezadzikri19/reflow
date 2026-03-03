@@ -370,13 +370,22 @@ export const NodePropertiesPanel: React.FC = () => {
             Basic Properties
           </h3>
           <div className="space-y-4">
-            <Input
-              label="Label"
-              value={nodeData.label}
-              onChange={handleLabelChange}
-              fullWidth
-              placeholder="Enter node label"
-            />
+            {/* Reference nodes have auto-synced labels - show as read-only */}
+            {nodeType === 'reference' ? (
+              <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+                <p className="text-xs text-gray-500 font-medium mb-1">Label (auto-synced)</p>
+                <p className="text-sm text-gray-800">{nodeData.label}</p>
+                <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
+              </div>
+            ) : (
+              <Input
+                label="Label"
+                value={nodeData.label}
+                onChange={handleLabelChange}
+                fullWidth
+                placeholder="Enter node label"
+              />
+            )}
 
             <div>
               <label

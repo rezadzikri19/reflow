@@ -1,16 +1,24 @@
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import type { BaseNodeData } from '../../../types/index';
+import type { BaseNodeData, ProcessNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
+import { useNodes } from '../../../stores/flowchartStore';
 
 /**
  * ReferenceNode - Sky blue circular node that displays the flow order of a referenced node
  * Used to reference another node's flow order, helping avoid visual clutter from long
  * connection lines and preventing back-and-forth connections in complex flows.
+ * The label is automatically synced with the referenced node's label.
  */
 function ReferenceNode({ id, data, selected }: NodeProps) {
-  const { label = 'Reference', tags, referencedNodeId } = (data as BaseNodeData & { referencedNodeId?: string }) || {};
+  const { tags, referencedNodeId } = (data as BaseNodeData & { referencedNodeId?: string }) || {};
+  const nodes = useNodes();
+
+  // Get the referenced node
+  const referencedNode = nodes.find(n => n.id === referencedNodeId);
+  // Label is always the referenced node's label (auto-synced)
+  const label = referencedNode ? (referencedNode.data as ProcessNodeData).label || 'Reference' : 'Reference';
 
   // Get the flow order of the referenced node (not this node)
   const referencedFlowOrder = useFlowOrder(referencedNodeId || '');
