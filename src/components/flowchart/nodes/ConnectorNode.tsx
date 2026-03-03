@@ -1,23 +1,18 @@
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { BaseNodeData } from '../../../types/index';
-import NodeTags from './NodeTags';
-import FlowOrderBadge from './FlowOrderBadge';
-import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 
 /**
  * ConnectorNode - Teal circular node for connecting flowchart sections
  * Small circular node used to connect different parts of a flowchart,
- * typically used when a flow continues on another page or section
+ * typically used when a flow continues on another page or section.
+ * Excluded from flow order numbering like junction nodes.
  */
-function ConnectorNode({ id, data, selected }: NodeProps) {
+function ConnectorNode({ data, selected }: NodeProps) {
   const { label = 'A' } = (data as BaseNodeData) || {};
-  const flowOrder = useFlowOrder(id);
 
   return (
     <div className="relative">
-      {/* Flow Order Badge */}
-      <FlowOrderBadge order={flowOrder} />
 
       {/* Target Handle - Left side for incoming connections */}
       <Handle
@@ -66,14 +61,6 @@ function ConnectorNode({ id, data, selected }: NodeProps) {
         >
           {label}
         </span>
-      </div>
-
-      {/* Tags indicator below label */}
-      <div
-        className="absolute pointer-events-none left-1/2 -translate-x-1/2 mt-1"
-        style={{ top: '100%', marginTop: '24px' }}
-      >
-        <NodeTags tags={(data as BaseNodeData)?.tags} />
       </div>
     </div>
   );

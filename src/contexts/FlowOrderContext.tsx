@@ -46,9 +46,9 @@ export function FlowOrderProvider({ children, nodes, edges }: FlowOrderProviderP
       return map;
     }
 
-    // Filter out non-process nodes: boundary ports (virtual connections), junctions (path hubs), and references (pointers to other nodes)
+    // Filter out non-process nodes: boundary ports (virtual connections), junctions (path hubs), connectors (page links), and references (pointers to other nodes)
     const processNodes = nodes.filter(
-      (node) => node.type !== 'boundaryPort' && node.type !== 'junction' && node.type !== 'reference'
+      (node) => node.type !== 'boundaryPort' && node.type !== 'junction' && node.type !== 'connector' && node.type !== 'reference'
     );
 
     // Filter edges to only include those between process nodes
