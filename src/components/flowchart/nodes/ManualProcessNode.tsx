@@ -31,7 +31,7 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
       <div
         className={`
           flex items-center justify-center
-          min-w-[140px] max-w-[200px]
+          min-w-[180px] max-w-[240px]
           h-14
           bg-orange-500 hover:bg-orange-600
           border-2 border-orange-700
