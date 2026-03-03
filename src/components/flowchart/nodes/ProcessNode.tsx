@@ -85,7 +85,7 @@ function ProcessNode({ id, data, selected }: NodeProps) {
       />
 
       {/* Node Label */}
-      <div className="text-white font-semibold text-sm truncate" title={label}>
+      <div className="text-white font-semibold text-base text-wrap" title={label}>
         {label}
       </div>
 

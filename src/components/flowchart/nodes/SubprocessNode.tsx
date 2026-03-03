@@ -186,7 +186,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
         {/* Header with icon and label */}
         <div className="flex items-center gap-2">
           <Layers className="w-5 h-5 text-purple-200 shrink-0" />
-          <span className="text-white font-semibold text-sm truncate flex-1" title={label}>
+          <span className="text-white font-semibold text-base text-wrap flex-1" title={label}>
             {label}
           </span>
         </div>

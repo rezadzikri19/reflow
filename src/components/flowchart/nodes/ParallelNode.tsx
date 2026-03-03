@@ -80,7 +80,7 @@ function ParallelNode({ id, data, selected }: NodeProps) {
         <GitBranch
           className={`w-5 h-5 text-cyan-200 shrink-0 ${isFork ? '' : 'rotate-180'}`}
         />
-        <span className="text-white font-semibold text-sm truncate" title={label}>
+        <span className="text-white font-semibold text-base text-wrap" title={label}>
           {label}
         </span>
       </div>

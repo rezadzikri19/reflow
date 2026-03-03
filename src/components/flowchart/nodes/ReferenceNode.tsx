@@ -59,11 +59,11 @@ function ReferenceNode({ id: _id, data, selected }: NodeProps) {
 
       {/* Label below the node */}
       <div
-        className="absolute whitespace-nowrap pointer-events-none"
+        className="absolute pointer-events-none"
         style={{ bottom: -20, left: '50%', transform: 'translateX(-50%)' }}
       >
         <span
-          className="text-xs font-medium text-sky-800 bg-sky-100 px-2 py-0.5 rounded truncate block text-center"
+          className="text-base font-medium text-sky-800 bg-sky-100 px-2 py-0.5 rounded text-wrap block text-center max-w-[120px]"
           title={label}
         >
           {label}

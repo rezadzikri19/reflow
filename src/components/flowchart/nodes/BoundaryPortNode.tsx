@@ -60,7 +60,7 @@ function BoundaryPortNode({ data, selected }: NodeProps) {
       {isInput ? (
         <>
           <div className={`w-2.5 h-2.5 ${colors.dot} rounded-full shrink-0`} />
-          <span className="font-semibold text-xs truncate flex-1" title={label}>
+          <span className="font-semibold text-sm text-wrap flex-1" title={label}>
             {label}
           </span>
           <Handle
@@ -76,7 +76,7 @@ function BoundaryPortNode({ data, selected }: NodeProps) {
             position={Position.Left}
             className={`!w-2 !h-2 ${colors.handle}`}
           />
-          <span className="font-semibold text-xs truncate flex-1 text-right" title={label}>
+          <span className="font-semibold text-sm text-wrap flex-1 text-right" title={label}>
             {label}
           </span>
           <div className={`w-2.5 h-2.5 ${colors.dot} rounded-full shrink-0`} />

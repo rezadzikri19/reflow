@@ -71,7 +71,7 @@ function DelayNode({ id, data, selected }: NodeProps) {
       {/* Header with timer icon */}
       <div className="flex items-center gap-2">
         <Timer className="w-5 h-5 text-gray-200 shrink-0" />
-        <span className="text-white font-semibold text-sm truncate" title={label}>
+        <span className="text-white font-semibold text-base text-wrap" title={label}>
           {label}
         </span>
       </div>
