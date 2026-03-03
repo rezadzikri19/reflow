@@ -35,7 +35,7 @@ interface FlowOrderProviderProps {
 /**
  * Provider that calculates and provides flow order for all nodes.
  * Flow order is determined by topological sort of the graph.
- * Boundary port nodes are excluded from flow order calculation.
+ * Boundary ports, junctions, and references are excluded from flow order calculation.
  */
 export function FlowOrderProvider({ children, nodes, edges }: FlowOrderProviderProps) {
   const flowOrderMap = useMemo(() => {
@@ -45,9 +45,9 @@ export function FlowOrderProvider({ children, nodes, edges }: FlowOrderProviderP
       return map;
     }
 
-    // Filter out boundary port nodes - they are virtual connection points, not process steps
+    // Filter out non-process nodes: boundary ports (virtual connections), junctions (path hubs), and references (pointers to other nodes)
     const processNodes = nodes.filter(
-      (node) => node.type !== 'boundaryPort'
+      (node) => node.type !== 'boundaryPort' && node.type !== 'junction' && node.type !== 'reference'
     );
 
     // Filter edges to only include those between process nodes
