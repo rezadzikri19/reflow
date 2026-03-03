@@ -278,16 +278,6 @@ export const NodePropertiesPanel: React.FC = () => {
     [selectedNode, updateNode]
   );
 
-  const handleReferenceNumberChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (selectedNode) {
-        const value = parseInt(e.target.value, 10) || 1;
-        updateNode(selectedNode.id, { referenceNumber: value });
-      }
-    },
-    [selectedNode, updateNode]
-  );
-
   const handleDeleteClick = useCallback(() => {
     setShowDeleteConfirm(true);
   }, []);
@@ -573,16 +563,24 @@ export const NodePropertiesPanel: React.FC = () => {
               Reference Settings
             </h3>
             <div className="space-y-4">
-              <Input
-                label="Reference Number"
-                type="number"
-                min={1}
-                step={1}
-                value={(nodeData as { referenceNumber?: number }).referenceNumber || 1}
-                onChange={handleReferenceNumberChange}
-                fullWidth
-                helperText="Number displayed in the reference circle"
-              />
+              {(() => {
+                const referencedNodeId = (nodeData as { referencedNodeId?: string }).referencedNodeId;
+                const referencedNode = nodes.find(n => n.id === referencedNodeId);
+                return (
+                  <div className="bg-sky-50 border border-sky-200 rounded-md p-3">
+                    <p className="text-xs text-sky-600 font-medium mb-1">Referenced Node</p>
+                    {referencedNode ? (
+                      <p className="text-sm text-sky-800">
+                        {(referencedNode.data as ProcessNodeData).label || referencedNodeId}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">
+                        No node referenced
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </section>
         )}

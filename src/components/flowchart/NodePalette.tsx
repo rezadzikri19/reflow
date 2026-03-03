@@ -89,21 +89,6 @@ const NODE_TYPES: NodeTypeInfo[] = [
       </svg>
     ),
   },
-  {
-    type: 'reference',
-    name: 'Reference',
-    description: 'Numbered reference point to avoid long connection lines',
-    category: 'flow-control',
-    color: 'text-sky-600',
-    bgColor: 'bg-sky-50',
-    borderColor: 'border-sky-300',
-    icon: (
-      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="8" />
-        <text x="12" y="16" textAnchor="middle" fontSize="10" fill="white" fontWeight="bold">1</text>
-      </svg>
-    ),
-  },
   // Process Steps
   {
     type: 'process',

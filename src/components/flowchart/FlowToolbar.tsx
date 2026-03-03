@@ -149,6 +149,13 @@ const UngroupIcon = () => (
   </svg>
 );
 
+const ReferenceIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="8" />
+    <text x="12" y="16" textAnchor="middle" fontSize="10" fill="currentColor" fontWeight="bold" stroke="none">1</text>
+  </svg>
+);
+
 // =============================================================================
 // Component
 // =============================================================================
@@ -183,6 +190,7 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
     setEdges,
     groupNodesIntoSubprocess,
     ungroupSubprocess,
+    createReferenceToNode,
   } = useFlowchartStore();
 
   // Update zoom level when canvas zoom changes
@@ -369,6 +377,17 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
     }
   }, [selectedNodeIds, ungroupSubprocess, nodes]);
 
+  // Handle creating reference to selected node
+  const handleCreateReference = useCallback(() => {
+    if (selectedNodeIds.length === 1) {
+      const selectedNode = nodes.find(n => n.id === selectedNodeIds[0]);
+      // Can create reference to any node except reference nodes and boundary ports
+      if (selectedNode && selectedNode.type !== 'reference' && selectedNode.type !== 'boundaryPort') {
+        createReferenceToNode(selectedNodeIds[0]);
+      }
+    }
+  }, [selectedNodeIds, createReferenceToNode, nodes]);
+
   // Calculate if grouping/ungrouping is possible
   const selectedNodes = useMemo(() => {
     return nodes.filter(n => selectedNodeIds.includes(n.id));
@@ -379,6 +398,9 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
     !selectedNodes.some(n => n.data.parentId) &&
     !selectedNodes.some(n => n.type === 'subprocess');
   const canUngroup = selectedNodes.length === 1 && selectedNodes[0]?.type === 'subprocess';
+  const canCreateReference = selectedNodes.length === 1 &&
+    selectedNodes[0]?.type !== 'reference' &&
+    selectedNodes[0]?.type !== 'boundaryPort';
 
   return (
     <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-gray-200 shadow-sm">
@@ -514,6 +536,16 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
             title={canUngroup ? 'Ungroup subprocess' : 'Select a subprocess to ungroup'}
           >
             Ungroup
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleCreateReference}
+            disabled={!canCreateReference}
+            leftIcon={<ReferenceIcon />}
+            title={canCreateReference ? 'Create reference to selected node' : 'Select a node to create reference'}
+          >
+            Reference
           </Button>
         </div>
 

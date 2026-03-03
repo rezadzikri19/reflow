@@ -2,18 +2,21 @@ import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { BaseNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
+import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 
 /**
- * ReferenceNode - Sky blue circular node that displays a configurable reference number
+ * ReferenceNode - Sky blue circular node that displays the flow order of a referenced node
  * Used to reference another node's flow order, helping avoid visual clutter from long
  * connection lines and preventing back-and-forth connections in complex flows.
  */
 function ReferenceNode({ id, data, selected }: NodeProps) {
-  const { label = 'Reference', tags, referenceNumber = 1 } = (data as BaseNodeData & { referenceNumber?: number }) || {};
+  const { label = 'Reference', tags, referencedNodeId } = (data as BaseNodeData & { referencedNodeId?: string }) || {};
+
+  // Get the flow order of the referenced node (not this node)
+  const referencedFlowOrder = useFlowOrder(referencedNodeId || '');
 
   return (
     <div className="relative">
-
       {/* Target Handle - Left side for incoming connections */}
       <Handle
         type="target"
@@ -40,9 +43,9 @@ function ReferenceNode({ id, data, selected }: NodeProps) {
           className="!w-3 !h-3 !bg-sky-300 !border-2 !border-sky-700 hover:!bg-sky-200"
         />
 
-        {/* Reference number */}
+        {/* Referenced node's flow order number */}
         <span className="text-white font-bold text-lg">
-          {referenceNumber}
+          {referencedFlowOrder || '?'}
         </span>
       </div>
 

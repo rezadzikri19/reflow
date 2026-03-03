@@ -51,6 +51,7 @@ interface FlowchartState {
 
 interface FlowchartActions {
   addNode: (type: ProcessNodeType, position: { x: number; y: number }) => void;
+  createReferenceToNode: (referencedNodeId: string, position?: { x: number; y: number }) => string | null;
   updateNode: (nodeId: string, data: Partial<ProcessNodeData>) => void;
   deleteNode: (nodeId: string) => void;
   deleteNodes: (nodeIds: string[]) => void;
@@ -170,8 +171,6 @@ export const useFlowchartStore = create<FlowchartStore>()(
               ...DEFAULT_PROCESS_NODE_DATA,
               // Set parentId if we're inside a subprocess sheet
               ...(state.activeSheetId ? { parentId: state.activeSheetId } : {}),
-              // Reference node specific default
-              ...(type === 'reference' ? { referenceNumber: 1 } : {}),
             } as ProcessNodeData,
           };
 
@@ -194,6 +193,61 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
           state.isDirty = true;
         });
+      },
+
+      createReferenceToNode: (referencedNodeId: string, position?: { x: number; y: number }): string | null => {
+        const id = uuidv4();
+
+        // Find the referenced node to get its label
+        const referencedNode = get().nodes.find(n => n.id === referencedNodeId);
+        if (!referencedNode) return null;
+
+        const referencedLabel = (referencedNode.data as ProcessNodeData).label || 'Node';
+
+        // Calculate position - default to offset from referenced node
+        const refPosition = referencedNode.position;
+        const newPosition = position || {
+          x: refPosition.x + 150,
+          y: refPosition.y + 50,
+        };
+
+        set((state) => {
+          const newNode: FlowchartNode = {
+            id,
+            type: 'reference',
+            position: newPosition,
+            data: {
+              id,
+              label: `Ref: ${referencedLabel}`,
+              nodeType: 'reference',
+              referencedNodeId,
+              ...DEFAULT_PROCESS_NODE_DATA,
+              // Set parentId if we're inside a subprocess sheet
+              ...(state.activeSheetId ? { parentId: state.activeSheetId } : {}),
+            } as ProcessNodeData,
+          };
+
+          state.nodes.push(newNode);
+
+          // If inside a subprocess sheet, also update the parent's childNodeIds
+          if (state.activeSheetId) {
+            const parentIndex = state.nodes.findIndex((n) => n.id === state.activeSheetId);
+            if (parentIndex !== -1) {
+              const parentNode = state.nodes[parentIndex];
+              state.nodes[parentIndex] = {
+                ...parentNode,
+                data: {
+                  ...parentNode.data,
+                  childNodeIds: [...(parentNode.data.childNodeIds || []), id],
+                },
+              };
+            }
+          }
+
+          state.isDirty = true;
+        });
+
+        return id;
       },
 
       updateNode: (nodeId: string, data: Partial<ProcessNodeData>) => {
