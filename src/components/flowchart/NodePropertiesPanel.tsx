@@ -239,9 +239,10 @@ export const NodePropertiesPanel: React.FC = () => {
   const handleRequiresFTEChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (selectedNode) {
+        const nodeData = selectedNode.data as ProcessNodeData;
         updateNode(selectedNode.id, {
           requiresFTE: e.target.checked,
-          ftePerUnit: e.target.checked ? (selectedNode.data.ftePerUnit || 1) : undefined,
+          ftePerUnit: e.target.checked ? (nodeData.ftePerUnit || 1) : undefined,
         });
       }
     },
@@ -296,7 +297,8 @@ export const NodePropertiesPanel: React.FC = () => {
   const handleDuplicateNode = useCallback(() => {
     if (selectedNode) {
       const offset = 50;
-      addNode(selectedNode.data.nodeType, {
+      const nodeData = selectedNode.data as ProcessNodeData;
+      addNode(nodeData.nodeType, {
         x: selectedNode.position.x + offset,
         y: selectedNode.position.y + offset,
       });

@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, ReactNode } from 'react';
+import { createContext, useContext, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { topologicalSort } from '../utils/pathFinding';
 import type { FlowchartNode, FlowchartEdge } from '../types';
 

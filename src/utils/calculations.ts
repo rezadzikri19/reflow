@@ -6,119 +6,14 @@ import type {
   NodeResult,
   CalculationInput,
   CalculationOutput,
+  NodeTime,
 } from '../types';
 import {
   WORKING_TIME_DEFAULTS,
 } from '../types';
-import type {
+import {
   findCriticalPath,
-  NodeTime,
 } from './pathFinding';
-
-// =============================================================================
-// Constants
-// =============================================================================
-
-/** Number of working hours in a standard workday */
-export const WORKDAY_HOURS = 8;
-
-/** Default efficiency factor (accounts for breaks, meetings, etc.) */
-export const DEFAULT_EFFICIENCY_FACTOR = 0.85;
-
-// =============================================================================
-// Core Calculation Functions
-// =============================================================================
-
-/**
- * Calculates time required for a node based on quantity and unit time.
- *
- * @param quantity - Number of units to process
- * @param unitTimeMinutes - Time required per unit in minutes
- * @returns Object containing time in minutes, hours, and days
- */
-export function calculateNodeTime(
-  quantity: number,
-  unitTimeMinutes: number
-): { minutes: number; hours: number; days: number } {
-  const minutes = quantity * unitTimeMinutes;
-  const hours = minutes / 60;
-  const days = hours / WORKDAY_HOURS;
-
-  return {
-    minutes,
-    hours,
-    days,
-  };
-}
-
-/**
- * Calculates Full-Time Equivalent (FTE) required based on total hours.
- *
- * @param totalHours - Total hours of work required
- * @param efficiencyFactor - Efficiency factor (default: 0.85)
- * @returns Number of FTE required
- */
-export function calculateFTE(
-  totalHours: number,
-  efficiencyFactor: number = DEFAULT_EFFICIENCY_FACTOR
-): number {
-  if (efficiencyFactor <= 0) {
-    throw new Error('Efficiency factor must be greater than 0');
-  }
-  return totalHours / efficiencyFactor;
-}
-
-// =============================================================================
-// Formatting Functions
-// =============================================================================
-
-/**
- * Formats time in minutes to a human-readable string (e.g., "2h 30m").
- *
- * @param minutes - Time in minutes
- * @returns Formatted time string
- */
-export function formatTime(minutes: number): string {
-  if (minutes < 0) {
-    return '0m';
-  }
-
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = Math.round(minutes % 60);
-
-  const parts: string[] = [];
-
-  if (hours > 0) {
-    parts.push(`${hours}h`);
-  }
-
-  if (remainingMinutes > 0 || parts.length === 0) {
-    parts.push(`${remainingMinutes}m`);
-  }
-
-  return parts.join(' ');
-}
-
-/**
- * Formats days to a human-readable string (e.g., "3.5 days").
- *
- * @param days - Number of days
- * @returns Formatted days string
- */
-export function formatDays(days: number): string {
-  if (days < 0) {
-    return '0 days';
-  }
-
-  // Round to 1 decimal place for readability
-  const roundedDays = Math.round(days * 10) / 10;
-
-  if (roundedDays === 1) {
-    return '1 day';
-  }
-
-  return `${roundedDays} days`;
-}
 
 // =============================================================================
 // Node Metrics Calculation
@@ -281,43 +176,3 @@ export function formatFTE(fte: number): string {
   return `${fte.toFixed(1)} FTE`;
 }
 
-/**
- * Calculate the difference between two scenarios.
- *
- * @param baseline - Baseline scenario results
- * @param comparison - Comparison scenario results
- * @returns Object containing differences
- */
-export function calculateScenarioDifference(
-  baseline: ScenarioResults,
-  comparison: ScenarioResults
-): {
-  totalMinutesDiff: number;
-  totalHoursDiff: number;
-  totalDaysDiff: number;
-  fteDiff: number;
-  criticalPathDiff: number;
-} {
-  return {
-    totalMinutesDiff: comparison.totalMinutes - baseline.totalMinutes,
-    totalHoursDiff: comparison.totalHours - baseline.totalHours,
-    totalDaysDiff: comparison.totalDays - baseline.totalDays,
-    fteDiff: comparison.fteRequired - baseline.fteRequired,
-    criticalPathDiff: comparison.criticalPathDuration - baseline.criticalPathDuration,
-  };
-}
-
-/**
- * Calculate percentage change between two values.
- *
- * @param oldValue - Original value
- * @param newValue - New value
- * @returns Percentage change (can be negative)
- */
-export function calculatePercentageChange(oldValue: number, newValue: number): number {
-  if (oldValue === 0) {
-    return newValue === 0 ? 0 : 100;
-  }
-
-  return ((newValue - oldValue) / oldValue) * 100;
-}

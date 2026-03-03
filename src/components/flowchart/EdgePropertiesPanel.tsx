@@ -278,9 +278,11 @@ export const EdgePropertiesPanel: React.FC = () => {
   }, []);
 
   // Get current values with defaults based on edge type
+  // Note: selectedEdge.label can be React.ReactNode from React Flow's Edge type,
+  // so we convert to string for use in input value
   const currentLabel = isBoundary
     ? (boundaryConnectionData?.label || '')
-    : (selectedEdge?.label || '');
+    : (selectedEdge?.label?.toString() || '');
 
   // Determine default color based on edge type
   const defaultColor = isBoundary

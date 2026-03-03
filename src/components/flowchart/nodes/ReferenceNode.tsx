@@ -11,7 +11,7 @@ import { useNodes } from '../../../stores/flowchartStore';
  * connection lines and preventing back-and-forth connections in complex flows.
  * The label is automatically synced with the referenced node's label.
  */
-function ReferenceNode({ id, data, selected }: NodeProps) {
+function ReferenceNode({ id: _id, data, selected }: NodeProps) {
   const { tags, referencedNodeId } = (data as BaseNodeData & { referencedNodeId?: string }) || {};
   const nodes = useNodes();
 

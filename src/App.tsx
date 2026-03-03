@@ -164,7 +164,6 @@ const FlowchartView: React.FC = () => {
 // ============================================================================
 
 const ScenariosView: React.FC = () => {
-  const scenarios = useScenarios();
   const nodes = useNodes();
   const [selectedFilterTags, setSelectedFilterTags] = useState<string[]>([]);
 
@@ -172,8 +171,8 @@ const ScenariosView: React.FC = () => {
   const availableTags = useMemo(() => {
     const tagSet = new Set<string>();
     nodes.forEach((node) => {
-      const nodeTags = node.data.tags || [];
-      nodeTags.forEach((tag) => tagSet.add(tag));
+      const nodeTags = (node.data as { tags?: string[] }).tags || [];
+      nodeTags.forEach((tag: string) => tagSet.add(tag));
     });
     return Array.from(tagSet).sort();
   }, [nodes]);

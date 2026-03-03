@@ -105,7 +105,6 @@ export async function importQuantitiesFromExcel(file: File | Blob): Promise<Impo
 
         // Extract headers (first row)
         const headers = jsonData[0] as string[];
-        const nodeLabelHeader = headers[0];
         const scenarioNames = headers.slice(1);
 
         // Extract node labels (first column, skipping header)
@@ -122,7 +121,7 @@ export async function importQuantitiesFromExcel(file: File | Blob): Promise<Impo
         const scenarios: ScenarioData[] = scenarioNames.map((name, colIndex) => {
           const quantities: Record<string, number> = {};
 
-          rows.forEach((row, rowIndex) => {
+          rows.forEach((row, _rowIndex) => {
             const nodeLabel = row[0] as string;
             if (nodeLabel) {
               // Use node label as key (caller should map to actual node IDs)

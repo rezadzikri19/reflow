@@ -148,55 +148,6 @@ export const useBaselineScenarioResults = () => {
   );
 };
 
-// =============================================================================
-// Comparison Hooks
-// =============================================================================
-
-/**
- * Hook to get comparison results between active and baseline scenarios.
- */
-export function useScenarioComparison():
-  | {
-      active: ScenarioResults;
-      baseline: ScenarioResults;
-      difference: {
-        totalMinutesDiff: number;
-        totalHoursDiff: number;
-        totalDaysDiff: number;
-        fteDiff: number;
-        criticalPathDiff: number;
-      };
-    }
-  | null {
-  const activeScenarioId = useScenarioStore((state) => state.activeScenarioId);
-  const baselineScenarioId = useScenarioStore((state) => state.baselineScenarioId);
-  const results = useCalculationStore((state) => state.results);
-
-  if (!activeScenarioId || !baselineScenarioId) {
-    return null;
-  }
-
-  const activeResults = results.get(activeScenarioId);
-  const baselineResults = results.get(baselineScenarioId);
-
-  if (!activeResults || !baselineResults) {
-    return null;
-  }
-
-  return {
-    active: activeResults,
-    baseline: baselineResults,
-    difference: {
-      totalMinutesDiff: activeResults.totalMinutes - baselineResults.totalMinutes,
-      totalHoursDiff: activeResults.totalHours - baselineResults.totalHours,
-      totalDaysDiff: activeResults.totalDays - baselineResults.totalDays,
-      fteDiff: activeResults.fteRequired - baselineResults.fteRequired,
-      criticalPathDiff:
-        activeResults.criticalPathDuration - baselineResults.criticalPathDuration,
-    },
-  };
-}
-
 /**
  * Hook to get all calculated results for charting.
  */
@@ -215,57 +166,4 @@ export function useAllScenarioResults(): Array<{
       scenarioName: scenario.name,
       results: results.get(scenario.id)!,
     }));
-}
-
-// =============================================================================
-// Utility Functions
-// =============================================================================
-
-/**
- * Get the node with the highest processing time.
- */
-export function findBottleneckNode(
-  results: ScenarioResults
-): { nodeId: string; nodeLabel: string; totalMinutes: number } | null {
-  if (results.nodeResults.length === 0) return null;
-
-  const sorted = [...results.nodeResults].sort((a, b) => b.totalMinutes - a.totalMinutes);
-  const bottleneck = sorted[0];
-
-  return {
-    nodeId: bottleneck.nodeId,
-    nodeLabel: bottleneck.nodeLabel,
-    totalMinutes: bottleneck.totalMinutes,
-  };
-}
-
-/**
- * Get all nodes on the critical path.
- */
-export function getCriticalPathNodes(results: ScenarioResults): Array<{
-  nodeId: string;
-  nodeLabel: string;
-  totalMinutes: number;
-}> {
-  return results.nodeResults
-    .filter((node) => node.isOnCriticalPath)
-    .sort((a, b) => b.totalMinutes - a.totalMinutes);
-}
-
-/**
- * Calculate the percentage of total time each node contributes.
- */
-export function calculateNodeTimePercentages(
-  results: ScenarioResults
-): Array<{ nodeId: string; percentage: number }> {
-  const totalTime = results.nodeResults.reduce((sum, n) => sum + n.totalMinutes, 0);
-
-  if (totalTime === 0) {
-    return results.nodeResults.map((n) => ({ nodeId: n.nodeId, percentage: 0 }));
-  }
-
-  return results.nodeResults.map((n) => ({
-    nodeId: n.nodeId,
-    percentage: (n.totalMinutes / totalTime) * 100,
-  }));
 }

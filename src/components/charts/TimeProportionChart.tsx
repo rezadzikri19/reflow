@@ -119,7 +119,7 @@ export const TimeProportionChart: React.FC<TimeProportionChartProps> = ({
             outerRadius={120}
             paddingAngle={2}
             dataKey="value"
-            label={({ name, percentage }) => `${name}: ${percentage.toFixed(1)}%`}
+            label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(1)}%`}
             labelLine={{ stroke: '#9CA3AF', strokeWidth: 1 }}
           >
             {chartData.map((entry, index) => (

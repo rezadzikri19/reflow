@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { v4 as uuidv4 } from 'uuid';
-import type { Node, Edge } from '@xyflow/react';
 import type {
   FlowchartNode,
   FlowchartEdge,
@@ -20,7 +19,6 @@ import type {
   FlowchartRecord,
 } from '../db/database';
 import {
-  db,
   saveFlowchart as dbSaveFlowchart,
   loadFlowchart as dbLoadFlowchart,
 } from '../db/database';
@@ -160,7 +158,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
         const id = uuidv4();
 
         set((state) => {
-          const newNode: FlowchartNode = {
+          const newNode = {
             id,
             type,
             position,
@@ -172,7 +170,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
               // Set parentId if we're inside a subprocess sheet
               ...(state.activeSheetId ? { parentId: state.activeSheetId } : {}),
             } as ProcessNodeData,
-          };
+          } as FlowchartNode;
 
           state.nodes.push(newNode);
 
@@ -185,9 +183,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 ...parentNode,
                 data: {
                   ...parentNode.data,
-                  childNodeIds: [...(parentNode.data.childNodeIds || []), id],
+                  childNodeIds: [...((parentNode.data.childNodeIds as string[] | undefined) || []), id],
                 },
-              };
+              } as FlowchartNode;
             }
           }
 
@@ -227,7 +225,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
             } as ProcessNodeData,
           };
 
-          state.nodes.push(newNode);
+          state.nodes.push(newNode as FlowchartNode);
 
           // If inside a subprocess sheet, also update the parent's childNodeIds
           if (state.activeSheetId) {
@@ -238,9 +236,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 ...parentNode,
                 data: {
                   ...parentNode.data,
-                  childNodeIds: [...(parentNode.data.childNodeIds || []), id],
+                  childNodeIds: [...((parentNode.data.childNodeIds as string[] | undefined) || []), id],
                 },
-              };
+              } as FlowchartNode;
             }
           }
 
@@ -279,8 +277,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
                         manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: newLabel };
                         state.nodes[targetNodeIndex] = {
                           ...targetNode,
-                          data: { ...targetData, manualInputPorts: [...manualInputPorts] } as ProcessNodeData,
-                        };
+                          data: { ...targetData, manualInputPorts: [...manualInputPorts] },
+                        } as FlowchartNode;
                       }
                     }
                   }
@@ -300,8 +298,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
                         manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: newLabel };
                         state.nodes[sourceNodeIndex] = {
                           ...sourceNode,
-                          data: { ...sourceData, manualOutputPorts: [...manualOutputPorts] } as ProcessNodeData,
-                        };
+                          data: { ...sourceData, manualOutputPorts: [...manualOutputPorts] },
+                        } as FlowchartNode;
                       }
                     }
                   }
@@ -330,9 +328,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 ...parentNode,
                 data: {
                   ...parentNode.data,
-                  childNodeIds: (parentNode.data.childNodeIds || []).filter((id) => id !== nodeId),
+                  childNodeIds: ((parentNode.data.childNodeIds as string[] | undefined) || []).filter((id) => id !== nodeId),
                 },
-              };
+              } as FlowchartNode;
             }
           }
 
@@ -360,9 +358,10 @@ export const useFlowchartStore = create<FlowchartStore>()(
           const nodesByParent = new Map<string, string[]>();
           state.nodes.forEach((n) => {
             if (idsSet.has(n.id) && n.data?.parentId) {
-              const parentList = nodesByParent.get(n.data.parentId) || [];
+              const parentId = n.data.parentId as string;
+              const parentList = nodesByParent.get(parentId) || [];
               parentList.push(n.id);
-              nodesByParent.set(n.data.parentId, parentList);
+              nodesByParent.set(parentId, parentList);
             }
           });
 
@@ -379,11 +378,11 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 ...parentNode,
                 data: {
                   ...parentNode.data,
-                  childNodeIds: (parentNode.data.childNodeIds || []).filter(
+                  childNodeIds: ((parentNode.data.childNodeIds as string[] | undefined) || []).filter(
                     (id) => !removedSet.has(id)
                   ),
                 },
-              };
+              } as FlowchartNode;
             }
           });
 
@@ -467,7 +466,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                       manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: sourceLabel };
                       state.nodes = state.nodes.map(n =>
                         n.id === target
-                          ? { ...n, data: { ...n.data, manualInputPorts: [...manualInputPorts] } as ProcessNodeData }
+                          ? { ...n, data: { ...n.data, manualInputPorts: [...manualInputPorts] } } as FlowchartNode
                           : n
                       );
                     }
@@ -485,7 +484,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                       manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: targetLabel };
                       state.nodes = state.nodes.map(n =>
                         n.id === source
-                          ? { ...n, data: { ...n.data, manualOutputPorts: [...manualOutputPorts] } as ProcessNodeData }
+                          ? { ...n, data: { ...n.data, manualOutputPorts: [...manualOutputPorts] } } as FlowchartNode
                           : n
                       );
                     }
@@ -575,8 +574,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
                     data: {
                       ...targetData,
                       manualInputPorts: [...manualInputPorts, newPort],
-                    } as ProcessNodeData,
-                  };
+                    },
+                  } as FlowchartNode;
                 }
               }
             }
@@ -612,8 +611,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
                     data: {
                       ...sourceData,
                       manualOutputPorts: [...manualOutputPorts, newPort],
-                    } as ProcessNodeData,
-                  };
+                    },
+                  } as FlowchartNode;
                 }
               }
             }
@@ -634,8 +633,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
                   manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: defaultLabel };
                   state.nodes[targetNodeIndex] = {
                     ...targetNode,
-                    data: { ...targetData, manualInputPorts: [...manualInputPorts] } as ProcessNodeData,
-                  };
+                    data: { ...targetData, manualInputPorts: [...manualInputPorts] },
+                  } as FlowchartNode;
                 }
               }
             }
@@ -656,8 +655,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
                   manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: defaultLabel };
                   state.nodes[sourceNodeIndex] = {
                     ...sourceNode,
-                    data: { ...sourceData, manualOutputPorts: [...manualOutputPorts] } as ProcessNodeData,
-                  };
+                    data: { ...sourceData, manualOutputPorts: [...manualOutputPorts] },
+                  } as FlowchartNode;
                 }
               }
             }
@@ -714,8 +713,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
                       data: {
                         ...targetData,
                         manualInputPorts: [...manualInputPorts, newPort],
-                      } as ProcessNodeData,
-                    };
+                      },
+                    } as FlowchartNode;
                   }
                 }
               }
@@ -751,8 +750,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
                       data: {
                         ...sourceData,
                         manualOutputPorts: [...manualOutputPorts, newPort],
-                      } as ProcessNodeData,
-                    };
+                      },
+                    } as FlowchartNode;
                   }
                 }
               }
@@ -772,8 +771,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
                     manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: defaultLabel };
                     state.nodes[targetNodeIndex] = {
                       ...targetNode,
-                      data: { ...targetData, manualInputPorts: [...manualInputPorts] } as ProcessNodeData,
-                    };
+                      data: { ...targetData, manualInputPorts: [...manualInputPorts] },
+                    } as FlowchartNode;
                   }
                 }
               }
@@ -793,8 +792,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
                     manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: defaultLabel };
                     state.nodes[sourceNodeIndex] = {
                       ...sourceNode,
-                      data: { ...sourceData, manualOutputPorts: [...manualOutputPorts] } as ProcessNodeData,
-                    };
+                      data: { ...sourceData, manualOutputPorts: [...manualOutputPorts] },
+                    } as FlowchartNode;
                   }
                 }
               }
@@ -962,8 +961,6 @@ export const useFlowchartStore = create<FlowchartStore>()(
         const padding = 40;
         const subprocessX = minX - padding;
         const subprocessY = minY - padding;
-        const subprocessWidth = (maxX - minX) + padding * 2;
-        const subprocessHeight = (maxY - minY) + padding * 2;
 
         // Create subprocess node
         const subprocessId = uuidv4();
@@ -993,8 +990,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
               data: {
                 ...node.data,
                 parentId: subprocessId,
-              } as ProcessNodeData,
-            };
+              },
+            } as FlowchartNode;
           }
           return node;
         });
@@ -1297,8 +1294,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
                   data: {
                     ...node.data,
                     parentId: undefined,
-                  } as ProcessNodeData,
-                };
+                  },
+                } as FlowchartNode;
               }
               return node;
             });
@@ -1611,16 +1608,16 @@ export const useFlowchartStore = create<FlowchartStore>()(
               data: {
                 ...nodeData,
                 manualInputPorts: [...existingPorts, newPort],
-              } as ProcessNodeData,
-            };
+              },
+            } as FlowchartNode;
           } else {
             state.nodes[nodeIndex] = {
               ...node,
               data: {
                 ...nodeData,
                 manualOutputPorts: [...existingPorts, newPort],
-              } as ProcessNodeData,
-            };
+              },
+            } as FlowchartNode;
           }
 
           state.nodeVersion += 1;
@@ -1652,8 +1649,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
             inputPorts[inputIndex] = { ...inputPorts[inputIndex], ...updates };
             state.nodes[nodeIndex] = {
               ...node,
-              data: { ...nodeData, manualInputPorts: [...inputPorts] } as ProcessNodeData,
-            };
+              data: { ...nodeData, manualInputPorts: [...inputPorts] },
+            } as FlowchartNode;
             state.nodeVersion += 1;
             state.isDirty = true;
             return;
@@ -1667,8 +1664,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
             outputPorts[outputIndex] = { ...outputPorts[outputIndex], ...updates };
             state.nodes[nodeIndex] = {
               ...node,
-              data: { ...nodeData, manualOutputPorts: [...outputPorts] } as ProcessNodeData,
-            };
+              data: { ...nodeData, manualOutputPorts: [...outputPorts] },
+            } as FlowchartNode;
             state.nodeVersion += 1;
             state.isDirty = true;
           }
@@ -1701,16 +1698,16 @@ export const useFlowchartStore = create<FlowchartStore>()(
               data: {
                 ...nodeData,
                 manualInputPorts: inputPorts.filter(p => p.id !== portId),
-              } as ProcessNodeData,
-            };
+              },
+            } as FlowchartNode;
           } else if (isOutput) {
             state.nodes[nodeIndex] = {
               ...node,
               data: {
                 ...nodeData,
                 manualOutputPorts: outputPorts.filter(p => p.id !== portId),
-              } as ProcessNodeData,
-            };
+              },
+            } as FlowchartNode;
           } else {
             return; // Port not found
           }
@@ -1773,8 +1770,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
               };
               state.nodes[nodeIndex] = {
                 ...node,
-                data: { ...nodeData, manualInputPorts: [...inputPorts] } as ProcessNodeData,
-              };
+                data: { ...nodeData, manualInputPorts: [...inputPorts] },
+              } as FlowchartNode;
               state.nodeVersion += 1;
               state.isDirty = true;
             }
@@ -1792,8 +1789,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
               };
               state.nodes[nodeIndex] = {
                 ...node,
-                data: { ...nodeData, manualOutputPorts: [...outputPorts] } as ProcessNodeData,
-              };
+                data: { ...nodeData, manualOutputPorts: [...outputPorts] },
+              } as FlowchartNode;
               state.nodeVersion += 1;
               state.isDirty = true;
             }
@@ -1838,8 +1835,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
             };
             state.nodes[nodeIndex] = {
               ...node,
-              data: { ...nodeData, manualInputPorts: [...inputPorts] } as ProcessNodeData,
-            };
+              data: { ...nodeData, manualInputPorts: [...inputPorts] },
+            } as FlowchartNode;
             state.nodeVersion += 1;
             state.isDirty = true;
           } else if (outputPortIndex !== -1) {
@@ -1854,8 +1851,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
             };
             state.nodes[nodeIndex] = {
               ...node,
-              data: { ...nodeData, manualOutputPorts: [...outputPorts] } as ProcessNodeData,
-            };
+              data: { ...nodeData, manualOutputPorts: [...outputPorts] },
+            } as FlowchartNode;
             state.nodeVersion += 1;
             state.isDirty = true;
           }
@@ -1892,7 +1889,6 @@ export const useFlowchartName = () => useFlowchartStore((state) => state.flowcha
 export const useIsDirty = () => useFlowchartStore((state) => state.isDirty);
 export const useShowGrid = () => useFlowchartStore((state) => state.showGrid);
 export const useShowMinimap = () => useFlowchartStore((state) => state.showMinimap);
-export const useActiveSheetId = () => useFlowchartStore((state) => state.activeSheetId);
 
 export const useSelectedNode = () => {
   const nodes = useFlowchartStore((state) => state.nodes);
@@ -1907,81 +1903,3 @@ if (typeof window !== 'undefined' && import.meta.env?.DEV) {
   (window as unknown as Record<string, unknown>).flowchartStore = useFlowchartStore;
 }
 
-// =============================================================================
-// Utility Functions
-// =============================================================================
-
-/**
- * Get all node IDs that are connected to a specific node.
- */
-export function getConnectedNodeIds(nodeId: string, edges: FlowchartEdge[]): string[] {
-  const connectedIds = new Set<string>();
-
-  edges.forEach((edge) => {
-    if (edge.source === nodeId) {
-      connectedIds.add(edge.target);
-    }
-    if (edge.target === nodeId) {
-      connectedIds.add(edge.source);
-    }
-  });
-
-  return Array.from(connectedIds);
-}
-
-/**
- * Check if adding an edge would create a cycle.
- */
-export function wouldCreateCycle(
-  source: string,
-  target: string,
-  nodes: FlowchartNode[],
-  edges: FlowchartEdge[]
-): boolean {
-  // Build adjacency list
-  const adjacencyList: Record<string, string[]> = {};
-  nodes.forEach((node) => {
-    adjacencyList[node.id] = [];
-  });
-
-  edges.forEach((edge) => {
-    if (adjacencyList[edge.source]) {
-      adjacencyList[edge.source].push(edge.target);
-    }
-  });
-
-  // Add the potential new edge
-  if (!adjacencyList[source]) {
-    adjacencyList[source] = [];
-  }
-  adjacencyList[source].push(target);
-
-  // DFS to detect cycle
-  const visited = new Set<string>();
-  const recursionStack = new Set<string>();
-
-  function hasCycle(nodeId: string): boolean {
-    visited.add(nodeId);
-    recursionStack.add(nodeId);
-
-    const neighbors = adjacencyList[nodeId] || [];
-    for (const neighbor of neighbors) {
-      if (!visited.has(neighbor)) {
-        if (hasCycle(neighbor)) return true;
-      } else if (recursionStack.has(neighbor)) {
-        return true;
-      }
-    }
-
-    recursionStack.delete(nodeId);
-    return false;
-  }
-
-  for (const nodeId of Object.keys(adjacencyList)) {
-    if (!visited.has(nodeId)) {
-      if (hasCycle(nodeId)) return true;
-    }
-  }
-
-  return false;
-}

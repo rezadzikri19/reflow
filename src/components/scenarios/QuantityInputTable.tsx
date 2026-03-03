@@ -9,7 +9,6 @@ import {
   useCalculationStore,
   useCalculationResults,
 } from '../../stores/calculationStore';
-import type { FlowchartNode } from '../../types';
 
 // ============================================================================
 // Types
@@ -146,8 +145,8 @@ export const QuantityInputTable: React.FC<QuantityInputTableProps> = ({
 
     // Filter nodes that have at least one matching tag
     return baseNodes.filter((node) => {
-      const nodeTags = node.data.tags || [];
-      return nodeTags.some((tag) => filterTags.includes(tag));
+      const nodeTags = (node.data.tags || []) as string[];
+      return nodeTags.some((tag: string) => filterTags.includes(tag));
     });
   }, [nodes, filterTags]);
 
@@ -236,17 +235,6 @@ export const QuantityInputTable: React.FC<QuantityInputTableProps> = ({
     };
     input.click();
   }, [scenarios, processNodes, updateQuantity, calculateAll, saveScenarios]);
-
-  // Get calculated time for a node in a scenario
-  const getNodeTime = useCallback(
-    (scenarioId: string, nodeId: string, node: FlowchartNode): number => {
-      const results = useCalculationStore.getState().results.get(scenarioId);
-      if (!results) return 0;
-      const nodeResult = results.nodeResults.find((nr) => nr.nodeId === nodeId);
-      return nodeResult?.totalMinutes || 0;
-    },
-    []
-  );
 
   if (scenarios.length === 0) {
     return (
@@ -404,19 +392,19 @@ export const QuantityInputTable: React.FC<QuantityInputTableProps> = ({
                               : 'bg-gray-200 text-gray-700'
                         }`}
                       >
-                        {node.data.nodeType}
+                        {(node.data.nodeType ?? '') as React.ReactNode}
                       </span>
                     </div>
                     <span className="text-xs text-gray-500">
-                      {node.data.unitTimeMinutes} min/unit
+                      {node.data.unitTimeMinutes as React.ReactNode} min/unit
                     </span>
                   </div>
                 </td>
                 {/* Quantity cells for each scenario */}
                 {scenarios.map((scenario) => {
                   const quantity = scenario.quantities[node.id] || 0;
-                  const calculatedTime =
-                    quantity * (node.data.unitTimeMinutes || 0);
+                  const unitTime = typeof node.data.unitTimeMinutes === 'number' ? node.data.unitTimeMinutes : 0;
+                  const calculatedTime = quantity * unitTime;
 
                   return (
                     <td key={scenario.id} className="px-4 py-3">
@@ -426,7 +414,7 @@ export const QuantityInputTable: React.FC<QuantityInputTableProps> = ({
                           handleQuantityChange(scenario.id, node.id, value)
                         }
                         calculatedTime={calculatedTime}
-                        nodeUnitTime={node.data.unitTimeMinutes}
+                        nodeUnitTime={unitTime}
                       />
                     </td>
                   );

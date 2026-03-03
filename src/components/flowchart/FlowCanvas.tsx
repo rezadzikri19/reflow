@@ -420,8 +420,8 @@ function FlowCanvasInner({
       addEdge(
         sourceId,
         targetId,
-        connection.sourceHandle,
-        connection.targetHandle
+        connection.sourceHandle ?? undefined,
+        connection.targetHandle ?? undefined
       );
     },
     [readOnly, edges, addEdge, addBoundaryPortEdge, activeSheetId, addManualPortConnection]
@@ -715,7 +715,7 @@ function FlowCanvasInner({
       .map(n => ({
         id: n.id,
         label: n.data.label || 'Subprocess',
-        nodeCount: (n.data.childNodeIds || []).length,
+        nodeCount: ((n.data.childNodeIds as string[] | undefined) || []).length,
       }));
   }, [nodes]);
 
@@ -865,20 +865,20 @@ function FlowCanvasInner({
    * - Main view (null): show all nodes NOT inside a subprocess
    * - Sheet view (ID): show only children of that subprocess + boundary port nodes
    */
-  const visibleNodes = useMemo(() => {
+  const visibleNodes = useMemo((): FlowchartNode[] => {
     if (activeSheetId === null) {
       // Main view: show all nodes NOT inside a subprocess
       // Create new references to force React Flow re-render when nodeVersion changes
       return nodes
         .filter((node) => !node.data.parentId)
-        .map((node) => ({ ...node, data: { ...node.data } }));
+        .map((node) => ({ ...node, data: { ...node.data } })) as FlowchartNode[];
     }
 
     // Sheet view: show only children of this subprocess
     // Create new references to force React Flow re-render when nodeVersion changes
     const internalNodes = nodes
       .filter((node) => node.data.parentId === activeSheetId)
-      .map((node) => ({ ...node, data: { ...node.data } }));
+      .map((node) => ({ ...node, data: { ...node.data } })) as FlowchartNode[];
 
     // Get boundary port nodes
     const { inputs, outputs } = boundaryPortNodes;
@@ -916,7 +916,7 @@ function FlowCanvasInner({
       });
     }
 
-    return [...inputs, ...internalNodes, ...outputs];
+    return [...inputs, ...internalNodes, ...outputs] as FlowchartNode[];
   }, [nodes, nodeVersion, activeSheetId, boundaryPortNodes]);
 
   /**

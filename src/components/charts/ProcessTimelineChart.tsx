@@ -6,9 +6,8 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
-  ReferenceLine,
+  Cell,
 } from 'recharts';
 import type { Scenario, NodeResult } from '../../types';
 
@@ -86,7 +85,7 @@ export const ProcessTimelineChart: React.FC<ProcessTimelineChartProps> = ({
 
     // Simple sequential timeline (in real app, would use critical path data)
     let cumulativeHours = 0;
-    return scenario.results.nodeResults.map((node: NodeResult, index: number) => {
+    return scenario.results.nodeResults.map((node: NodeResult) => {
       const start = cumulativeHours;
       const duration = node.totalHours;
       const end = start + duration;
@@ -153,7 +152,7 @@ export const ProcessTimelineChart: React.FC<ProcessTimelineChartProps> = ({
             maxBarSize={40}
           >
             {chartData.map((entry, index) => (
-              <cell key={`cell-${index}`} fill={entry.color} />
+              <Cell key={`cell-${index}`} fill={entry.color} />
             ))}
           </Bar>
         </BarChart>

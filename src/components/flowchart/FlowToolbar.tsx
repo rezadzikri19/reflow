@@ -351,9 +351,6 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
     }
   }, [isDirty, setNodes, setEdges]);
 
-  // Get selected nodes from React Flow using store subscription for reactivity
-  const { getNodes } = useReactFlow();
-
   // Subscribe to node selection changes - this will trigger re-renders
   const selectedNodeIds = useStore((state) => {
     const nodes = state.nodes as FlowchartNode[];

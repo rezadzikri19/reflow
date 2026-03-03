@@ -5,7 +5,6 @@ import type { Scenario } from '../types';
 import { SCENARIO_COLORS } from '../types';
 import type { ScenarioRecord } from '../db/database';
 import {
-  db,
   saveScenario as dbSaveScenario,
   loadScenarios as dbLoadScenarios,
   deleteScenario as dbDeleteScenario,
@@ -101,7 +100,7 @@ export const useScenarioStore = create<ScenarioStore>()(
       // Build default quantities from node defaults
       const quantities: Record<string, number> = {};
       nodes.forEach((node) => {
-        quantities[node.id] = node.data.defaultQuantity ?? 0;
+        quantities[node.id] = (node.data.defaultQuantity as number) ?? 0;
       });
 
       set((state) => {
@@ -297,37 +296,3 @@ export const useBaselineScenario = () => {
   return scenarios.find((s) => s.id === baselineId) || null;
 };
 
-export const useScenarioQuantities = (scenarioId: string) => {
-  return useScenarioStore((state) => {
-    const scenario = state.scenarios.find((s) => s.id === scenarioId);
-    return scenario?.quantities || {};
-  });
-};
-
-// =============================================================================
-// Utility Functions
-// =============================================================================
-
-/**
- * Get all scenarios for the current flowchart.
- */
-export function getScenariosForFlowchart(flowchartId: string, scenarios: Scenario[]): Scenario[] {
-  return scenarios.filter((s) => s.flowchartId === flowchartId);
-}
-
-/**
- * Calculate the total quantity across all scenarios for a specific node.
- */
-export function getTotalQuantityForNode(nodeId: string, scenarios: Scenario[]): number {
-  return scenarios.reduce((total, scenario) => {
-    return total + (scenario.quantities[nodeId] || 0);
-  }, 0);
-}
-
-/**
- * Get the average quantity for a node across all scenarios.
- */
-export function getAverageQuantityForNode(nodeId: string, scenarios: Scenario[]): number {
-  if (scenarios.length === 0) return 0;
-  return getTotalQuantityForNode(nodeId, scenarios) / scenarios.length;
-}

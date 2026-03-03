@@ -1,4 +1,4 @@
-import type { Node } from '@xyflow/react';
+import type { Node, EdgeMarkerType } from '@xyflow/react';
 
 // ============================================================================
 // Node Types
@@ -222,8 +222,8 @@ export interface FlowchartEdge {
   selectable?: boolean;
   data?: Record<string, unknown>;
   selected?: boolean;
-  markerStart?: string;
-  markerEnd?: string;
+  markerStart?: EdgeMarkerType;
+  markerEnd?: EdgeMarkerType;
   zIndex?: number;
   label?: string;
   style?: React.CSSProperties;

@@ -12,8 +12,6 @@ export {
   useFlowchartName,
   useIsDirty,
   useSelectedNode,
-  getConnectedNodeIds,
-  wouldCreateCycle,
 } from './flowchartStore';
 
 // Scenario Store
@@ -24,10 +22,6 @@ export {
   useBaselineScenarioId,
   useActiveScenario,
   useBaselineScenario,
-  useScenarioQuantities,
-  getScenariosForFlowchart,
-  getTotalQuantityForNode,
-  getAverageQuantityForNode,
 } from './scenarioStore';
 
 // Calculation Store
@@ -39,9 +33,5 @@ export {
   useScenarioResults,
   useActiveScenarioResults,
   useBaselineScenarioResults,
-  useScenarioComparison,
   useAllScenarioResults,
-  findBottleneckNode,
-  getCriticalPathNodes,
-  calculateNodeTimePercentages,
 } from './calculationStore';
