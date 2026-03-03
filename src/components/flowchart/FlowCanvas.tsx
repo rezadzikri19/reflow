@@ -341,6 +341,18 @@ function FlowCanvasInner({
       // Prevent self-connections
       if (connection.source === connection.target) return;
 
+      // Check if source port already has a connection (one output connection per port)
+      const sourceHasConnection = edges.some(
+        (e) => e.source === connection.source && e.sourceHandle === connection.sourceHandle
+      );
+      if (sourceHasConnection) return;
+
+      // Check if target port already has a connection (one input connection per port)
+      const targetHasConnection = edges.some(
+        (e) => e.target === connection.target && e.targetHandle === connection.targetHandle
+      );
+      if (targetHasConnection) return;
+
       const sourceId = connection.source;
       const targetId = connection.target;
 
@@ -412,7 +424,7 @@ function FlowCanvasInner({
         connection.targetHandle
       );
     },
-    [readOnly, addEdge, addBoundaryPortEdge, activeSheetId, addManualPortConnection]
+    [readOnly, edges, addEdge, addBoundaryPortEdge, activeSheetId, addManualPortConnection]
   );
 
   /**
