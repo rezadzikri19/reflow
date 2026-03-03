@@ -32,13 +32,13 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
         className={`
           flex items-center justify-center
           min-w-[180px] max-w-[240px]
-          h-14
+          min-h-[100px]
           bg-orange-500 hover:bg-orange-600
           border-2 border-orange-700
           shadow-lg hover:shadow-xl
           transition-all duration-200
           cursor-pointer
-          px-4
+          p-3
           ${selected ? 'ring-2 ring-orange-400 ring-offset-2' : ''}
         `}
         style={{
