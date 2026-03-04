@@ -5,17 +5,21 @@ import type { BaseNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
 import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
+import LockIndicator from './LockIndicator';
 
 /**
  * StartNode - Green circular start node with play icon
  * This node represents the starting point of a process flowchart
  */
 function StartNode({ id, data, selected }: NodeProps) {
-  const { label = 'Start', tags } = (data as BaseNodeData) || {};
+  const { label = 'Start', tags, locked } = (data as BaseNodeData) || {};
   const flowOrder = useFlowOrder(id);
 
   return (
     <div className="relative">
+      {/* Lock Indicator */}
+      <LockIndicator locked={locked} />
+
       {/* Flow Order Badge */}
       <FlowOrderBadge order={flowOrder} />
 
@@ -29,6 +33,7 @@ function StartNode({ id, data, selected }: NodeProps) {
           transition-all duration-200
           cursor-pointer
           ${selected ? 'ring-2 ring-emerald-400 ring-offset-2' : ''}
+          ${locked ? 'border-dashed opacity-80' : ''}
         `}
       >
         {/* Source Handle - Right side for outgoing connections */}

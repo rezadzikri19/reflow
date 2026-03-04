@@ -6,6 +6,7 @@ import NodeTags from './NodeTags';
 import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import HybridHandle from './HybridHandle';
+import LockIndicator from './LockIndicator';
 
 /**
  * DecisionNode - Amber diamond-shaped node for conditional branching
@@ -13,7 +14,7 @@ import HybridHandle from './HybridHandle';
  * Branch semantics are defined by editable connection labels, not fixed ports.
  */
 function DecisionNode({ id, data, selected }: NodeProps) {
-  const { label = 'Decision', tags } = (data as BaseNodeData) || {};
+  const { label = 'Decision', tags, locked } = (data as BaseNodeData) || {};
   const flowOrder = useFlowOrder(id);
 
   // Diamond dimensions
@@ -28,6 +29,9 @@ function DecisionNode({ id, data, selected }: NodeProps) {
 
   return (
     <div className="relative" style={{ width: containerSize, height: containerSize }}>
+      {/* Lock Indicator */}
+      <LockIndicator locked={locked} />
+
       {/* Flow Order Badge */}
       <FlowOrderBadge order={flowOrder} />
 
@@ -71,6 +75,7 @@ function DecisionNode({ id, data, selected }: NodeProps) {
           transition-all duration-200
           cursor-pointer
           ${selected ? 'ring-2 ring-amber-400 ring-offset-2' : ''}
+          ${locked ? 'border-dashed opacity-80' : ''}
         `}
         style={{
           width: diamondSize,

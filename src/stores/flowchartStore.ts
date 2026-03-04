@@ -121,6 +121,9 @@ interface FlowchartActions {
     internalNodeId: string,
     handleId?: string | null
   ) => void;
+  // Lock/unlock actions
+  lockNodes: (nodeIds: string[]) => void;
+  unlockNodes: (nodeIds: string[]) => void;
 }
 
 type FlowchartStore = FlowchartState & FlowchartActions;
@@ -1873,6 +1876,50 @@ export const useFlowchartStore = create<FlowchartStore>()(
             state.edgeVersion += 1; // Trigger edge recalculation for virtual edges
             state.isDirty = true;
           }
+        });
+      },
+
+      /**
+       * Lock nodes so they cannot be moved
+       */
+      lockNodes: (nodeIds: string[]) => {
+        set((state) => {
+          nodeIds.forEach((nodeId) => {
+            const nodeIndex = state.nodes.findIndex((n) => n.id === nodeId);
+            if (nodeIndex !== -1) {
+              state.nodes[nodeIndex] = {
+                ...state.nodes[nodeIndex],
+                data: {
+                  ...state.nodes[nodeIndex].data,
+                  locked: true,
+                },
+              } as FlowchartNode;
+            }
+          });
+          state.isDirty = true;
+          state.nodeVersion += 1;
+        });
+      },
+
+      /**
+       * Unlock nodes so they can be moved again
+       */
+      unlockNodes: (nodeIds: string[]) => {
+        set((state) => {
+          nodeIds.forEach((nodeId) => {
+            const nodeIndex = state.nodes.findIndex((n) => n.id === nodeId);
+            if (nodeIndex !== -1) {
+              state.nodes[nodeIndex] = {
+                ...state.nodes[nodeIndex],
+                data: {
+                  ...state.nodes[nodeIndex].data,
+                  locked: false,
+                },
+              } as FlowchartNode;
+            }
+          });
+          state.isDirty = true;
+          state.nodeVersion += 1;
         });
       },
 

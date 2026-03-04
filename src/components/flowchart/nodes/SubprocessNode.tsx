@@ -7,6 +7,7 @@ import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import { useFlowchartStore } from '../../../stores/flowchartStore';
 import HybridHandle from './HybridHandle';
+import LockIndicator from './LockIndicator';
 
 // =============================================================================
 // Helper Functions
@@ -38,7 +39,7 @@ interface PortRenderInfo {
 // =============================================================================
 
 function SubprocessNode({ data, selected, id }: NodeProps) {
-  const { label = 'Subprocess', description, tags, childNodeIds = [], manualInputPorts = [], manualOutputPorts = [] } = (data as ProcessNodeData) || {};
+  const { label = 'Subprocess', description, tags, childNodeIds = [], manualInputPorts = [], manualOutputPorts = [], locked } = (data as ProcessNodeData) || {};
   const openSubprocessSheet = useFlowchartStore((state) => state.openSubprocessSheet);
   const edges = useFlowchartStore((state) => state.edges);
   const nodeVersion = useFlowchartStore((state) => state.nodeVersion);
@@ -149,8 +150,12 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
         cursor-pointer
         p-3
         ${selected ? 'ring-2 ring-purple-400 ring-offset-2' : ''}
+        ${locked ? 'border-dashed opacity-80' : ''}
       `}
     >
+      {/* Lock Indicator */}
+      <LockIndicator locked={locked} />
+
       {/* Flow Order Badge */}
       <FlowOrderBadge order={flowOrder} />
 

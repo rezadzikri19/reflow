@@ -14,6 +14,7 @@ import NodeTags from './NodeTags';
 import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import HybridHandle from './HybridHandle';
+import LockIndicator from './LockIndicator';
 
 /**
  * Maps unit types to their corresponding icons
@@ -86,6 +87,7 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
     unitTimeMinutes = 0,
     defaultQuantity = 1,
     tags,
+    locked,
   } = (data as ProcessNodeData) || {};
 
   const UnitIcon = unitTypeIcons[unitType];
@@ -137,11 +139,15 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
       className={`
         relative transition-all duration-200
         ${selected ? 'ring-2 ring-orange-400 ring-offset-2 rounded-xl' : ''}
+        ${locked ? 'opacity-80' : ''}
       `}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{ width, height }}
     >
+      {/* Lock Indicator */}
+      <LockIndicator locked={locked} />
+
       {/* Flow Order Badge */}
       <FlowOrderBadge order={flowOrder} />
 
@@ -161,6 +167,7 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
           fill={fillColor}
           stroke={strokeColor}
           strokeWidth={2}
+          strokeDasharray={locked ? '6,3' : 'none'}
           style={{ transition: 'fill 200ms' }}
         />
       </svg>

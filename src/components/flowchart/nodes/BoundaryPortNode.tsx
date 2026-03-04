@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Position, type NodeProps } from '@xyflow/react';
 import type { BoundaryPortNodeData } from '../../../types/index';
 import HybridHandle from './HybridHandle';
+import LockIndicator from './LockIndicator';
 
 // =============================================================================
 // Types
@@ -14,7 +15,7 @@ export type { BoundaryPortNodeData } from '../../../types/index';
 // =============================================================================
 
 function BoundaryPortNode({ id, data, selected }: NodeProps) {
-  const { label, direction, isManual } = data as BoundaryPortNodeData;
+  const { label, direction, isManual, locked } = data as BoundaryPortNodeData;
   const isInput = direction === 'input';
 
   // Determine colors based on direction (same for manual and auto-created ports)
@@ -44,6 +45,7 @@ function BoundaryPortNode({ id, data, selected }: NodeProps) {
   return (
     <div
       className={`
+        relative
         flex items-center gap-1.5 px-2 py-1.5
         ${colors.bg} ${colors.border} ${colors.text}
         border-2 rounded-md
@@ -53,9 +55,13 @@ function BoundaryPortNode({ id, data, selected }: NodeProps) {
         ${selected ? 'ring-2 ring-offset-1 ring-purple-400' : ''}
         cursor-move
         ${isManual ? 'border-dashed' : ''}
+        ${locked ? 'opacity-80' : ''}
       `}
       title={label}
     >
+      {/* Lock Indicator */}
+      <LockIndicator locked={locked} />
+
       {/* Input: dot on left, text on right */}
       {/* Output: text on left, dot on right */}
       {isInput ? (

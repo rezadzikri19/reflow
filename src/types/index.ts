@@ -62,6 +62,8 @@ export interface BaseNodeData {
   nodeType: ProcessNodeType;
   /** Tags for categorizing and filtering nodes */
   tags?: string[];
+  /** Whether the node is locked and cannot be moved */
+  locked?: boolean;
   /** Index signature to satisfy Record<string, unknown> constraint */
   [key: string]: unknown;
 }
@@ -121,6 +123,8 @@ export interface BoundaryPortNodeData {
   isManual?: boolean;
   /** The manual port ID (if this is a manual port) */
   manualPortId?: string;
+  /** Whether the node is locked and cannot be moved */
+  locked?: boolean;
   /** Index signature to satisfy Record<string, unknown> constraint */
   [key: string]: unknown;
 }

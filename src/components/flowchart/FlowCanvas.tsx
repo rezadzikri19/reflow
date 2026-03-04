@@ -734,6 +734,10 @@ function FlowCanvasInner({
       ? selectedNodes.find(n => n.type !== 'reference' && n.type !== 'boundaryPort')
       : null;
 
+    // Check lock state for selected nodes
+    const hasLockedNodes = selectedNodes.some(n => n.data.locked);
+    const hasUnlockedNodes = selectedNodes.some(n => !n.data.locked);
+
     // Validate grouping
     let canGroup = false;
     let groupDisabledReason = '';
@@ -759,6 +763,8 @@ function FlowCanvasInner({
       isSubprocessSelected,
       selectedSubprocessId: selectedSubprocess?.id,
       referenceableNode,
+      hasLockedNodes,
+      hasUnlockedNodes,
     };
   }, [getNodes]);
 
@@ -942,14 +948,14 @@ function FlowCanvasInner({
       // Create new references to force React Flow re-render when nodeVersion changes
       return nodes
         .filter((node) => !node.data.parentId)
-        .map((node) => ({ ...node, data: { ...node.data } })) as FlowchartNode[];
+        .map((node) => ({ ...node, data: { ...node.data }, draggable: !node.data.locked })) as FlowchartNode[];
     }
 
     // Sheet view: show only children of this subprocess
     // Create new references to force React Flow re-render when nodeVersion changes
     const internalNodes = nodes
       .filter((node) => node.data.parentId === activeSheetId)
-      .map((node) => ({ ...node, data: { ...node.data } })) as FlowchartNode[];
+      .map((node) => ({ ...node, data: { ...node.data }, draggable: !node.data.locked })) as FlowchartNode[];
 
     // Get boundary port nodes
     const { inputs, outputs } = boundaryPortNodes;
@@ -1292,6 +1298,8 @@ function FlowCanvasInner({
           isSubprocessSelected={contextMenuState.isSubprocessSelected}
           selectedSubprocessId={contextMenuState.selectedSubprocessId}
           referenceableNode={contextMenuState.referenceableNode}
+          hasLockedNodes={contextMenuState.hasLockedNodes}
+          hasUnlockedNodes={contextMenuState.hasUnlockedNodes}
         />
       </div>
 

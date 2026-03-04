@@ -14,6 +14,7 @@ import NodeTags from './NodeTags';
 import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import HybridHandle from './HybridHandle';
+import LockIndicator from './LockIndicator';
 
 /**
  * Maps unit types to their corresponding icons
@@ -54,6 +55,7 @@ function ProcessNode({ id, data, selected }: NodeProps) {
     unitTimeMinutes = 0,
     defaultQuantity = 1,
     tags,
+    locked,
   } = (data as ProcessNodeData) || {};
 
   const UnitIcon = unitTypeIcons[unitType];
@@ -74,8 +76,12 @@ function ProcessNode({ id, data, selected }: NodeProps) {
         p-3
         relative
         ${selected ? 'ring-2 ring-blue-400 ring-offset-2' : ''}
+        ${locked ? 'border-dashed opacity-80' : ''}
       `}
     >
+      {/* Lock Indicator */}
+      <LockIndicator locked={locked} />
+
       {/* Flow Order Badge */}
       <FlowOrderBadge order={flowOrder} />
 

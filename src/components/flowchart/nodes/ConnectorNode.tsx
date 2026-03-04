@@ -3,6 +3,7 @@ import { Position, type NodeProps } from '@xyflow/react';
 import { CircleDot } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
 import HybridHandle from './HybridHandle';
+import LockIndicator from './LockIndicator';
 
 /**
  * ConnectorNode - Teal circular node for connecting flowchart sections
@@ -11,10 +12,13 @@ import HybridHandle from './HybridHandle';
  * Excluded from flow order numbering like junction nodes.
  */
 function ConnectorNode({ id, data, selected }: NodeProps) {
-  const { label = 'A' } = (data as BaseNodeData) || {};
+  const { label = 'A', locked } = (data as BaseNodeData) || {};
 
   return (
     <div className="relative">
+      {/* Lock Indicator */}
+      <LockIndicator locked={locked} />
+
       {/* Handles - Hybrid (can be input or output) */}
       <HybridHandle id="top" position={Position.Top} nodeId={id} nodeColor="green" />
       <HybridHandle id="bottom" position={Position.Bottom} nodeId={id} nodeColor="green" />
@@ -31,6 +35,7 @@ function ConnectorNode({ id, data, selected }: NodeProps) {
           transition-all duration-200
           cursor-pointer
           ${selected ? 'ring-2 ring-teal-400 ring-offset-2' : ''}
+          ${locked ? 'border-dashed opacity-80' : ''}
         `}
       >
         <HybridHandle id="right" position={Position.Right} nodeId={id} nodeColor="green" />

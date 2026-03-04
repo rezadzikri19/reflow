@@ -2,16 +2,20 @@ import { memo } from 'react';
 import { Position, type NodeProps } from '@xyflow/react';
 import type { BaseNodeData } from '../../../types/index';
 import HybridHandle from './HybridHandle';
+import LockIndicator from './LockIndicator';
 
 /**
  * JunctionNode - Violet circular node that acts as a many-to-one connection hub
  * Multiple nodes can connect TO it, and it connects TO one other node.
  */
 function JunctionNode({ id, data, selected }: NodeProps) {
-  const { label = 'Junction' } = (data as BaseNodeData) || {};
+  const { label = 'Junction', locked } = (data as BaseNodeData) || {};
 
   return (
     <div className="relative">
+      {/* Lock Indicator */}
+      <LockIndicator locked={locked} />
+
       {/* Handles - Hybrid (can be input or output) */}
       <HybridHandle id="top" position={Position.Top} nodeId={id} nodeColor="purple" />
       <HybridHandle id="bottom" position={Position.Bottom} nodeId={id} nodeColor="purple" />
@@ -27,6 +31,7 @@ function JunctionNode({ id, data, selected }: NodeProps) {
           transition-all duration-200
           cursor-pointer
           ${selected ? 'ring-2 ring-violet-400 ring-offset-2' : ''}
+          ${locked ? 'border-dashed opacity-80' : ''}
         `}
       >
         <HybridHandle id="right" position={Position.Right} nodeId={id} nodeColor="purple" />

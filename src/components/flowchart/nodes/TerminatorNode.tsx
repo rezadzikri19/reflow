@@ -5,6 +5,7 @@ import NodeTags from './NodeTags';
 import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import HybridHandle from './HybridHandle';
+import LockIndicator from './LockIndicator';
 
 /**
  * TerminatorNode - Rose elongated circle (stadium/pill shape) node
@@ -13,11 +14,14 @@ import HybridHandle from './HybridHandle';
  * Different from Start/End nodes - terminators are for entry/exit points within a flow
  */
 function TerminatorNode({ id, data, selected }: NodeProps) {
-  const { label = 'Terminator', tags } = (data as BaseNodeData) || {};
+  const { label = 'Terminator', tags, locked } = (data as BaseNodeData) || {};
   const flowOrder = useFlowOrder(id);
 
   return (
     <div className="relative">
+      {/* Lock Indicator */}
+      <LockIndicator locked={locked} />
+
       {/* Flow Order Badge */}
       <FlowOrderBadge order={flowOrder} />
 
@@ -38,6 +42,7 @@ function TerminatorNode({ id, data, selected }: NodeProps) {
           cursor-pointer
           px-4
           ${selected ? 'ring-2 ring-rose-400 ring-offset-2' : ''}
+          ${locked ? 'border-dashed opacity-80' : ''}
         `}
       >
         {/* Right Handle - Hybrid (can be input or output) */}

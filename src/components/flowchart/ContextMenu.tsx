@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useUpdateNodeInternals } from '@xyflow/react';
-import { Layers, Ungroup, X, ArrowLeft, ArrowRight, Link } from 'lucide-react';
+import { Layers, Ungroup, X, ArrowLeft, ArrowRight, Link, Lock, LockOpen } from 'lucide-react';
 import { useFlowchartStore } from '../../stores/flowchartStore';
 import type { FlowchartNode } from '../../types';
 
@@ -32,6 +32,10 @@ interface ContextMenuProps {
   selectedSubprocessId?: string;
   /** Selected node that can be referenced (single selection, non-reference type) */
   referenceableNode?: FlowchartNode | null;
+  /** Whether any of the selected nodes are locked */
+  hasLockedNodes?: boolean;
+  /** Whether any of the selected nodes are unlocked */
+  hasUnlockedNodes?: boolean;
 }
 
 // =============================================================================
@@ -48,12 +52,16 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   isSubprocessSelected,
   selectedSubprocessId,
   referenceableNode,
+  hasLockedNodes,
+  hasUnlockedNodes,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const groupNodesIntoSubprocess = useFlowchartStore((state) => state.groupNodesIntoSubprocess);
   const ungroupSubprocess = useFlowchartStore((state) => state.ungroupSubprocess);
   const addManualPort = useFlowchartStore((state) => state.addManualPort);
   const createReferenceToNode = useFlowchartStore((state) => state.createReferenceToNode);
+  const lockNodes = useFlowchartStore((state) => state.lockNodes);
+  const unlockNodes = useFlowchartStore((state) => state.unlockNodes);
   const updateNodeInternals = useUpdateNodeInternals();
 
   // Close menu when clicking outside
@@ -137,6 +145,18 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     onClose();
   }, [referenceableNode, createReferenceToNode, onClose]);
 
+  const handleLockNodes = useCallback(() => {
+    if (selectedNodeIds.length === 0) return;
+    lockNodes(selectedNodeIds);
+    onClose();
+  }, [selectedNodeIds, lockNodes, onClose]);
+
+  const handleUnlockNodes = useCallback(() => {
+    if (selectedNodeIds.length === 0) return;
+    unlockNodes(selectedNodeIds);
+    onClose();
+  }, [selectedNodeIds, unlockNodes, onClose]);
+
   if (!isOpen) return null;
 
   const adjustedPos = adjustedPosition();
@@ -208,6 +228,31 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           <Link className="w-4 h-4 text-sky-500" />
           <span>Create Reference</span>
         </button>
+      )}
+
+      {/* Lock/Unlock options - show when there are selected nodes */}
+      {selectedNodeIds.length > 0 && (hasLockedNodes || hasUnlockedNodes) && (
+        <>
+          <div className="my-1 border-t border-gray-100" />
+          {hasUnlockedNodes && (
+            <button
+              className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+              onClick={handleLockNodes}
+            >
+              <Lock className="w-4 h-4 text-amber-500" />
+              <span>Lock Nodes</span>
+            </button>
+          )}
+          {hasLockedNodes && (
+            <button
+              className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+              onClick={handleUnlockNodes}
+            >
+              <LockOpen className="w-4 h-4 text-green-500" />
+              <span>Unlock Nodes</span>
+            </button>
+          )}
+        </>
       )}
 
       {/* Divider */}

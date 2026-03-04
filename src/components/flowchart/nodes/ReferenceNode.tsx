@@ -5,6 +5,7 @@ import NodeTags from './NodeTags';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import { useNodes } from '../../../stores/flowchartStore';
 import HybridHandle from './HybridHandle';
+import LockIndicator from './LockIndicator';
 
 /**
  * ReferenceNode - Sky blue circular node that displays the flow order of a referenced node
@@ -13,7 +14,7 @@ import HybridHandle from './HybridHandle';
  * The label is automatically synced with the referenced node's label.
  */
 function ReferenceNode({ id, data, selected }: NodeProps) {
-  const { tags, referencedNodeId } = (data as BaseNodeData & { referencedNodeId?: string }) || {};
+  const { tags, referencedNodeId, locked } = (data as BaseNodeData & { referencedNodeId?: string }) || {};
   const nodes = useNodes();
 
   // Get the referenced node
@@ -26,6 +27,9 @@ function ReferenceNode({ id, data, selected }: NodeProps) {
 
   return (
     <div className="relative">
+      {/* Lock Indicator */}
+      <LockIndicator locked={locked} />
+
       {/* Handles - Hybrid (can be input or output) */}
       <HybridHandle id="top" position={Position.Top} nodeId={id} nodeColor="blue" />
       <HybridHandle id="bottom" position={Position.Bottom} nodeId={id} nodeColor="blue" />
@@ -41,6 +45,7 @@ function ReferenceNode({ id, data, selected }: NodeProps) {
           transition-all duration-200
           cursor-pointer
           ${selected ? 'ring-2 ring-sky-400 ring-offset-2' : ''}
+          ${locked ? 'border-dashed opacity-80' : ''}
         `}
       >
         <HybridHandle id="right" position={Position.Right} nodeId={id} nodeColor="blue" />
