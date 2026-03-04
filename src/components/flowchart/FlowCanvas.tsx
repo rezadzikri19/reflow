@@ -94,6 +94,11 @@ function FlowCanvasInner({
   // Counter to force re-renders when virtual edge selection changes
   const [virtualEdgeVersion, setVirtualEdgeVersion] = useState(0);
 
+  // Track selection state for boundary port nodes (input/output nodes in subprocess sheets)
+  const boundaryPortSelectionRef = useRef<Set<string>>(new Set());
+  // Counter to force re-renders when boundary port selection changes
+  const [boundaryPortSelectionVersion, setBoundaryPortSelectionVersion] = useState(0);
+
   // Store selectors
   const nodes = useFlowchartStore((state) => state.nodes);
   const edges = useFlowchartStore((state) => state.edges);
@@ -126,10 +131,11 @@ function FlowCanvasInner({
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState<ContextMenuPosition>({ x: 0, y: 0 });
 
-  // Clear boundary port positions and virtual edge selection when switching sheets
+  // Clear boundary port positions and virtual edge/node selection when switching sheets
   useEffect(() => {
     boundaryPortPositionsRef.current.clear();
     virtualEdgeSelectionRef.current.clear();
+    boundaryPortSelectionRef.current.clear();
   }, [activeSheetId]);
 
   // Use custom node types if provided, otherwise use defaults
@@ -144,28 +150,39 @@ function FlowCanvasInner({
    */
   const onNodesChange: OnNodesChange<FlowchartNode> = useCallback(
     (changes) => {
-      // Handle boundary port node position changes separately (they are virtual nodes)
+      let hasBoundaryPortSelectionChange = false;
+
+      // Handle boundary port node position and selection changes separately (they are virtual nodes)
       changes.forEach((change) => {
-        if (change.type === 'position' && change.position) {
-          const isBoundaryPort = change.id.startsWith('boundary-input-') ||
-                                  change.id.startsWith('boundary-output-') ||
-                                  change.id.startsWith('boundary-manual-input-') ||
-                                  change.id.startsWith('boundary-manual-output-');
-          if (isBoundaryPort) {
-            // Store the position in our ref for boundary port nodes
-            boundaryPortPositionsRef.current.set(change.id, change.position);
-            markDirty();
+        const isBoundaryPort = change.id.startsWith('boundary-input-') ||
+                                change.id.startsWith('boundary-output-') ||
+                                change.id.startsWith('boundary-manual-input-') ||
+                                change.id.startsWith('boundary-manual-output-');
 
-            // If this is a manual port, also update its position in the store
-            const manualInputMatch = change.id.match(/^boundary-manual-input-(.+)$/);
-            const manualOutputMatch = change.id.match(/^boundary-manual-output-(.+)$/);
+        if (change.type === 'position' && change.position && isBoundaryPort) {
+          // Store the position in our ref for boundary port nodes
+          boundaryPortPositionsRef.current.set(change.id, change.position);
+          markDirty();
 
-            if (manualInputMatch && activeSheetId) {
-              updateManualPort(activeSheetId, manualInputMatch[1], { position: change.position });
-            } else if (manualOutputMatch && activeSheetId) {
-              updateManualPort(activeSheetId, manualOutputMatch[1], { position: change.position });
-            }
+          // If this is a manual port, also update its position in the store
+          const manualInputMatch = change.id.match(/^boundary-manual-input-(.+)$/);
+          const manualOutputMatch = change.id.match(/^boundary-manual-output-(.+)$/);
+
+          if (manualInputMatch && activeSheetId) {
+            updateManualPort(activeSheetId, manualInputMatch[1], { position: change.position });
+          } else if (manualOutputMatch && activeSheetId) {
+            updateManualPort(activeSheetId, manualOutputMatch[1], { position: change.position });
           }
+        }
+
+        // Track selection state for boundary port nodes
+        if (change.type === 'select' && isBoundaryPort) {
+          if (change.selected) {
+            boundaryPortSelectionRef.current.add(change.id);
+          } else {
+            boundaryPortSelectionRef.current.delete(change.id);
+          }
+          hasBoundaryPortSelectionChange = true;
         }
       });
 
@@ -173,22 +190,32 @@ function FlowCanvasInner({
       const updatedNodes = applyNodeChanges(changes, nodes);
       setNodes(updatedNodes);
 
-      // Handle side effects
+      // Handle side effects for regular nodes
       changes.forEach((change) => {
-        if (change.type === 'remove') {
+        const isBoundaryPort = change.id.startsWith('boundary-input-') ||
+                                change.id.startsWith('boundary-output-') ||
+                                change.id.startsWith('boundary-manual-input-') ||
+                                change.id.startsWith('boundary-manual-output-');
+
+        if (change.type === 'remove' && !isBoundaryPort) {
           deleteNode(change.id);
-        } else if (change.type === 'select') {
+        } else if (change.type === 'select' && !isBoundaryPort) {
           if (change.selected) {
             setSelectedNode(change.id);
           } else if (selectedNodeId === change.id) {
             setSelectedNode(null);
           }
-        } else if (change.type === 'position') {
+        } else if (change.type === 'position' && !isBoundaryPort) {
           markDirty();
         }
       });
+
+      // Force re-render if boundary port selection changed
+      if (hasBoundaryPortSelectionChange) {
+        setBoundaryPortSelectionVersion(v => v + 1);
+      }
     },
-    [nodes, readOnly, deleteNode, setSelectedNode, selectedNodeId, setNodes, markDirty, activeSheetId, updateManualPort]
+    [nodes, readOnly, deleteNode, setSelectedNode, selectedNodeId, setNodes, markDirty, activeSheetId, updateManualPort, setBoundaryPortSelectionVersion]
   );
 
   /**
@@ -456,8 +483,8 @@ function FlowCanvasInner({
    */
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: FlowchartNode) => {
-      // If Shift is held, let React Flow handle multi-selection
-      if (event.shiftKey) {
+      // If Ctrl is held, let React Flow handle multi-selection
+      if (event.ctrlKey || event.metaKey) {
         onNodeClick?.(node.id);
         return;
       }
@@ -639,7 +666,9 @@ function FlowCanvasInner({
         const selectedNodes = currentNodes.filter((node) => node.selected);
         const selectedNodeIds = selectedNodes.map((node) => node.id);
 
-        if (selectedNodeIds.length >= 2) {
+        // Only group if at least 2 nodes selected and no boundary port nodes
+        const hasBoundaryPort = selectedNodes.some(n => n.type === 'boundaryPort');
+        if (selectedNodeIds.length >= 2 && !hasBoundaryPort) {
           const result = groupNodesIntoSubprocess(selectedNodeIds);
           if (result) {
             setSelectedNode(result);
@@ -711,6 +740,8 @@ function FlowCanvasInner({
 
     if (selectedNodes.length < 2) {
       groupDisabledReason = 'Select at least 2 nodes to group';
+    } else if (selectedNodes.some(n => n.type === 'boundaryPort')) {
+      groupDisabledReason = 'Cannot group boundary port nodes';
     } else if (selectedNodes.some(n => n.type === 'start' || n.type === 'end')) {
       groupDisabledReason = 'Cannot group start or end nodes';
     } else if (selectedNodes.some(n => n.data.parentId)) {
@@ -768,6 +799,7 @@ function FlowCanvasInner({
   /**
    * Compute boundary port nodes for sheet view
    * Creates one boundary port per unique external connection AND for manual ports
+   * Applies tracked selection state for multi-select support
    */
   const boundaryPortNodes = useMemo(() => {
     if (!activeSheetId) return { inputs: [] as FlowchartNode[], outputs: [] as FlowchartNode[] };
@@ -797,6 +829,8 @@ function FlowCanvasInner({
           type: 'boundaryPort',
           position: { x: 0, y: 0 }, // Will be positioned later
           measured: { width: 120, height: 32 }, // Provide measured dimensions
+          // Apply tracked selection state for multi-select support
+          selected: boundaryPortSelectionRef.current.has(portId),
           data: {
             label: externalNode?.data?.label || 'Unknown',
             direction: 'input',
@@ -826,6 +860,8 @@ function FlowCanvasInner({
           type: 'boundaryPort',
           position: { x: 0, y: 0 }, // Will be positioned later
           measured: { width: 120, height: 32 }, // Provide measured dimensions
+          // Apply tracked selection state for multi-select support
+          selected: boundaryPortSelectionRef.current.has(portId),
           data: {
             label: externalNode?.data?.label || 'Unknown',
             direction: 'output',
@@ -851,6 +887,8 @@ function FlowCanvasInner({
         type: 'boundaryPort',
         position: port.position || { x: 0, y: 0 }, // Use stored position or default
         measured: { width: 120, height: 32 },
+        // Apply tracked selection state for multi-select support
+        selected: boundaryPortSelectionRef.current.has(portNodeId),
         data: {
           label: port.label,
           direction: 'input',
@@ -875,6 +913,8 @@ function FlowCanvasInner({
         type: 'boundaryPort',
         position: port.position || { x: 0, y: 0 }, // Use stored position or default
         measured: { width: 120, height: 32 },
+        // Apply tracked selection state for multi-select support
+        selected: boundaryPortSelectionRef.current.has(portNodeId),
         data: {
           label: port.label,
           direction: 'output',
@@ -889,7 +929,7 @@ function FlowCanvasInner({
     });
 
     return { inputs: inputPorts, outputs: outputPorts };
-  }, [activeSheetId, edges, nodes, edgeVersion, nodeVersion]);
+  }, [activeSheetId, edges, nodes, edgeVersion, nodeVersion, boundaryPortSelectionVersion]);
 
   /**
    * Filter nodes to show based on active sheet
@@ -1137,7 +1177,7 @@ function FlowCanvasInner({
           maxZoom={2}
           defaultViewport={{ x: 0, y: 0, zoom: 1 }}
           deleteKeyCode={null} // We handle delete manually
-          multiSelectionKeyCode="Shift"
+          multiSelectionKeyCode="Control"
           selectionOnDrag
           panOnDrag={[1, 2]} // Pan with middle or right mouse button
           selectionMode={SelectionMode.Partial}
@@ -1228,8 +1268,8 @@ function FlowCanvasInner({
                   {' '}Remove selected
                 </span>
                 <span>
-                  <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-700 font-mono">Shift</kbd>
-                  {' '}Multi-select
+                  <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-700 font-mono">Ctrl</kbd>
+                  {' '}+ Click to multi-select
                 </span>
                 <span>
                   <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-700 font-mono">Ctrl+G</kbd>
