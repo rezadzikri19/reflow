@@ -46,8 +46,8 @@ function ConnectorNode({ id, data, selected }: NodeProps) {
 
       {/* Label below the node */}
       <div
-        className="absolute pointer-events-none left-1/2 -translate-x-1/2 mt-1"
-        style={{ top: '100%' }}
+        className="absolute pointer-events-none left-1/2 -translate-x-1/2"
+        style={{ top: '100%', marginTop: '28px' }}
       >
         <span
           className="text-xs font-medium text-teal-800 bg-teal-100 px-1.5 py-0.5 rounded text-wrap block text-center max-w-[80px]"

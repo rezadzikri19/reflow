@@ -3,6 +3,7 @@ import { Position, type NodeProps } from '@xyflow/react';
 import { Route } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
+import NodeRole from './NodeRole';
 import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import HybridHandle from './HybridHandle';
@@ -14,7 +15,7 @@ import LockIndicator from './LockIndicator';
  * Branch semantics are defined by editable connection labels, not fixed ports.
  */
 function DecisionNode({ id, data, selected }: NodeProps) {
-  const { label = 'Decision', tags, locked } = (data as BaseNodeData) || {};
+  const { label = 'Decision', tags, role, locked } = (data as BaseNodeData) || {};
   const flowOrder = useFlowOrder(id);
 
   // Diamond dimensions
@@ -97,8 +98,8 @@ function DecisionNode({ id, data, selected }: NodeProps) {
 
       {/* Label below the diamond */}
       <div
-        className="absolute pointer-events-none -translate-x-1/2 mt-1"
-        style={{ top: '100%', left: centerOffset }}
+        className="absolute pointer-events-none -translate-x-1/2"
+        style={{ top: '100%', left: centerOffset, marginTop: '28px' }}
       >
         <span
           className="text-xs font-medium text-amber-800 bg-amber-100 px-2 py-0.5 rounded text-wrap block text-center max-w-[120px]"
@@ -110,11 +111,21 @@ function DecisionNode({ id, data, selected }: NodeProps) {
 
       {/* Tags indicator below label */}
       <div
-        className="absolute pointer-events-none -translate-x-1/2 mt-1"
-        style={{ top: '100%', left: centerOffset, marginTop: '24px' }}
+        className="absolute pointer-events-none -translate-x-1/2"
+        style={{ top: '100%', left: centerOffset, marginTop: '52px' }}
       >
         <NodeTags tags={tags} />
       </div>
+
+      {/* Role indicator below tags */}
+      {role && (
+        <div
+          className="absolute pointer-events-none -translate-x-1/2"
+          style={{ top: '100%', left: centerOffset, marginTop: '76px' }}
+        >
+          <NodeRole role={role} />
+        </div>
+      )}
     </div>
   );
 }

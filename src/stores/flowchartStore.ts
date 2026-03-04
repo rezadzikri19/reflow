@@ -309,6 +309,24 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 }
               });
             }
+
+            // If the node's role changed, update reference nodes that reference this node
+            if (data.role !== undefined) {
+              const newRole = data.role;
+
+              // Find all reference nodes that reference this node
+              state.nodes.forEach((node, index) => {
+                if (node.type === 'reference') {
+                  const refData = node.data as { referencedNodeId?: string; role?: string };
+                  if (refData.referencedNodeId === nodeId) {
+                    state.nodes[index] = {
+                      ...node,
+                      data: { ...refData, role: newRole },
+                    } as FlowchartNode;
+                  }
+                }
+              });
+            }
           }
         });
       },

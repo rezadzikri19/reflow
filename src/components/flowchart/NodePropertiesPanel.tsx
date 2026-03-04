@@ -4,6 +4,7 @@ import { useFlowchartStore, useSelectedNode, useNodes } from '../../stores/flowc
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { TagInput } from '../common/TagInput';
+import { RoleSelect } from '../common/RoleSelect';
 import type { ProcessNodeData, UnitType, ProcessNodeType, ManualPort } from '../../types';
 import { Plus, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
 
@@ -66,7 +67,7 @@ export const NodePropertiesPanel: React.FC = () => {
   // Get referenced node info for reference nodes
   const referencedNodeInfo = useMemo(() => {
     if (!selectedNode || (selectedNode.data as ProcessNodeData).nodeType !== 'reference') {
-      return { id: undefined, node: undefined, label: undefined };
+      return { id: undefined, node: undefined, label: undefined, role: undefined };
     }
     const referencedNodeId = (selectedNode.data as { referencedNodeId?: string }).referencedNodeId;
     const referencedNode = nodes.find(n => n.id === referencedNodeId);
@@ -74,6 +75,7 @@ export const NodePropertiesPanel: React.FC = () => {
       id: referencedNodeId,
       node: referencedNode,
       label: referencedNode ? (referencedNode.data as ProcessNodeData).label : undefined,
+      role: referencedNode ? (referencedNode.data as ProcessNodeData).role : undefined,
     };
   }, [selectedNode, nodes]);
 
@@ -85,6 +87,18 @@ export const NodePropertiesPanel: React.FC = () => {
       nodeTags.forEach((tag) => tagSet.add(tag));
     });
     return Array.from(tagSet).sort();
+  }, [nodes]);
+
+  // Get all existing roles from all nodes for autocomplete suggestions
+  const allExistingRoles = useMemo(() => {
+    const roleSet = new Set<string>();
+    nodes.forEach((node) => {
+      const nodeRole = (node.data as ProcessNodeData).role;
+      if (nodeRole) {
+        roleSet.add(nodeRole);
+      }
+    });
+    return Array.from(roleSet).sort();
   }, [nodes]);
 
   // Compute all ports (edge-based + manual) for subprocess nodes
@@ -313,6 +327,15 @@ export const NodePropertiesPanel: React.FC = () => {
     [selectedNode, updateNode]
   );
 
+  const handleRoleChange = useCallback(
+    (role: string | undefined) => {
+      if (selectedNode) {
+        updateNode(selectedNode.id, { role });
+      }
+    },
+    [selectedNode, updateNode]
+  );
+
   // No node selected state
   if (!selectedNode) {
     return (
@@ -419,6 +442,34 @@ export const NodePropertiesPanel: React.FC = () => {
             helperText="Press Enter or comma to add a tag"
           />
         </section>
+
+        {/* Role Section - For all nodes except subprocess, connector, junction */}
+        {nodeType !== 'subprocess' && nodeType !== 'connector' && nodeType !== 'junction' && nodeType !== 'boundaryPort' && (
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Role
+            </h3>
+            {nodeType === 'reference' ? (
+              <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+                <p className="text-xs text-gray-500 font-medium mb-1">Role (auto-synced)</p>
+                <p className="text-sm text-gray-800">
+                  {referencedNodeInfo.node ? ((referencedNodeInfo.node.data as ProcessNodeData).role || 'None') : 'None'}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
+              </div>
+            ) : (
+              <RoleSelect
+                label=""
+                value={nodeData.role}
+                onChange={handleRoleChange}
+                suggestions={allExistingRoles}
+                placeholder="Select or create a role..."
+                helperText="Assign a responsibility role to this node"
+                allowCreate={true}
+              />
+            )}
+          </section>
+        )}
 
         {/* Process Node Properties */}
         {isProcessNode && (

@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Position, type NodeProps } from '@xyflow/react';
 import type { BaseNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
+import NodeRole from './NodeRole';
 import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import HybridHandle from './HybridHandle';
@@ -14,7 +15,7 @@ import LockIndicator from './LockIndicator';
  * Different from Start/End nodes - terminators are for entry/exit points within a flow
  */
 function TerminatorNode({ id, data, selected }: NodeProps) {
-  const { label = 'Terminator', tags, locked } = (data as BaseNodeData) || {};
+  const { label = 'Terminator', tags, role, locked } = (data as BaseNodeData) || {};
   const flowOrder = useFlowOrder(id);
 
   return (
@@ -64,8 +65,8 @@ function TerminatorNode({ id, data, selected }: NodeProps) {
 
       {/* Label below the node */}
       <div
-        className="absolute pointer-events-none left-1/2 -translate-x-1/2 mt-1"
-        style={{ top: '100%' }}
+        className="absolute pointer-events-none left-1/2 -translate-x-1/2"
+        style={{ top: '100%', marginTop: '28px' }}
       >
         <span
           className="text-xs font-medium text-rose-800 bg-rose-100 px-2 py-0.5 rounded text-wrap block text-center max-w-[120px]"
@@ -77,11 +78,21 @@ function TerminatorNode({ id, data, selected }: NodeProps) {
 
       {/* Tags indicator below label */}
       <div
-        className="absolute pointer-events-none left-1/2 -translate-x-1/2 mt-1"
-        style={{ top: '100%', marginTop: '24px' }}
+        className="absolute pointer-events-none left-1/2 -translate-x-1/2"
+        style={{ top: '100%', marginTop: '52px' }}
       >
         <NodeTags tags={tags} />
       </div>
+
+      {/* Role indicator below tags */}
+      {role && (
+        <div
+          className="absolute pointer-events-none left-1/2 -translate-x-1/2"
+          style={{ top: '100%', marginTop: '76px' }}
+        >
+          <NodeRole role={role} />
+        </div>
+      )}
     </div>
   );
 }

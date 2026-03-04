@@ -62,6 +62,8 @@ export interface BaseNodeData {
   nodeType: ProcessNodeType;
   /** Tags for categorizing and filtering nodes */
   tags?: string[];
+  /** Role assigned to this node (single value, indicates responsibility) */
+  role?: string;
   /** Whether the node is locked and cannot be moved */
   locked?: boolean;
   /** Index signature to satisfy Record<string, unknown> constraint */
@@ -157,6 +159,8 @@ export interface ProcessNodeData extends BaseNodeData {
   defaultQuantity: number;
   /** Tags for categorizing and filtering nodes */
   tags?: string[];
+  /** Role assigned to this node (single value, indicates responsibility) */
+  role?: string;
   /** ID of parent subprocess node (for grouped nodes) */
   parentId?: string;
   /** Child node IDs (for subprocess nodes) */
