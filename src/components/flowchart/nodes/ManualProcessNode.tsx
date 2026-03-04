@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useState, useRef, useEffect, useCallback } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Hand, Clock } from 'lucide-react';
 import type { ProcessNodeData } from '../../../types/index';
@@ -22,50 +22,29 @@ function formatTime(minutes: number): string {
 }
 
 /**
- * RoundedTrapezoid - SVG inverted trapezoid shape with rounded corners
- * Top is wider, bottom is narrower (like standard manual process symbol)
+ * Generates SVG path for inverted trapezoid with rounded corners
+ * Top is wider, bottom is narrower (standard manual process symbol)
  */
-function RoundedTrapezoid({
-  width,
-  height,
-  fill,
-  stroke,
-  strokeWidth = 2,
-  cornerRadius = 8,
-}: {
-  width: number;
-  height: number;
-  fill: string;
-  stroke: string;
-  strokeWidth?: number;
-  cornerRadius?: number;
-}) {
+function getTrapezoidPath(width: number, height: number, cornerRadius = 10, strokeWidth = 2) {
   const inset = strokeWidth / 2;
-  const bottomInset = width * 0.12; // 12% inset on each side for bottom
-  const r = cornerRadius;
+  const bottomInset = width * 0.03; // 3% inset on each side for bottom (wider bottom)
+  const r = Math.min(cornerRadius, height / 4, width / 8);
 
-  // Path for inverted rounded trapezoid (wider at top, narrower at bottom)
-  const path = `
+  // Ensure we don't have negative values
+  const safeBottomInset = Math.min(bottomInset, (width - 2 * r) / 2 - inset);
+
+  return `
     M ${inset + r} ${inset}
     L ${width - inset - r} ${inset}
     Q ${width - inset} ${inset} ${width - inset} ${inset + r}
-    L ${width - inset - bottomInset + r * 0.3} ${height - inset - r}
-    Q ${width - inset - bottomInset} ${height - inset} ${width - inset - bottomInset - r} ${height - inset}
-    L ${inset + bottomInset + r} ${height - inset}
-    Q ${inset + bottomInset} ${height - inset} ${inset + bottomInset - r * 0.3} ${height - inset - r}
+    L ${width - inset - safeBottomInset} ${height - inset - r}
+    Q ${width - inset - safeBottomInset} ${height - inset} ${width - inset - safeBottomInset - r} ${height - inset}
+    L ${inset + safeBottomInset + r} ${height - inset}
+    Q ${inset + safeBottomInset} ${height - inset} ${inset + safeBottomInset} ${height - inset - r}
     L ${inset} ${inset + r}
     Q ${inset} ${inset} ${inset + r} ${inset}
     Z
   `;
-
-  return (
-    <path
-      d={path}
-      fill={fill}
-      stroke={stroke}
-      strokeWidth={strokeWidth}
-    />
-  );
 }
 
 /**
@@ -75,6 +54,9 @@ function RoundedTrapezoid({
  */
 function ManualProcessNode({ id, data, selected }: NodeProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [svgPath, setSvgPath] = useState('');
+  const [height, setHeight] = useState(120);
 
   const {
     label = 'Manual Process',
@@ -91,6 +73,43 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
   const fillColor = isHovered ? '#ea580c' : '#f97316';
   const strokeColor = '#c2410c';
 
+  // Fixed width to match ProcessNode
+  const width = 180; // Same as ProcessNode typical width
+
+  // Update SVG path based on content height
+  const updateSvgPath = useCallback((contentHeight: number) => {
+    const totalHeight = contentHeight + 25;
+    setHeight(totalHeight);
+    setSvgPath(getTrapezoidPath(width, totalHeight));
+  }, [width]);
+
+  // Use ResizeObserver to track content height changes
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { height: contentHeight } = entry.contentRect;
+        if (contentHeight > 0) {
+          updateSvgPath(contentHeight);
+        }
+      }
+    });
+
+    resizeObserver.observe(content);
+
+    // Initial measurement
+    const { offsetHeight } = content;
+    if (offsetHeight > 0) {
+      updateSvgPath(offsetHeight);
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [updateSvgPath, label, unitType, customUnitName, unitTimeMinutes, defaultQuantity, tags]);
+
   return (
     <div
       className={`
@@ -99,6 +118,7 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
       `}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      style={{ width, height }}
     >
       {/* Flow Order Badge */}
       <FlowOrderBadge order={flowOrder} />
@@ -117,35 +137,36 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
         className="!w-3 !h-3 !bg-orange-300 !border-2 !border-orange-700 hover:!bg-orange-200"
       />
 
-      {/* SVG Trapezoid with rounded corners */}
+      {/* SVG Background - positioned absolutely behind content */}
       <svg
-        width="200"
-        viewBox="0 0 200 130"
-        className="block"
+        className="absolute inset-0 pointer-events-none"
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
         style={{
-          minWidth: '160px',
-          maxWidth: '220px',
           filter: 'drop-shadow(0 10px 15px -3px rgb(0 0 0 / 0.1))',
           transition: 'filter 200ms',
         }}
       >
-        <RoundedTrapezoid
-          width={200}
-          height={130}
+        <path
+          d={svgPath}
           fill={fillColor}
           stroke={strokeColor}
+          strokeWidth={2}
+          style={{ transition: 'fill 200ms' }}
         />
       </svg>
 
-      {/* Content overlay - positioned over the SVG */}
+      {/* Content - positioned over the SVG */}
       <div
+        ref={contentRef}
         className="
-          absolute inset-0
-          flex flex-col gap-1
-          min-w-[160px] max-w-[220px]
+          relative z-10
+          flex flex-col gap-2
           cursor-pointer
-          px-8 pt-4 pb-2
+          px-5 pt-3 pb-5
         "
+        style={{ width }}
       >
         {/* Node Label */}
         <div className="text-white font-semibold text-base text-wrap" title={label}>
