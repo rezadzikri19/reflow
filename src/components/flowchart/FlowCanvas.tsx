@@ -341,20 +341,34 @@ function FlowCanvasInner({
       // Prevent self-connections
       if (connection.source === connection.target) return;
 
-      // Check if source port already has a connection (one output connection per port)
-      const sourceHasConnection = edges.some(
-        (e) => e.source === connection.source && e.sourceHandle === connection.sourceHandle
-      );
-      if (sourceHasConnection) return;
-
-      // Check if target port already has a connection (one input connection per port)
-      const targetHasConnection = edges.some(
-        (e) => e.target === connection.target && e.targetHandle === connection.targetHandle
-      );
-      if (targetHasConnection) return;
-
       const sourceId = connection.source;
       const targetId = connection.target;
+
+      // Get source and target nodes to check their types
+      const sourceNode = nodes.find((n) => n.id === sourceId);
+      const targetNode = nodes.find((n) => n.id === targetId);
+
+      // Connection limitation for subprocess nodes only
+      // Subprocess nodes can only have one connection per handle
+      // Other node types can have multiple connections
+      const isSourceSubprocess = sourceNode?.type === 'subprocess';
+      const isTargetSubprocess = targetNode?.type === 'subprocess';
+
+      // For subprocess nodes: check if source port already has a connection (one output connection per port)
+      if (isSourceSubprocess) {
+        const sourceHasConnection = edges.some(
+          (e) => e.source === sourceId && e.sourceHandle === connection.sourceHandle
+        );
+        if (sourceHasConnection) return;
+      }
+
+      // For subprocess nodes: check if target port already has a connection (one input connection per port)
+      if (isTargetSubprocess) {
+        const targetHasConnection = edges.some(
+          (e) => e.target === targetId && e.targetHandle === connection.targetHandle
+        );
+        if (targetHasConnection) return;
+      }
 
       // Check if source is a boundary port (edge-based or manual)
       const isSourceBoundaryInput = sourceId.startsWith('boundary-input-') || sourceId.startsWith('boundary-manual-input-');
@@ -424,7 +438,7 @@ function FlowCanvasInner({
         connection.targetHandle ?? undefined
       );
     },
-    [readOnly, edges, addEdge, addBoundaryPortEdge, activeSheetId, addManualPortConnection]
+    [readOnly, nodes, edges, addEdge, addBoundaryPortEdge, activeSheetId, addManualPortConnection]
   );
 
   /**
