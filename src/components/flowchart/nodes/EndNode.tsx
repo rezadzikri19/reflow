@@ -37,10 +37,29 @@ function EndNode({ id, data, selected }: NodeProps) {
           ${locked ? 'border-dashed opacity-80' : ''}
         `}
       >
-        {/* Target Handle - Left side for incoming connections */}
+        {/* Target Handles - All sides for incoming connections */}
         <Handle
           type="target"
+          id="top"
+          position={Position.Top}
+          className="!w-3 !h-3 !bg-red-300 !border-2 !border-red-700 hover:!bg-red-200"
+        />
+        <Handle
+          type="target"
+          id="bottom"
+          position={Position.Bottom}
+          className="!w-3 !h-3 !bg-red-300 !border-2 !border-red-700 hover:!bg-red-200"
+        />
+        <Handle
+          type="target"
+          id="left"
           position={Position.Left}
+          className="!w-3 !h-3 !bg-red-300 !border-2 !border-red-700 hover:!bg-red-200"
+        />
+        <Handle
+          type="target"
+          id="right"
+          position={Position.Right}
           className="!w-3 !h-3 !bg-red-300 !border-2 !border-red-700 hover:!bg-red-200"
         />
 

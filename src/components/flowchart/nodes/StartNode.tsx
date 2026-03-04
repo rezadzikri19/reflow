@@ -37,9 +37,28 @@ function StartNode({ id, data, selected }: NodeProps) {
           ${locked ? 'border-dashed opacity-80' : ''}
         `}
       >
-        {/* Source Handle - Right side for outgoing connections */}
+        {/* Source Handles - All sides for outgoing connections */}
         <Handle
           type="source"
+          id="top"
+          position={Position.Top}
+          className="!w-3 !h-3 !bg-emerald-300 !border-2 !border-emerald-700 hover:!bg-emerald-200"
+        />
+        <Handle
+          type="source"
+          id="bottom"
+          position={Position.Bottom}
+          className="!w-3 !h-3 !bg-emerald-300 !border-2 !border-emerald-700 hover:!bg-emerald-200"
+        />
+        <Handle
+          type="source"
+          id="left"
+          position={Position.Left}
+          className="!w-3 !h-3 !bg-emerald-300 !border-2 !border-emerald-700 hover:!bg-emerald-200"
+        />
+        <Handle
+          type="source"
+          id="right"
           position={Position.Right}
           className="!w-3 !h-3 !bg-emerald-300 !border-2 !border-emerald-700 hover:!bg-emerald-200"
         />
