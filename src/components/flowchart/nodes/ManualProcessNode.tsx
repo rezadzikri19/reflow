@@ -88,6 +88,8 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
     unitTimeMinutes = 0,
     defaultQuantity = 1,
     tags,
+    documents,
+    data: nodeData,
     role,
     locked,
   } = (data as ProcessNodeData) || {};
@@ -134,7 +136,7 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
     return () => {
       resizeObserver.disconnect();
     };
-  }, [updateSvgPath, label, unitType, customUnitName, unitTimeMinutes, defaultQuantity, tags, role]);
+  }, [updateSvgPath, label, unitType, customUnitName, unitTimeMinutes, defaultQuantity, tags, documents, nodeData, role]);
 
   return (
     <div className="relative">
@@ -223,7 +225,13 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
           </div>
 
           {/* Tags indicator */}
-          <NodeTags tags={tags} className="justify-center" />
+          <NodeTags tags={tags} className="justify-center" type="tags" />
+
+          {/* Documents indicator */}
+          <NodeTags tags={documents} className="justify-center" label="Documents" type="documents" />
+
+          {/* Data indicator */}
+          <NodeTags tags={nodeData} className="justify-center" label="Data" type="data" />
         </div>
       </div>
 

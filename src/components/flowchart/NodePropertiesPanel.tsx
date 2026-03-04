@@ -89,6 +89,26 @@ export const NodePropertiesPanel: React.FC = () => {
     return Array.from(tagSet).sort();
   }, [nodes]);
 
+  // Get all existing documents from all nodes for autocomplete suggestions
+  const allExistingDocuments = useMemo(() => {
+    const docSet = new Set<string>();
+    nodes.forEach((node) => {
+      const nodeDocs = (node.data as ProcessNodeData).documents || [];
+      nodeDocs.forEach((doc) => docSet.add(doc));
+    });
+    return Array.from(docSet).sort();
+  }, [nodes]);
+
+  // Get all existing data elements from all nodes for autocomplete suggestions
+  const allExistingData = useMemo(() => {
+    const dataSet = new Set<string>();
+    nodes.forEach((node) => {
+      const nodeData = (node.data as ProcessNodeData).data || [];
+      nodeData.forEach((d) => dataSet.add(d));
+    });
+    return Array.from(dataSet).sort();
+  }, [nodes]);
+
   // Get all existing roles from all nodes for autocomplete suggestions
   const allExistingRoles = useMemo(() => {
     const roleSet = new Set<string>();
@@ -327,6 +347,24 @@ export const NodePropertiesPanel: React.FC = () => {
     [selectedNode, updateNode]
   );
 
+  const handleDocumentsChange = useCallback(
+    (documents: string[]) => {
+      if (selectedNode) {
+        updateNode(selectedNode.id, { documents });
+      }
+    },
+    [selectedNode, updateNode]
+  );
+
+  const handleDataChange = useCallback(
+    (data: string[]) => {
+      if (selectedNode) {
+        updateNode(selectedNode.id, { data });
+      }
+    },
+    [selectedNode, updateNode]
+  );
+
   const handleRoleChange = useCallback(
     (role: string | undefined) => {
       if (selectedNode) {
@@ -442,6 +480,40 @@ export const NodePropertiesPanel: React.FC = () => {
             helperText="Press Enter or comma to add a tag"
           />
         </section>
+
+        {/* Documents Section - Only for Process and Manual Process nodes */}
+        {(nodeType === 'process' || nodeType === 'manualProcess') && (
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Documents
+            </h3>
+            <TagInput
+              label=""
+              value={nodeData.documents || []}
+              onChange={handleDocumentsChange}
+              suggestions={allExistingDocuments}
+              placeholder="Add a document..."
+              helperText="Press Enter or comma to add a document"
+            />
+          </section>
+        )}
+
+        {/* Data Section - Only for Process and Manual Process nodes */}
+        {(nodeType === 'process' || nodeType === 'manualProcess') && (
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Data
+            </h3>
+            <TagInput
+              label=""
+              value={nodeData.data || []}
+              onChange={handleDataChange}
+              suggestions={allExistingData}
+              placeholder="Add a data element..."
+              helperText="Press Enter or comma to add a data element"
+            />
+          </section>
+        )}
 
         {/* Role Section - For all nodes except subprocess, connector, junction */}
         {nodeType !== 'subprocess' && nodeType !== 'connector' && nodeType !== 'junction' && nodeType !== 'boundaryPort' && (

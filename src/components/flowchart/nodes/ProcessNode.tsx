@@ -56,6 +56,8 @@ function ProcessNode({ id, data, selected }: NodeProps) {
     unitTimeMinutes = 0,
     defaultQuantity = 1,
     tags,
+    documents,
+    data: nodeData,
     role,
     locked,
   } = (data as ProcessNodeData) || {};
@@ -123,7 +125,13 @@ function ProcessNode({ id, data, selected }: NodeProps) {
         </div>
 
         {/* Tags indicator */}
-        <NodeTags tags={tags} className="justify-center" />
+        <NodeTags tags={tags} className="justify-center" label="Tags" type="tags" />
+
+        {/* Documents indicator */}
+        <NodeTags tags={documents} className="justify-center" label="Documents" type="documents" />
+
+        {/* Data indicator */}
+        <NodeTags tags={nodeData} className="justify-center" label="Data" type="data" />
 
         <HybridHandle id="right" position={Position.Right} nodeId={id} nodeColor="blue" />
       </div>

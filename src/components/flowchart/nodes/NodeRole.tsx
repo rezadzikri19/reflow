@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { User } from 'lucide-react';
+import { useRoleColors } from '../../../hooks/useRoleColors';
 
 interface NodeRoleProps {
   /** Role string to display */
@@ -11,21 +12,25 @@ interface NodeRoleProps {
 /**
  * NodeRole - Displays role indicator on nodes
  * Shows a small chip with the role name and user icon
- * Uses purple color scheme to distinguish from tags
+ * Each role gets a unique color across the flowchart
  */
 function NodeRole({ role, className = '' }: NodeRoleProps) {
+  const { getRoleColor } = useRoleColors();
+
   if (!role) {
     return null;
   }
 
+  const color = getRoleColor(role);
+
   return (
     <div className={`flex items-center gap-1.5 ${className}`}>
       <div
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-white/90 text-purple-700 border border-purple-400 shrink-0"
+        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-white/90 ${color.text} border ${color.border} whitespace-nowrap`}
         title={`Role: ${role}`}
       >
-        <User className="w-3 h-3" />
-        <span className="truncate max-w-[80px]">{role}</span>
+        <User className={`w-3 h-3 shrink-0 ${color.text}`} />
+        <span>{role}</span>
       </div>
     </div>
   );

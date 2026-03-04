@@ -62,6 +62,10 @@ export interface BaseNodeData {
   nodeType: ProcessNodeType;
   /** Tags for categorizing and filtering nodes */
   tags?: string[];
+  /** Documents associated with this node */
+  documents?: string[];
+  /** Data elements associated with this node */
+  data?: string[];
   /** Role assigned to this node (single value, indicates responsibility) */
   role?: string;
   /** Whether the node is locked and cannot be moved */
@@ -159,6 +163,10 @@ export interface ProcessNodeData extends BaseNodeData {
   defaultQuantity: number;
   /** Tags for categorizing and filtering nodes */
   tags?: string[];
+  /** Documents associated with this node */
+  documents?: string[];
+  /** Data elements associated with this node */
+  data?: string[];
   /** Role assigned to this node (single value, indicates responsibility) */
   role?: string;
   /** ID of parent subprocess node (for grouped nodes) */
@@ -447,6 +455,8 @@ export const DEFAULT_PROCESS_NODE_DATA: Partial<ProcessNodeData> = {
   requiresFTE: false,
   defaultQuantity: 1,
   tags: [],
+  documents: [],
+  data: [],
 };
 
 /**
