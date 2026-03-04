@@ -418,16 +418,6 @@ export const useFlowchartStore = create<FlowchartStore>()(
         const normalizedTargetHandle = targetHandle || null;
         const id = `edge-${source}-${normalizedSourceHandle || 'default'}-${target}-${normalizedTargetHandle || 'default'}`;
 
-        // Get decision node edge label if connecting from a decision node
-        const getDecisionLabel = (sourceId: string, handleId: string | null, nodes: FlowchartNode[]): string | undefined => {
-          const sourceNode = nodes.find(n => n.id === sourceId);
-          if (sourceNode?.type === 'decision') {
-            if (handleId === 'yes') return 'Yes';
-            if (handleId === 'no') return 'No';
-          }
-          return undefined;
-        };
-
         // Check if connecting to a manual port that might not have a handle rendered yet
         const isManualPortConnection =
           (normalizedTargetHandle && normalizedTargetHandle.startsWith('manual-input-')) ||
@@ -458,7 +448,6 @@ export const useFlowchartStore = create<FlowchartStore>()(
                   sourceHandle: normalizedSourceHandle,
                   targetHandle: normalizedTargetHandle,
                   type: state.defaultEdgeType,
-                  label: getDecisionLabel(source, normalizedSourceHandle, state.nodes),
                   connectionDirection: 'output', // Default direction for hybrid handles
                 };
 
@@ -523,7 +512,6 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 sourceHandle: normalizedSourceHandle,
                 targetHandle: normalizedTargetHandle,
                 type: state.defaultEdgeType,
-                label: getDecisionLabel(source, normalizedSourceHandle, state.nodes),
                 connectionDirection: 'output', // Default direction for hybrid handles
               };
 

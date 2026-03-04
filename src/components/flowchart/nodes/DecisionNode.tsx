@@ -1,14 +1,16 @@
 import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Position, type NodeProps } from '@xyflow/react';
 import { Route } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
 import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
+import HybridHandle from './HybridHandle';
 
 /**
- * DecisionNode - Amber diamond-shaped node with Yes/No branch labels
- * Used for conditional branching in the process flow
+ * DecisionNode - Amber diamond-shaped node for conditional branching
+ * Uses hybrid handles allowing flexible connection directions.
+ * Branch semantics are defined by editable connection labels, not fixed ports.
  */
 function DecisionNode({ id, data, selected }: NodeProps) {
   const { label = 'Decision', tags } = (data as BaseNodeData) || {};
@@ -28,13 +30,35 @@ function DecisionNode({ id, data, selected }: NodeProps) {
     <div className="relative" style={{ width: containerSize, height: containerSize }}>
       {/* Flow Order Badge */}
       <FlowOrderBadge order={flowOrder} />
-      {/* Target Handle - Left corner of diamond */}
-      <Handle
-        type="target"
+
+      {/* Handles - Hybrid (can be input or output) */}
+      <HybridHandle
+        id="top"
+        position={Position.Top}
+        nodeId={id}
+        nodeColor="yellow"
+        style={{ top: 0, left: centerOffset, transform: 'translate(-50%, -50%)' }}
+      />
+      <HybridHandle
+        id="bottom"
+        position={Position.Bottom}
+        nodeId={id}
+        nodeColor="yellow"
+        style={{ bottom: 0, left: centerOffset, transform: 'translate(-50%, 50%)' }}
+      />
+      <HybridHandle
+        id="left"
         position={Position.Left}
-        id="input"
-        className="!w-3 !h-3 !bg-amber-300 !border-2 !border-amber-700 hover:!bg-amber-200"
+        nodeId={id}
+        nodeColor="yellow"
         style={{ left: 0, top: centerOffset, transform: 'translate(-50%, -50%)' }}
+      />
+      <HybridHandle
+        id="right"
+        position={Position.Right}
+        nodeId={id}
+        nodeColor="yellow"
+        style={{ right: 0, top: centerOffset, transform: 'translate(50%, -50%)' }}
       />
 
       {/* Diamond Shape Container */}
@@ -65,24 +89,6 @@ function DecisionNode({ id, data, selected }: NodeProps) {
           <Route className="w-5 h-5 text-white" />
         </div>
       </div>
-
-      {/* Source Handle - Right corner (Yes branch) */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="yes"
-        className="!w-3 !h-3 !bg-green-400 !border-2 !border-green-700 hover:!bg-green-300"
-        style={{ right: 0, top: centerOffset, transform: 'translate(50%, -50%)' }}
-      />
-
-      {/* Source Handle - Bottom corner (No branch) */}
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        id="no"
-        className="!w-3 !h-3 !bg-red-400 !border-2 !border-red-700 hover:!bg-red-300"
-        style={{ bottom: 0, left: centerOffset, transform: 'translate(-50%, 50%)' }}
-      />
 
       {/* Label below the diamond */}
       <div

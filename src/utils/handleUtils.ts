@@ -15,7 +15,7 @@ export type PortDirection = 'input' | 'output' | 'neutral';
 /**
  * Node types that use fixed handles (not hybrid)
  */
-const FIXED_HANDLE_NODE_TYPES = new Set(['start', 'end', 'decision']);
+const FIXED_HANDLE_NODE_TYPES = new Set(['start', 'end']);
 
 /**
  * Check if a node type should use fixed handles instead of hybrid
