@@ -243,6 +243,8 @@ export interface FlowchartEdge {
   originalTargets?: InternalNodeConnection[];
   /** ID of the subprocess this edge belongs to (for internal edges) */
   subprocessId?: string;
+  /** Direction of the connection for hybrid handles - indicates if source port is acting as input or output */
+  connectionDirection?: 'input' | 'output';
 }
 
 // ============================================================================

@@ -39,6 +39,8 @@ const NODE_TYPE_LABELS: Record<ProcessNodeType, string> = {
   boundaryPort: 'Boundary Port',
   junction: 'Junction',
   reference: 'Reference',
+  connector: 'Connector',
+  terminator: 'Terminator',
 };
 
 // ============================================================================

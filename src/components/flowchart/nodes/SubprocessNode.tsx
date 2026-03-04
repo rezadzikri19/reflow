@@ -1,11 +1,12 @@
 import { memo, useCallback, useMemo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Position, type NodeProps } from '@xyflow/react';
 import { Layers, ExternalLink, ArrowLeft, ArrowRight } from 'lucide-react';
 import type { ProcessNodeData, ManualPort } from '../../../types/index';
 import NodeTags from './NodeTags';
 import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import { useFlowchartStore } from '../../../stores/flowchartStore';
+import HybridHandle from './HybridHandle';
 
 // =============================================================================
 // Helper Functions
@@ -155,29 +156,31 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
 
       {/* Dynamic Input Handles - Left side for incoming connections */}
       {/* Only render handles when there are actual ports (manual or edge-based) */}
+      {/* Using HybridHandle with forceType="target" for input ports */}
       {inputPorts.map((port, index) => (
-        <Handle
+        <HybridHandle
           key={port.id}
-          type="target"
           position={Position.Left}
           id={port.id}
+          nodeId={id}
+          nodeColor="purple"
+          forceType="target"
           style={{ top: getPortPosition(index, inputPorts.length) }}
-          className="!w-3 !h-3 !bg-green-400 !border-2 !border-green-600 hover:!bg-green-300"
-          title={port.label}
         />
       ))}
 
       {/* Dynamic Output Handles - Right side for outgoing connections */}
       {/* Only render handles when there are actual ports (manual or edge-based) */}
+      {/* Using HybridHandle with forceType="source" for output ports */}
       {outputPorts.map((port, index) => (
-        <Handle
+        <HybridHandle
           key={port.id}
-          type="source"
           position={Position.Right}
           id={port.id}
+          nodeId={id}
+          nodeColor="purple"
+          forceType="source"
           style={{ top: getPortPosition(index, outputPorts.length) }}
-          className="!w-3 !h-3 !bg-blue-400 !border-2 !border-blue-600 hover:!bg-blue-300"
-          title={port.label}
         />
       ))}
 

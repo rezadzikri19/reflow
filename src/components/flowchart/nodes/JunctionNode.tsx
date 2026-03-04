@@ -1,21 +1,23 @@
 import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Position, type NodeProps } from '@xyflow/react';
 import type { BaseNodeData } from '../../../types/index';
+import HybridHandle from './HybridHandle';
 
 /**
  * JunctionNode - Violet circular node that acts as a many-to-one connection hub
  * Multiple nodes can connect TO it, and it connects TO one other node.
  */
-function JunctionNode({ data, selected }: NodeProps) {
+function JunctionNode({ id, data, selected }: NodeProps) {
   const { label = 'Junction' } = (data as BaseNodeData) || {};
 
   return (
     <div className="relative">
-      {/* Target Handle - Left side for incoming connections */}
-      <Handle
-        type="target"
+      {/* Left Handle - Hybrid (can be input or output) */}
+      <HybridHandle
+        id="left"
         position={Position.Left}
-        className="!w-3 !h-3 !bg-violet-300 !border-2 !border-violet-700 hover:!bg-violet-200"
+        nodeId={id}
+        nodeColor="purple"
       />
 
       <div
@@ -30,11 +32,12 @@ function JunctionNode({ data, selected }: NodeProps) {
           ${selected ? 'ring-2 ring-violet-400 ring-offset-2' : ''}
         `}
       >
-        {/* Source Handle - Right side for outgoing connection */}
-        <Handle
-          type="source"
+        {/* Right Handle - Hybrid (can be input or output) */}
+        <HybridHandle
+          id="right"
           position={Position.Right}
-          className="!w-3 !h-3 !bg-violet-300 !border-2 !border-violet-700 hover:!bg-violet-200"
+          nodeId={id}
+          nodeColor="purple"
         />
       </div>
 

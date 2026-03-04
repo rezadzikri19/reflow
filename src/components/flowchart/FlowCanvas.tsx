@@ -354,6 +354,16 @@ function FlowCanvasInner({
       const isSourceSubprocess = sourceNode?.type === 'subprocess';
       const isTargetSubprocess = targetNode?.type === 'subprocess';
 
+      // StartNode/EndNode validation for hybrid handles
+      // StartNode can only have outgoing connections (can't connect TO a StartNode)
+      if (targetNode?.type === 'start') {
+        return;
+      }
+      // EndNode can only have incoming connections (can't connect FROM an EndNode)
+      if (sourceNode?.type === 'end') {
+        return;
+      }
+
       // For subprocess nodes: check if source port already has a connection (one output connection per port)
       if (isSourceSubprocess) {
         const sourceHasConnection = edges.some(

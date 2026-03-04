@@ -1,6 +1,7 @@
 import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Position, type NodeProps } from '@xyflow/react';
 import type { BoundaryPortNodeData } from '../../../types/index';
+import HybridHandle from './HybridHandle';
 
 // =============================================================================
 // Types
@@ -12,7 +13,7 @@ export type { BoundaryPortNodeData } from '../../../types/index';
 // BoundaryPortNode Component
 // =============================================================================
 
-function BoundaryPortNode({ data, selected }: NodeProps) {
+function BoundaryPortNode({ id, data, selected }: NodeProps) {
   const { label, direction, isManual } = data as BoundaryPortNodeData;
   const isInput = direction === 'input';
 
@@ -63,18 +64,20 @@ function BoundaryPortNode({ data, selected }: NodeProps) {
           <span className="font-semibold text-sm text-wrap flex-1" title={label}>
             {label}
           </span>
-          <Handle
-            type="source"
+          <HybridHandle
             position={Position.Right}
-            className={`!w-3 !h-3 ${colors.handle}`}
+            nodeId={id}
+            nodeColor="green"
+            forceType="source"
           />
         </>
       ) : (
         <>
-          <Handle
-            type="target"
+          <HybridHandle
             position={Position.Left}
-            className={`!w-3 !h-3 ${colors.handle}`}
+            nodeId={id}
+            nodeColor="blue"
+            forceType="target"
           />
           <span className="font-semibold text-sm text-wrap flex-1 text-right" title={label}>
             {label}

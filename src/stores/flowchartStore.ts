@@ -459,6 +459,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                   targetHandle: normalizedTargetHandle,
                   type: state.defaultEdgeType,
                   label: getDecisionLabel(source, normalizedSourceHandle, state.nodes),
+                  connectionDirection: 'output', // Default direction for hybrid handles
                 };
 
                 state.edges.push(newEdge);
@@ -523,6 +524,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 targetHandle: normalizedTargetHandle,
                 type: state.defaultEdgeType,
                 label: getDecisionLabel(source, normalizedSourceHandle, state.nodes),
+                connectionDirection: 'output', // Default direction for hybrid handles
               };
 
               state.edges.push(newEdge);

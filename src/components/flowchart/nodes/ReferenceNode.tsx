@@ -1,9 +1,10 @@
 import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Position, type NodeProps } from '@xyflow/react';
 import type { BaseNodeData, ProcessNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import { useNodes } from '../../../stores/flowchartStore';
+import HybridHandle from './HybridHandle';
 
 /**
  * ReferenceNode - Sky blue circular node that displays the flow order of a referenced node
@@ -11,7 +12,7 @@ import { useNodes } from '../../../stores/flowchartStore';
  * connection lines and preventing back-and-forth connections in complex flows.
  * The label is automatically synced with the referenced node's label.
  */
-function ReferenceNode({ id: _id, data, selected }: NodeProps) {
+function ReferenceNode({ id, data, selected }: NodeProps) {
   const { tags, referencedNodeId } = (data as BaseNodeData & { referencedNodeId?: string }) || {};
   const nodes = useNodes();
 
@@ -25,11 +26,12 @@ function ReferenceNode({ id: _id, data, selected }: NodeProps) {
 
   return (
     <div className="relative">
-      {/* Target Handle - Left side for incoming connections */}
-      <Handle
-        type="target"
+      {/* Left Handle - Hybrid (can be input or output) */}
+      <HybridHandle
+        id="left"
         position={Position.Left}
-        className="!w-3 !h-3 !bg-sky-300 !border-2 !border-sky-700 hover:!bg-sky-200"
+        nodeId={id}
+        nodeColor="blue"
       />
 
       <div
@@ -44,11 +46,12 @@ function ReferenceNode({ id: _id, data, selected }: NodeProps) {
           ${selected ? 'ring-2 ring-sky-400 ring-offset-2' : ''}
         `}
       >
-        {/* Source Handle - Right side for outgoing connection */}
-        <Handle
-          type="source"
+        {/* Right Handle - Hybrid (can be input or output) */}
+        <HybridHandle
+          id="right"
           position={Position.Right}
-          className="!w-3 !h-3 !bg-sky-300 !border-2 !border-sky-700 hover:!bg-sky-200"
+          nodeId={id}
+          nodeColor="blue"
         />
 
         {/* Referenced node's flow order number */}

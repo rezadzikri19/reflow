@@ -1,7 +1,8 @@
 import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Position, type NodeProps } from '@xyflow/react';
 import { CircleDot } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
+import HybridHandle from './HybridHandle';
 
 /**
  * ConnectorNode - Teal circular node for connecting flowchart sections
@@ -9,17 +10,18 @@ import type { BaseNodeData } from '../../../types/index';
  * typically used when a flow continues on another page or section.
  * Excluded from flow order numbering like junction nodes.
  */
-function ConnectorNode({ data, selected }: NodeProps) {
+function ConnectorNode({ id, data, selected }: NodeProps) {
   const { label = 'A' } = (data as BaseNodeData) || {};
 
   return (
     <div className="relative">
 
-      {/* Target Handle - Left side for incoming connections */}
-      <Handle
-        type="target"
+      {/* Left Handle - Hybrid (can be input or output) */}
+      <HybridHandle
+        id="left"
         position={Position.Left}
-        className="!w-3 !h-3 !bg-teal-300 !border-2 !border-teal-700 hover:!bg-teal-200"
+        nodeId={id}
+        nodeColor="green"
       />
 
       {/* Circle shape */}
@@ -35,15 +37,16 @@ function ConnectorNode({ data, selected }: NodeProps) {
           ${selected ? 'ring-2 ring-teal-400 ring-offset-2' : ''}
         `}
       >
-        {/* Source Handle - Right side for outgoing connections */}
-        <Handle
-          type="source"
+        {/* Right Handle - Hybrid (can be input or output) */}
+        <HybridHandle
+          id="right"
           position={Position.Right}
-          className="!w-3 !h-3 !bg-teal-300 !border-2 !border-teal-700 hover:!bg-teal-200"
+          nodeId={id}
+          nodeColor="green"
         />
 
         {/* Connector symbol */}
-        <CircleDot className="text-white w-5 h-5" title={label} />
+        <CircleDot className="text-white w-5 h-5" />
       </div>
 
       {/* Label below the node */}

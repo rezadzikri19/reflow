@@ -1,9 +1,10 @@
 import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Position, type NodeProps } from '@xyflow/react';
 import type { BaseNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
 import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
+import HybridHandle from './HybridHandle';
 
 /**
  * TerminatorNode - Rose elongated circle (stadium/pill shape) node
@@ -20,11 +21,12 @@ function TerminatorNode({ id, data, selected }: NodeProps) {
       {/* Flow Order Badge */}
       <FlowOrderBadge order={flowOrder} />
 
-      {/* Target Handle - Left side for incoming connections */}
-      <Handle
-        type="target"
+      {/* Left Handle - Hybrid (can be input or output) */}
+      <HybridHandle
+        id="left"
         position={Position.Left}
-        className="!w-3 !h-3 !bg-rose-300 !border-2 !border-rose-700 hover:!bg-rose-200"
+        nodeId={id}
+        nodeColor="red"
       />
 
       {/* Stadium/Pill shape (elongated circle using rounded-full with different width/height) */}
@@ -43,11 +45,12 @@ function TerminatorNode({ id, data, selected }: NodeProps) {
           ${selected ? 'ring-2 ring-rose-400 ring-offset-2' : ''}
         `}
       >
-        {/* Source Handle - Right side for outgoing connections */}
-        <Handle
-          type="source"
+        {/* Right Handle - Hybrid (can be input or output) */}
+        <HybridHandle
+          id="right"
           position={Position.Right}
-          className="!w-3 !h-3 !bg-rose-300 !border-2 !border-rose-700 hover:!bg-rose-200"
+          nodeId={id}
+          nodeColor="red"
         />
 
         {/* Label */}

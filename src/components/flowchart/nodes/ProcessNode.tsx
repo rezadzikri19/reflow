@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Position, type NodeProps } from '@xyflow/react';
 import {
   FileText,
   ClipboardList,
@@ -13,6 +13,7 @@ import type { ProcessNodeData, UnitType } from '../../../types/index';
 import NodeTags from './NodeTags';
 import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
+import HybridHandle from './HybridHandle';
 
 /**
  * Maps unit types to their corresponding icons
@@ -77,11 +78,12 @@ function ProcessNode({ id, data, selected }: NodeProps) {
     >
       {/* Flow Order Badge */}
       <FlowOrderBadge order={flowOrder} />
-      {/* Target Handle - Left side for incoming connections */}
-      <Handle
-        type="target"
+      {/* Left Handle - Hybrid (can be input or output) */}
+      <HybridHandle
+        id="left"
         position={Position.Left}
-        className="!w-3 !h-3 !bg-blue-300 !border-2 !border-blue-700 hover:!bg-blue-200"
+        nodeId={id}
+        nodeColor="blue"
       />
 
       {/* Node Label */}
@@ -117,11 +119,12 @@ function ProcessNode({ id, data, selected }: NodeProps) {
       {/* Tags indicator */}
       <NodeTags tags={tags} className="justify-center" />
 
-      {/* Source Handle - Right side for outgoing connections */}
-      <Handle
-        type="source"
+      {/* Right Handle - Hybrid (can be input or output) */}
+      <HybridHandle
+        id="right"
         position={Position.Right}
-        className="!w-3 !h-3 !bg-blue-300 !border-2 !border-blue-700 hover:!bg-blue-200"
+        nodeId={id}
+        nodeColor="blue"
       />
     </div>
   );

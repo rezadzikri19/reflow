@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useEffect, useCallback } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Position, type NodeProps } from '@xyflow/react';
 import {
   Clock,
   FileText,
@@ -13,6 +13,7 @@ import type { ProcessNodeData, UnitType } from '../../../types/index';
 import NodeTags from './NodeTags';
 import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
+import HybridHandle from './HybridHandle';
 
 /**
  * Maps unit types to their corresponding icons
@@ -164,18 +165,22 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
         />
       </svg>
 
-      {/* Target Handle - Left side for incoming connections */}
-      <Handle
-        type="target"
+      {/* Left Handle - Hybrid (can be input or output) */}
+      <HybridHandle
+        id="left"
         position={Position.Left}
-        className="!w-3 !h-3 !bg-orange-300 !border-2 !border-orange-700 hover:!bg-orange-200 !z-20"
+        nodeId={id}
+        nodeColor="orange"
+        zIndex={20}
       />
 
-      {/* Source Handle - Right side for outgoing connections */}
-      <Handle
-        type="source"
+      {/* Right Handle - Hybrid (can be input or output) */}
+      <HybridHandle
+        id="right"
         position={Position.Right}
-        className="!w-3 !h-3 !bg-orange-300 !border-2 !border-orange-700 hover:!bg-orange-200 !z-20"
+        nodeId={id}
+        nodeColor="orange"
+        zIndex={20}
       />
 
       {/* Content - positioned over the SVG */}
