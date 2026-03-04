@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { CircleDot } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
 
 /**
@@ -41,13 +42,8 @@ function ConnectorNode({ data, selected }: NodeProps) {
           className="!w-2 !h-2 !bg-teal-300 !border-2 !border-teal-700 hover:!bg-teal-200"
         />
 
-        {/* Connector label (typically a letter or number) */}
-        <span
-          className="text-white font-bold text-sm"
-          title={label}
-        >
-          {label}
-        </span>
+        {/* Connector symbol */}
+        <CircleDot className="text-white w-5 h-5" title={label} />
       </div>
 
       {/* Label below the node */}

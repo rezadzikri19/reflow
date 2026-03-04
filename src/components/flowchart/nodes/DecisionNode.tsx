@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { HelpCircle } from 'lucide-react';
+import { Route } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
 import FlowOrderBadge from './FlowOrderBadge';
@@ -62,7 +62,7 @@ function DecisionNode({ id, data, selected }: NodeProps) {
           className="absolute inset-0 flex items-center justify-center"
           style={{ transform: 'rotate(-45deg)' }}
         >
-          <HelpCircle className="w-5 h-5 text-white" />
+          <Route className="w-5 h-5 text-white" />
         </div>
       </div>
 
