@@ -8,6 +8,7 @@ import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import { useFlowchartStore } from '../../../stores/flowchartStore';
 import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
+import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
 
 // =============================================================================
 // Helper Functions
@@ -44,6 +45,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
   const edges = useFlowchartStore((state) => state.edges);
   const nodeVersion = useFlowchartStore((state) => state.nodeVersion);
   const flowOrder = useFlowOrder(id);
+  const isMuted = useIsNodeMuted(id);
 
   // Get child count from childNodeIds array directly
   const childCount = childNodeIds.length;
@@ -151,6 +153,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
         p-3
         ${selected ? 'ring-2 ring-purple-400 ring-offset-2' : ''}
         ${locked ? 'border-dashed opacity-80' : ''}
+        ${isMuted ? 'opacity-30 grayscale' : ''}
       `}
     >
       {/* Lock Indicator */}

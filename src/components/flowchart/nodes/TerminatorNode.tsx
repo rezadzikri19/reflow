@@ -7,6 +7,7 @@ import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
+import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
 
 /**
  * TerminatorNode - Rose elongated circle (stadium/pill shape) node
@@ -17,9 +18,10 @@ import LockIndicator from './LockIndicator';
 function TerminatorNode({ id, data, selected }: NodeProps) {
   const { label = 'Terminator', tags, role, locked } = (data as BaseNodeData) || {};
   const flowOrder = useFlowOrder(id);
+  const isMuted = useIsNodeMuted(id);
 
   return (
-    <div className="relative">
+    <div className={`relative transition-opacity duration-200 ${isMuted ? 'opacity-30 grayscale' : ''}`}>
       {/* Lock Indicator */}
       <LockIndicator locked={locked} />
 

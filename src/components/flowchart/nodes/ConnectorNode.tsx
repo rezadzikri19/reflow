@@ -4,6 +4,7 @@ import { CircleDot } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
 import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
+import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
 
 /**
  * ConnectorNode - Teal circular node for connecting flowchart sections
@@ -13,9 +14,10 @@ import LockIndicator from './LockIndicator';
  */
 function ConnectorNode({ id, data, selected }: NodeProps) {
   const { label = 'A', locked } = (data as BaseNodeData) || {};
+  const isMuted = useIsNodeMuted(id);
 
   return (
-    <div className="relative">
+    <div className={`relative transition-opacity duration-200 ${isMuted ? 'opacity-30 grayscale' : ''}`}>
       {/* Lock Indicator */}
       <LockIndicator locked={locked} />
 

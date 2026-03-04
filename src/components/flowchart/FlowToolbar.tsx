@@ -2,10 +2,11 @@ import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { useReactFlow, useStore } from '@xyflow/react';
 import { Button } from '../common/Button';
 import { Modal, ModalFooter, ModalBody } from '../common/Modal';
-import { useFlowchartStore } from '../../stores/flowchartStore';
+import { useFlowchartStore, useHasActiveFilters, useIsFilterPanelOpen } from '../../stores/flowchartStore';
 import { getAllFlowcharts, deleteFlowchart } from '../../db/database';
 import type { FlowchartRecord } from '../../db/database';
 import type { FlowchartNode, FlowchartEdge } from '../../types';
+import AdvancedFilter from './AdvancedFilter';
 
 // =============================================================================
 // Types
@@ -156,6 +157,12 @@ const ReferenceIcon = () => (
   </svg>
 );
 
+const FilterIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+  </svg>
+);
+
 // =============================================================================
 // Component
 // =============================================================================
@@ -176,6 +183,12 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
   const [isLoadingFlowcharts, setIsLoadingFlowcharts] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const filterButtonRef = useRef<HTMLButtonElement>(null);
+  const filterPanelRef = useRef<HTMLDivElement>(null);
+
+  const isFilterPanelOpen = useIsFilterPanelOpen();
+  const hasActiveFilters = useHasActiveFilters();
+  const setFilterPanelOpen = useFlowchartStore((state) => state.setFilterPanelOpen);
 
   const {
     flowchartName,
@@ -630,6 +643,42 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
           >
             <MinimapIcon />
           </Button>
+        </div>
+
+        {/* Divider */}
+        <div className="h-6 w-px bg-gray-200" />
+
+        {/* Filter Button */}
+        <div className="relative">
+          <Button
+            ref={filterButtonRef}
+            variant={hasActiveFilters ? 'primary' : isFilterPanelOpen ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setFilterPanelOpen(!isFilterPanelOpen)}
+            title="Filter Nodes"
+            className="!px-2.5"
+          >
+            <FilterIcon />
+            {hasActiveFilters && (
+              <span className="ml-1 text-xs font-bold">
+                Active
+              </span>
+            )}
+          </Button>
+          {isFilterPanelOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setFilterPanelOpen(false)}
+              />
+              <div
+                ref={filterPanelRef}
+                className="absolute right-0 mt-2 z-20"
+              >
+                <AdvancedFilter />
+              </div>
+            </>
+          )}
         </div>
       </div>
 

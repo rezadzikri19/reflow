@@ -16,6 +16,7 @@ import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
+import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
 
 /**
  * Maps unit types to their corresponding icons
@@ -97,6 +98,7 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
   const UnitIcon = unitTypeIcons[unitType];
   const calculatedTime = unitTimeMinutes * defaultQuantity;
   const flowOrder = useFlowOrder(id);
+  const isMuted = useIsNodeMuted(id);
 
   const fillColor = isHovered ? '#ea580c' : '#f97316';
   const strokeColor = '#c2410c';
@@ -139,7 +141,7 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
   }, [updateSvgPath, label, unitType, customUnitName, unitTimeMinutes, defaultQuantity, tags, documents, nodeData, role]);
 
   return (
-    <div className="relative">
+    <div className={`relative transition-opacity duration-200 ${isMuted ? 'opacity-30 grayscale' : ''}`}>
       <div
         className={`
           relative transition-all duration-200

@@ -5,5 +5,6 @@ export { default as NodePropertiesPanel } from './NodePropertiesPanel';
 export { default as EdgePropertiesPanel } from './EdgePropertiesPanel';
 export { default as SheetBar } from './SheetBar';
 export type { SheetInfo } from './SheetBar';
+export { default as AdvancedFilter } from './AdvancedFilter';
 export * from './nodes';
 export * from './edges';

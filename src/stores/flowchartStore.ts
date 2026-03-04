@@ -24,6 +24,26 @@ import {
 } from '../db/database';
 
 // =============================================================================
+// Node Filter Types
+// =============================================================================
+
+/**
+ * Filter state for node filtering functionality
+ */
+export interface NodeFilterState {
+  /** Selected tags for filtering */
+  filterTags: string[];
+  /** Selected roles for filtering */
+  filterRoles: string[];
+  /** Selected documents for filtering */
+  filterDocuments: string[];
+  /** Selected data elements for filtering */
+  filterData: string[];
+  /** Whether the filter panel is visible */
+  isFilterPanelOpen: boolean;
+}
+
+// =============================================================================
 // Store Types
 // =============================================================================
 
@@ -45,6 +65,12 @@ interface FlowchartState {
   edgeVersion: number;
   /** Default edge type for new connections */
   defaultEdgeType: EdgeType;
+  /** Node filter state */
+  filterTags: string[];
+  filterRoles: string[];
+  filterDocuments: string[];
+  filterData: string[];
+  isFilterPanelOpen: boolean;
 }
 
 interface FlowchartActions {
@@ -124,6 +150,14 @@ interface FlowchartActions {
   // Lock/unlock actions
   lockNodes: (nodeIds: string[]) => void;
   unlockNodes: (nodeIds: string[]) => void;
+  // Filter actions
+  setFilterTags: (tags: string[]) => void;
+  setFilterRoles: (roles: string[]) => void;
+  setFilterDocuments: (documents: string[]) => void;
+  setFilterData: (data: string[]) => void;
+  clearAllFilters: () => void;
+  toggleFilterPanel: () => void;
+  setFilterPanelOpen: (isOpen: boolean) => void;
 }
 
 type FlowchartStore = FlowchartState & FlowchartActions;
@@ -146,6 +180,11 @@ const initialState: FlowchartState = {
   nodeVersion: 0,
   edgeVersion: 0,
   defaultEdgeType: 'smoothstep',
+  filterTags: [],
+  filterRoles: [],
+  filterDocuments: [],
+  filterData: [],
+  isFilterPanelOpen: false,
 };
 
 // =============================================================================
@@ -1941,6 +1980,76 @@ export const useFlowchartStore = create<FlowchartStore>()(
         });
       },
 
+      // =============================================================================
+      // Filter Actions
+      // =============================================================================
+
+      /**
+       * Set filter tags
+       */
+      setFilterTags: (tags: string[]) => {
+        set((state) => {
+          state.filterTags = tags;
+        });
+      },
+
+      /**
+       * Set filter roles
+       */
+      setFilterRoles: (roles: string[]) => {
+        set((state) => {
+          state.filterRoles = roles;
+        });
+      },
+
+      /**
+       * Set filter documents
+       */
+      setFilterDocuments: (documents: string[]) => {
+        set((state) => {
+          state.filterDocuments = documents;
+        });
+      },
+
+      /**
+       * Set filter data
+       */
+      setFilterData: (data: string[]) => {
+        set((state) => {
+          state.filterData = data;
+        });
+      },
+
+      /**
+       * Clear all filters
+       */
+      clearAllFilters: () => {
+        set((state) => {
+          state.filterTags = [];
+          state.filterRoles = [];
+          state.filterDocuments = [];
+          state.filterData = [];
+        });
+      },
+
+      /**
+       * Toggle filter panel visibility
+       */
+      toggleFilterPanel: () => {
+        set((state) => {
+          state.isFilterPanelOpen = !state.isFilterPanelOpen;
+        });
+      },
+
+      /**
+       * Set filter panel open state
+       */
+      setFilterPanelOpen: (isOpen: boolean) => {
+        set((state) => {
+          state.isFilterPanelOpen = isOpen;
+        });
+      },
+
       reset: () => {
         set(initialState);
       },
@@ -1978,6 +2087,25 @@ export const useSelectedNode = () => {
 
   if (!selectedNodeId) return null;
   return nodes.find((n) => n.id === selectedNodeId) || null;
+};
+
+// Filter selector hooks
+export const useFilterTags = () => useFlowchartStore((state) => state.filterTags);
+export const useFilterRoles = () => useFlowchartStore((state) => state.filterRoles);
+export const useFilterDocuments = () => useFlowchartStore((state) => state.filterDocuments);
+export const useFilterData = () => useFlowchartStore((state) => state.filterData);
+export const useIsFilterPanelOpen = () => useFlowchartStore((state) => state.isFilterPanelOpen);
+
+/**
+ * Check if any filters are active
+ */
+export const useHasActiveFilters = () => {
+  const filterTags = useFlowchartStore((state) => state.filterTags);
+  const filterRoles = useFlowchartStore((state) => state.filterRoles);
+  const filterDocuments = useFlowchartStore((state) => state.filterDocuments);
+  const filterData = useFlowchartStore((state) => state.filterData);
+
+  return filterTags.length > 0 || filterRoles.length > 0 || filterDocuments.length > 0 || filterData.length > 0;
 };
 
 // Expose store to window for debugging (only in development)

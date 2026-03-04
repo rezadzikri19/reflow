@@ -16,6 +16,7 @@ import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
+import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
 
 /**
  * Maps unit types to their corresponding icons
@@ -65,9 +66,10 @@ function ProcessNode({ id, data, selected }: NodeProps) {
   const UnitIcon = unitTypeIcons[unitType];
   const calculatedTime = unitTimeMinutes * defaultQuantity;
   const flowOrder = useFlowOrder(id);
+  const isMuted = useIsNodeMuted(id);
 
   return (
-    <div className="relative">
+    <div className={`relative transition-opacity duration-200 ${isMuted ? 'opacity-30 grayscale' : ''}`}>
       {/* Lock Indicator */}
       <LockIndicator locked={locked} />
 

@@ -7,6 +7,7 @@ import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import { useNodes } from '../../../stores/flowchartStore';
 import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
+import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
 
 /**
  * ReferenceNode - Sky blue circular node that displays the flow order of a referenced node
@@ -27,9 +28,10 @@ function ReferenceNode({ id, data, selected }: NodeProps) {
 
   // Get the flow order of the referenced node (not this node)
   const referencedFlowOrder = useFlowOrder(referencedNodeId || '');
+  const isMuted = useIsNodeMuted(id);
 
   return (
-    <div className="relative">
+    <div className={`relative transition-opacity duration-200 ${isMuted ? 'opacity-30 grayscale' : ''}`}>
       {/* Lock Indicator */}
       <LockIndicator locked={locked} />
 

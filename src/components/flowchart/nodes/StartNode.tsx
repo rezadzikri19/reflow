@@ -7,6 +7,7 @@ import NodeRole from './NodeRole';
 import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import LockIndicator from './LockIndicator';
+import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
 
 /**
  * StartNode - Green circular start node with play icon
@@ -15,9 +16,10 @@ import LockIndicator from './LockIndicator';
 function StartNode({ id, data, selected }: NodeProps) {
   const { label = 'Start', tags, role, locked } = (data as BaseNodeData) || {};
   const flowOrder = useFlowOrder(id);
+  const isMuted = useIsNodeMuted(id);
 
   return (
-    <div className="relative">
+    <div className={`relative transition-opacity duration-200 ${isMuted ? 'opacity-30 grayscale' : ''}`}>
       {/* Lock Indicator */}
       <LockIndicator locked={locked} />
 

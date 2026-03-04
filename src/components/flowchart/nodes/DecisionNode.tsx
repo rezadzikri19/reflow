@@ -8,6 +8,7 @@ import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
+import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
 
 /**
  * DecisionNode - Amber diamond-shaped node for conditional branching
@@ -17,6 +18,7 @@ import LockIndicator from './LockIndicator';
 function DecisionNode({ id, data, selected }: NodeProps) {
   const { label = 'Decision', tags, role, locked } = (data as BaseNodeData) || {};
   const flowOrder = useFlowOrder(id);
+  const isMuted = useIsNodeMuted(id);
 
   // Diamond dimensions
   const diamondSize = 60;
@@ -29,7 +31,7 @@ function DecisionNode({ id, data, selected }: NodeProps) {
   const centerOffset = containerSize / 2;
 
   return (
-    <div className="relative" style={{ width: containerSize, height: containerSize }}>
+    <div className={`relative transition-opacity duration-200 ${isMuted ? 'opacity-30 grayscale' : ''}`} style={{ width: containerSize, height: containerSize }}>
       {/* Lock Indicator */}
       <LockIndicator locked={locked} />
 

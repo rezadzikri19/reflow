@@ -3,6 +3,7 @@ import { Position, type NodeProps } from '@xyflow/react';
 import type { BoundaryPortNodeData } from '../../../types/index';
 import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
+import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
 
 // =============================================================================
 // Types
@@ -17,6 +18,9 @@ export type { BoundaryPortNodeData } from '../../../types/index';
 function BoundaryPortNode({ id, data, selected }: NodeProps) {
   const { label, direction, isManual, locked } = data as BoundaryPortNodeData;
   const isInput = direction === 'input';
+  // Note: Boundary port nodes are virtual nodes inside subprocesses
+  // We still use the hook but don't apply muted styling (could be enabled later)
+  useIsNodeMuted(id);
 
   // Determine colors based on direction (same for manual and auto-created ports)
   const getColors = () => {
@@ -42,6 +46,8 @@ function BoundaryPortNode({ id, data, selected }: NodeProps) {
 
   const colors = getColors();
 
+  // Boundary port nodes should not be muted (they are virtual nodes inside subprocesses)
+  // But we still add the hook in case we want to filter them in the future
   return (
     <div
       className={`
