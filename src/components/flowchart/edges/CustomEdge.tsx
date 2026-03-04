@@ -13,6 +13,7 @@ import {
  * CustomEdge - Edge component with visual selection feedback
  * Supports multiple edge types: smoothstep, bezier, straight, simplebezier
  * Supports labels and custom styles
+ * Automatically styles Yes/No labels from decision nodes
  */
 function CustomEdge({
   id,
@@ -92,12 +93,12 @@ function CustomEdge({
       {label && (
         <g transform={`translate(${labelX}, ${labelY})`}>
           <rect
-            x={-(labelBgPadding?.[0] ?? 8)}
+            x={-((labelBgPadding?.[0] ?? 8) + (typeof label === 'string' ? label.length * 3 : 30))}
             y={-(labelBgPadding?.[1] ?? 10)}
             width={(labelBgPadding?.[0] ?? 8) * 2 + (typeof label === 'string' ? label.length * 6 : 60)}
             height={(labelBgPadding?.[1] ?? 10) * 2}
-            fill={labelBgStyle?.fill || '#ffffff'}
-            stroke={labelBgStyle?.stroke || '#e5e7eb'}
+            fill={labelBgStyle?.fill || (label === 'Yes' ? '#dcfce7' : label === 'No' ? '#fee2e2' : '#ffffff')}
+            stroke={labelBgStyle?.stroke || (label === 'Yes' ? '#86efac' : label === 'No' ? '#fca5a5' : '#e5e7eb')}
             strokeWidth={1}
             rx={labelBgBorderRadius ?? 4}
             ry={labelBgBorderRadius ?? 4}
@@ -109,7 +110,8 @@ function CustomEdge({
             style={{
               fontSize: '12px',
               fontFamily: 'system-ui, -apple-system, sans-serif',
-              fill: '#374151',
+              fontWeight: 'bold',
+              fill: label === 'Yes' ? '#166534' : label === 'No' ? '#991b1b' : '#374151',
               ...labelStyle,
             }}
             className="pointer-events-none"

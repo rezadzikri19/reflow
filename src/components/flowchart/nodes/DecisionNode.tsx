@@ -84,22 +84,6 @@ function DecisionNode({ id, data, selected }: NodeProps) {
         style={{ bottom: 0, left: centerOffset, transform: 'translate(-50%, 50%)' }}
       />
 
-      {/* Yes Label - Right side, positioned away from handle */}
-      <div
-        className="absolute text-xs font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded pointer-events-none"
-        style={{ right: -32, top: centerOffset - 8 }}
-      >
-        Yes
-      </div>
-
-      {/* No Label - Bottom, positioned away from handle */}
-      <div
-        className="absolute text-xs font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded pointer-events-none"
-        style={{ bottom: -32, left: centerOffset - 10 }}
-      >
-        No
-      </div>
-
       {/* Label below the diamond */}
       <div
         className="absolute pointer-events-none -translate-x-1/2 mt-1"
