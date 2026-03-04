@@ -690,6 +690,11 @@ function FlowCanvasInner({
     const selectedSubprocess = selectedNodes.find(n => n.type === 'subprocess');
     const isSubprocessSelected = selectedNodes.length === 1 && !!selectedSubprocess;
 
+    // Check if a single node is selected that can be referenced (not reference or boundaryPort)
+    const referenceableNode = selectedNodes.length === 1
+      ? selectedNodes.find(n => n.type !== 'reference' && n.type !== 'boundaryPort')
+      : null;
+
     // Validate grouping
     let canGroup = false;
     let groupDisabledReason = '';
@@ -712,6 +717,7 @@ function FlowCanvasInner({
       groupDisabledReason,
       isSubprocessSelected,
       selectedSubprocessId: selectedSubprocess?.id,
+      referenceableNode,
     };
   }, [getNodes]);
 
@@ -1235,6 +1241,7 @@ function FlowCanvasInner({
           groupDisabledReason={contextMenuState.groupDisabledReason}
           isSubprocessSelected={contextMenuState.isSubprocessSelected}
           selectedSubprocessId={contextMenuState.selectedSubprocessId}
+          referenceableNode={contextMenuState.referenceableNode}
         />
       </div>
 

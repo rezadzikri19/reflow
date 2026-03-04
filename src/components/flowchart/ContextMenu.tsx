@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useUpdateNodeInternals } from '@xyflow/react';
-import { Layers, Ungroup, X, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Layers, Ungroup, X, ArrowLeft, ArrowRight, Link } from 'lucide-react';
 import { useFlowchartStore } from '../../stores/flowchartStore';
+import type { FlowchartNode } from '../../types';
 
 // =============================================================================
 // Types
@@ -29,6 +30,8 @@ interface ContextMenuProps {
   isSubprocessSelected: boolean;
   /** ID of selected subprocess (if any) */
   selectedSubprocessId?: string;
+  /** Selected node that can be referenced (single selection, non-reference type) */
+  referenceableNode?: FlowchartNode | null;
 }
 
 // =============================================================================
@@ -44,11 +47,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   groupDisabledReason,
   isSubprocessSelected,
   selectedSubprocessId,
+  referenceableNode,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const groupNodesIntoSubprocess = useFlowchartStore((state) => state.groupNodesIntoSubprocess);
   const ungroupSubprocess = useFlowchartStore((state) => state.ungroupSubprocess);
   const addManualPort = useFlowchartStore((state) => state.addManualPort);
+  const createReferenceToNode = useFlowchartStore((state) => state.createReferenceToNode);
   const updateNodeInternals = useUpdateNodeInternals();
 
   // Close menu when clicking outside
@@ -126,6 +131,12 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     onClose();
   }, [isSubprocessSelected, selectedSubprocessId, addManualPort, updateNodeInternals, onClose]);
 
+  const handleCreateReference = useCallback(() => {
+    if (!referenceableNode) return;
+    createReferenceToNode(referenceableNode.id);
+    onClose();
+  }, [referenceableNode, createReferenceToNode, onClose]);
+
   if (!isOpen) return null;
 
   const adjustedPos = adjustedPosition();
@@ -186,6 +197,17 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             <span>Add Output Port</span>
           </button>
         </>
+      )}
+
+      {/* Create Reference option */}
+      {referenceableNode && (
+        <button
+          className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+          onClick={handleCreateReference}
+        >
+          <Link className="w-4 h-4 text-sky-500" />
+          <span>Create Reference</span>
+        </button>
       )}
 
       {/* Divider */}
