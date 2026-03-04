@@ -1,10 +1,30 @@
 import { memo, useState, useRef, useEffect, useCallback } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { Hand, Clock } from 'lucide-react';
-import type { ProcessNodeData } from '../../../types/index';
+import {
+  Clock,
+  FileText,
+  ClipboardList,
+  Briefcase,
+  Users,
+  CreditCard,
+  Package,
+} from 'lucide-react';
+import type { ProcessNodeData, UnitType } from '../../../types/index';
 import NodeTags from './NodeTags';
 import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
+
+/**
+ * Maps unit types to their corresponding icons
+ */
+const unitTypeIcons: Record<UnitType, React.ComponentType<{ className?: string }>> = {
+  documents: FileText,
+  applications: ClipboardList,
+  cases: Briefcase,
+  customers: Users,
+  transactions: CreditCard,
+  custom: Package,
+};
 
 /**
  * Formats time in minutes to a human-readable string
@@ -67,6 +87,7 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
     tags,
   } = (data as ProcessNodeData) || {};
 
+  const UnitIcon = unitTypeIcons[unitType];
   const calculatedTime = unitTimeMinutes * defaultQuantity;
   const flowOrder = useFlowOrder(id);
 
@@ -123,20 +144,6 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
       {/* Flow Order Badge */}
       <FlowOrderBadge order={flowOrder} />
 
-      {/* Target Handle - Left side for incoming connections */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="!w-3 !h-3 !bg-orange-300 !border-2 !border-orange-700 hover:!bg-orange-200"
-      />
-
-      {/* Source Handle - Right side for outgoing connections */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        className="!w-3 !h-3 !bg-orange-300 !border-2 !border-orange-700 hover:!bg-orange-200"
-      />
-
       {/* SVG Background - positioned absolutely behind content */}
       <svg
         className="absolute inset-0 pointer-events-none"
@@ -157,6 +164,20 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
         />
       </svg>
 
+      {/* Target Handle - Left side for incoming connections */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!w-3 !h-3 !bg-orange-300 !border-2 !border-orange-700 hover:!bg-orange-200 !z-20"
+      />
+
+      {/* Source Handle - Right side for outgoing connections */}
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!w-3 !h-3 !bg-orange-300 !border-2 !border-orange-700 hover:!bg-orange-200 !z-20"
+      />
+
       {/* Content - positioned over the SVG */}
       <div
         ref={contentRef}
@@ -173,9 +194,9 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
           {label}
         </div>
 
-        {/* Manual indicator with unit type */}
+        {/* Unit Type */}
         <div className="flex items-center gap-2 text-orange-100 text-xs">
-          <Hand className="w-4 h-4 shrink-0" />
+          <UnitIcon className="w-4 h-4 shrink-0" />
           <span className="truncate capitalize">
             {unitType === 'custom' ? (customUnitName || 'Custom') : unitType}
           </span>

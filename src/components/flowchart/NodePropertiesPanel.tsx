@@ -33,6 +33,7 @@ const NODE_TYPE_LABELS: Record<ProcessNodeType, string> = {
   start: 'Start',
   end: 'End',
   process: 'Process',
+  manualProcess: 'Manual Process',
   decision: 'Decision',
   subprocess: 'Subprocess',
   boundaryPort: 'Boundary Port',
@@ -339,7 +340,7 @@ export const NodePropertiesPanel: React.FC = () => {
 
   const nodeData = selectedNode.data as ProcessNodeData;
   const nodeType = nodeData.nodeType;
-  const isProcessNode = nodeType === 'process' || nodeType === 'subprocess';
+  const isProcessNode = nodeType === 'process' || nodeType === 'subprocess' || nodeType === 'manualProcess';
 
   return (
     <div className="h-full bg-white border-l border-gray-200 overflow-y-auto">
