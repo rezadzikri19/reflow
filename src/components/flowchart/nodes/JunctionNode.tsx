@@ -12,13 +12,10 @@ function JunctionNode({ id, data, selected }: NodeProps) {
 
   return (
     <div className="relative">
-      {/* Left Handle - Hybrid (can be input or output) */}
-      <HybridHandle
-        id="left"
-        position={Position.Left}
-        nodeId={id}
-        nodeColor="purple"
-      />
+      {/* Handles - Hybrid (can be input or output) */}
+      <HybridHandle id="top" position={Position.Top} nodeId={id} nodeColor="purple" />
+      <HybridHandle id="bottom" position={Position.Bottom} nodeId={id} nodeColor="purple" />
+      <HybridHandle id="left" position={Position.Left} nodeId={id} nodeColor="purple" />
 
       <div
         className={`
@@ -32,13 +29,7 @@ function JunctionNode({ id, data, selected }: NodeProps) {
           ${selected ? 'ring-2 ring-violet-400 ring-offset-2' : ''}
         `}
       >
-        {/* Right Handle - Hybrid (can be input or output) */}
-        <HybridHandle
-          id="right"
-          position={Position.Right}
-          nodeId={id}
-          nodeColor="purple"
-        />
+        <HybridHandle id="right" position={Position.Right} nodeId={id} nodeColor="purple" />
       </div>
 
       {/* Label below the node */}

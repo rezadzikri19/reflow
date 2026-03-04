@@ -165,23 +165,11 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
         />
       </svg>
 
-      {/* Left Handle - Hybrid (can be input or output) */}
-      <HybridHandle
-        id="left"
-        position={Position.Left}
-        nodeId={id}
-        nodeColor="orange"
-        zIndex={20}
-      />
-
-      {/* Right Handle - Hybrid (can be input or output) */}
-      <HybridHandle
-        id="right"
-        position={Position.Right}
-        nodeId={id}
-        nodeColor="orange"
-        zIndex={20}
-      />
+      {/* Handles - Hybrid (can be input or output) */}
+      <HybridHandle id="top" position={Position.Top} nodeId={id} nodeColor="orange" zIndex={20} />
+      <HybridHandle id="bottom" position={Position.Bottom} nodeId={id} nodeColor="orange" zIndex={20} />
+      <HybridHandle id="left" position={Position.Left} nodeId={id} nodeColor="orange" zIndex={20} />
+      <HybridHandle id="right" position={Position.Right} nodeId={id} nodeColor="orange" zIndex={20} />
 
       {/* Content - positioned over the SVG */}
       <div

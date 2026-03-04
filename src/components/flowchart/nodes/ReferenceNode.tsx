@@ -26,13 +26,10 @@ function ReferenceNode({ id, data, selected }: NodeProps) {
 
   return (
     <div className="relative">
-      {/* Left Handle - Hybrid (can be input or output) */}
-      <HybridHandle
-        id="left"
-        position={Position.Left}
-        nodeId={id}
-        nodeColor="blue"
-      />
+      {/* Handles - Hybrid (can be input or output) */}
+      <HybridHandle id="top" position={Position.Top} nodeId={id} nodeColor="blue" />
+      <HybridHandle id="bottom" position={Position.Bottom} nodeId={id} nodeColor="blue" />
+      <HybridHandle id="left" position={Position.Left} nodeId={id} nodeColor="blue" />
 
       <div
         className={`
@@ -46,13 +43,7 @@ function ReferenceNode({ id, data, selected }: NodeProps) {
           ${selected ? 'ring-2 ring-sky-400 ring-offset-2' : ''}
         `}
       >
-        {/* Right Handle - Hybrid (can be input or output) */}
-        <HybridHandle
-          id="right"
-          position={Position.Right}
-          nodeId={id}
-          nodeColor="blue"
-        />
+        <HybridHandle id="right" position={Position.Right} nodeId={id} nodeColor="blue" />
 
         {/* Referenced node's flow order number */}
         <span className="text-white font-bold text-lg">

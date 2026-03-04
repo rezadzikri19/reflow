@@ -21,15 +21,10 @@ function TerminatorNode({ id, data, selected }: NodeProps) {
       {/* Flow Order Badge */}
       <FlowOrderBadge order={flowOrder} />
 
-      {/* Left Handle - Hybrid (can be input or output) */}
-      <HybridHandle
-        id="left"
-        position={Position.Left}
-        nodeId={id}
-        nodeColor="red"
-      />
-
-      {/* Stadium/Pill shape (elongated circle using rounded-full with different width/height) */}
+      {/* Handles - Hybrid (can be input or output) */}
+      <HybridHandle id="top" position={Position.Top} nodeId={id} nodeColor="red" />
+      <HybridHandle id="bottom" position={Position.Bottom} nodeId={id} nodeColor="red" />
+      <HybridHandle id="left" position={Position.Left} nodeId={id} nodeColor="red" />
       <div
         className={`
           flex items-center justify-center

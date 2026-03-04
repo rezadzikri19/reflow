@@ -78,13 +78,11 @@ function ProcessNode({ id, data, selected }: NodeProps) {
     >
       {/* Flow Order Badge */}
       <FlowOrderBadge order={flowOrder} />
-      {/* Left Handle - Hybrid (can be input or output) */}
-      <HybridHandle
-        id="left"
-        position={Position.Left}
-        nodeId={id}
-        nodeColor="blue"
-      />
+
+      {/* Handles - Hybrid (can be input or output) */}
+      <HybridHandle id="top" position={Position.Top} nodeId={id} nodeColor="blue" />
+      <HybridHandle id="bottom" position={Position.Bottom} nodeId={id} nodeColor="blue" />
+      <HybridHandle id="left" position={Position.Left} nodeId={id} nodeColor="blue" />
 
       {/* Node Label */}
       <div className="text-white font-semibold text-base text-wrap" title={label}>
@@ -119,13 +117,7 @@ function ProcessNode({ id, data, selected }: NodeProps) {
       {/* Tags indicator */}
       <NodeTags tags={tags} className="justify-center" />
 
-      {/* Right Handle - Hybrid (can be input or output) */}
-      <HybridHandle
-        id="right"
-        position={Position.Right}
-        nodeId={id}
-        nodeColor="blue"
-      />
+      <HybridHandle id="right" position={Position.Right} nodeId={id} nodeColor="blue" />
     </div>
   );
 }
