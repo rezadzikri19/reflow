@@ -575,10 +575,12 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
                 if (!existingPortWithLabel) {
                   // Create a new manual input port only if one with the same label doesn't exist
+                  // Preserve internal connections from the edge's originalTargets
                   const newPort: ManualPort = {
                     id: `manual-input-${uuidv4()}`,
                     direction: 'input',
                     label: portLabel,
+                    internalConnections: edge.originalTargets ? [...edge.originalTargets] : undefined,
                   };
 
                   state.nodes[targetNodeIndex] = {
@@ -612,10 +614,12 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
                 if (!existingPortWithLabel) {
                   // Create a new manual output port only if one with the same label doesn't exist
+                  // Preserve internal connections from the edge's originalSources
                   const newPort: ManualPort = {
                     id: `manual-output-${uuidv4()}`,
                     direction: 'output',
                     label: portLabel,
+                    internalConnections: edge.originalSources ? [...edge.originalSources] : undefined,
                   };
 
                   state.nodes[sourceNodeIndex] = {
@@ -714,10 +718,12 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
                   if (!existingPortWithLabel) {
                     // Create a new manual input port only if one with the same label doesn't exist
+                    // Preserve internal connections from the edge's originalTargets
                     const newPort: ManualPort = {
                       id: `manual-input-${uuidv4()}`,
                       direction: 'input',
                       label: portLabel,
+                      internalConnections: edge.originalTargets ? [...edge.originalTargets] : undefined,
                     };
 
                     state.nodes[targetNodeIndex] = {
@@ -751,10 +757,12 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
                   if (!existingPortWithLabel) {
                     // Create a new manual output port only if one with the same label doesn't exist
+                    // Preserve internal connections from the edge's originalSources
                     const newPort: ManualPort = {
                       id: `manual-output-${uuidv4()}`,
                       direction: 'output',
                       label: portLabel,
+                      internalConnections: edge.originalSources ? [...edge.originalSources] : undefined,
                     };
 
                     state.nodes[sourceNodeIndex] = {
