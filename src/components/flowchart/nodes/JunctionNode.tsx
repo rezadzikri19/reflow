@@ -15,7 +15,7 @@ function JunctionNode({ data, selected }: NodeProps) {
       <Handle
         type="target"
         position={Position.Left}
-        className="!w-2 !h-2 !bg-violet-300 !border-2 !border-violet-700 hover:!bg-violet-200"
+        className="!w-3 !h-3 !bg-violet-300 !border-2 !border-violet-700 hover:!bg-violet-200"
       />
 
       <div
@@ -34,7 +34,7 @@ function JunctionNode({ data, selected }: NodeProps) {
         <Handle
           type="source"
           position={Position.Right}
-          className="!w-2 !h-2 !bg-violet-300 !border-2 !border-violet-700 hover:!bg-violet-200"
+          className="!w-3 !h-3 !bg-violet-300 !border-2 !border-violet-700 hover:!bg-violet-200"
         />
       </div>
 

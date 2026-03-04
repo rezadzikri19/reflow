@@ -19,7 +19,7 @@ function ConnectorNode({ data, selected }: NodeProps) {
       <Handle
         type="target"
         position={Position.Left}
-        className="!w-2 !h-2 !bg-teal-300 !border-2 !border-teal-700 hover:!bg-teal-200"
+        className="!w-3 !h-3 !bg-teal-300 !border-2 !border-teal-700 hover:!bg-teal-200"
       />
 
       {/* Circle shape */}
@@ -39,7 +39,7 @@ function ConnectorNode({ data, selected }: NodeProps) {
         <Handle
           type="source"
           position={Position.Right}
-          className="!w-2 !h-2 !bg-teal-300 !border-2 !border-teal-700 hover:!bg-teal-200"
+          className="!w-3 !h-3 !bg-teal-300 !border-2 !border-teal-700 hover:!bg-teal-200"
         />
 
         {/* Connector symbol */}

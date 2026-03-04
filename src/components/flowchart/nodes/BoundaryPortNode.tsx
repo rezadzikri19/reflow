@@ -66,7 +66,7 @@ function BoundaryPortNode({ data, selected }: NodeProps) {
           <Handle
             type="source"
             position={Position.Right}
-            className={`!w-2 !h-2 ${colors.handle}`}
+            className={`!w-3 !h-3 ${colors.handle}`}
           />
         </>
       ) : (
@@ -74,7 +74,7 @@ function BoundaryPortNode({ data, selected }: NodeProps) {
           <Handle
             type="target"
             position={Position.Left}
-            className={`!w-2 !h-2 ${colors.handle}`}
+            className={`!w-3 !h-3 ${colors.handle}`}
           />
           <span className="font-semibold text-sm text-wrap flex-1 text-right" title={label}>
             {label}
