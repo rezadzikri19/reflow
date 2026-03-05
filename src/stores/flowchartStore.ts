@@ -59,6 +59,8 @@ interface FlowchartState {
   showMinimap: boolean;
   /** Currently active sheet ID (null = main flowchart view, ID = viewing that subprocess) */
   activeSheetId: string | null;
+  /** Stack of parent sheet IDs for breadcrumb navigation */
+  sheetNavigationStack: string[];
   /** Node version counter for forcing re-renders */
   nodeVersion: number;
   /** Edge version counter for forcing re-renders */
@@ -101,6 +103,8 @@ interface FlowchartActions {
   // Sheet navigation actions
   openSubprocessSheet: (subprocessId: string) => void;
   closeActiveSheet: () => void;
+  navigateBackSheet: () => void;
+  navigateToSheet: (sheetId: string | null) => void;
   // Boundary port connection actions
   updateBoundaryPortConnection: (
     originalEdgeId: string,
@@ -177,6 +181,7 @@ const initialState: FlowchartState = {
   showGrid: true,
   showMinimap: true,
   activeSheetId: null,
+  sheetNavigationStack: [],
   nodeVersion: 0,
   edgeVersion: 0,
   defaultEdgeType: 'smoothstep',
@@ -1001,19 +1006,15 @@ export const useFlowchartStore = create<FlowchartStore>()(
           return null;
         }
 
-        // Validation: Cannot group nodes that are already in a subprocess (no nesting)
-        const alreadyGrouped = nodesToGroup.filter(n => n.data.parentId);
-        if (alreadyGrouped.length > 0) {
-          console.warn('Cannot group: Some nodes are already in a subprocess');
+        // Validation: All nodes must have the same parent (can only group nodes from the same level)
+        const parentIds = new Set(nodesToGroup.map(n => n.data.parentId || null));
+        if (parentIds.size > 1) {
+          console.warn('Cannot group: Nodes from different subprocesses');
           return null;
         }
 
-        // Validation: Cannot group subprocess nodes themselves
-        const hasSubprocess = nodesToGroup.some(n => n.type === 'subprocess');
-        if (hasSubprocess) {
-          console.warn('Cannot group: Cannot nest subprocesses');
-          return null;
-        }
+        // Get common parent (null for root level)
+        const commonParentId = nodesToGroup[0].data.parentId || null;
 
         // Calculate bounding box of selected nodes
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -1042,6 +1043,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
             id: subprocessId,
             label: label || 'Subprocess',
             nodeType: 'subprocess',
+            parentId: commonParentId || undefined, // Inherit parent for nesting support
             childNodeIds: nodeIds,
             isExpanded: true,
             ...DEFAULT_PROCESS_NODE_DATA,
@@ -1065,6 +1067,21 @@ export const useFlowchartStore = create<FlowchartStore>()(
           }
           return node;
         });
+
+        // If creating a nested subprocess, update parent's childNodeIds
+        if (commonParentId) {
+          const parentIndex = updatedNodes.findIndex(n => n.id === commonParentId);
+          if (parentIndex !== -1) {
+            const parentData = updatedNodes[parentIndex].data as ProcessNodeData;
+            updatedNodes[parentIndex] = {
+              ...updatedNodes[parentIndex],
+              data: {
+                ...parentData,
+                childNodeIds: [...(parentData.childNodeIds || []), subprocessId],
+              },
+            };
+          }
+        }
 
         // Transform edges - group by unique external connections
         // Step 1: Categorize all edges
@@ -1349,8 +1366,26 @@ export const useFlowchartStore = create<FlowchartStore>()(
           });
         });
 
+        // Get the subprocess's parent before ungrouping (for nested subprocess support)
+        const subprocessParentId = subprocessNode.data.parentId;
+
         set((state) => {
-          // Update child nodes: remove parentId and convert back to absolute positions
+          // If this is a nested subprocess, remove it from parent's childNodeIds
+          if (subprocessParentId) {
+            const parentIndex = state.nodes.findIndex(n => n.id === subprocessParentId);
+            if (parentIndex !== -1) {
+              const parentData = state.nodes[parentIndex].data as ProcessNodeData;
+              state.nodes[parentIndex] = {
+                ...state.nodes[parentIndex],
+                data: {
+                  ...parentData,
+                  childNodeIds: (parentData.childNodeIds || []).filter(id => id !== subprocessId),
+                },
+              };
+            }
+          }
+
+          // Update child nodes: inherit parent's parentId and convert back to absolute positions
           state.nodes = state.nodes
             .filter(n => n.id !== subprocessId) // Remove subprocess node
             .map(node => {
@@ -1363,7 +1398,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
                   },
                   data: {
                     ...node.data,
-                    parentId: undefined,
+                    // Children inherit the subprocess's parent (stay at same nesting level)
+                    parentId: subprocessParentId || undefined,
                   },
                 } as FlowchartNode;
               }
@@ -1388,6 +1424,10 @@ export const useFlowchartStore = create<FlowchartStore>()(
           // Verify the subprocess exists
           const subprocessNode = state.nodes.find(n => n.id === subprocessId && n.type === 'subprocess');
           if (subprocessNode) {
+            // Push current sheet to navigation stack before switching
+            if (state.activeSheetId) {
+              state.sheetNavigationStack.push(state.activeSheetId);
+            }
             state.activeSheetId = subprocessId;
             state.selectedNodeId = null; // Clear selection when switching sheets
           }
@@ -1400,7 +1440,53 @@ export const useFlowchartStore = create<FlowchartStore>()(
       closeActiveSheet: () => {
         set((state) => {
           state.activeSheetId = null;
+          state.sheetNavigationStack = []; // Clear navigation stack
           state.selectedNodeId = null; // Clear selection when closing sheet
+        });
+      },
+
+      /**
+       * Navigate back to the previous sheet in the navigation stack
+       */
+      navigateBackSheet: () => {
+        set((state) => {
+          if (state.sheetNavigationStack.length > 0) {
+            state.activeSheetId = state.sheetNavigationStack.pop()!;
+          } else {
+            state.activeSheetId = null;
+          }
+          state.selectedNodeId = null;
+        });
+      },
+
+      /**
+       * Navigate to a specific sheet in the navigation history (for breadcrumb navigation)
+       * @param sheetId - The sheet ID to navigate to, or null for main view
+       */
+      navigateToSheet: (sheetId: string | null) => {
+        set((state) => {
+          if (sheetId === null) {
+            // Navigate to main view - clear entire stack
+            state.sheetNavigationStack = [];
+            state.activeSheetId = null;
+          } else {
+            // Find the target in the stack and navigate to it
+            const targetIndex = state.sheetNavigationStack.indexOf(sheetId);
+            if (targetIndex !== -1) {
+              // Pop everything after the target (inclusive) and set activeSheetId
+              state.sheetNavigationStack = state.sheetNavigationStack.slice(0, targetIndex);
+              state.activeSheetId = sheetId;
+            } else if (state.activeSheetId === sheetId) {
+              // Already on this sheet - do nothing
+            } else {
+              // Not in stack and not current - just navigate directly
+              if (state.activeSheetId) {
+                state.sheetNavigationStack.push(state.activeSheetId);
+              }
+              state.activeSheetId = sheetId;
+            }
+          }
+          state.selectedNodeId = null;
         });
       },
 

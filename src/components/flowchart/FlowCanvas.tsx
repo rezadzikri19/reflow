@@ -116,8 +116,10 @@ function FlowCanvasInner({
   const deleteEdges = useFlowchartStore((state) => state.deleteEdges);
   const markDirty = useFlowchartStore((state) => state.markDirty);
   const activeSheetId = useFlowchartStore((state) => state.activeSheetId);
+  const sheetNavigationStack = useFlowchartStore((state) => state.sheetNavigationStack);
   const openSubprocessSheet = useFlowchartStore((state) => state.openSubprocessSheet);
   const closeActiveSheet = useFlowchartStore((state) => state.closeActiveSheet);
+  const navigateToSheet = useFlowchartStore((state) => state.navigateToSheet);
   const groupNodesIntoSubprocess = useFlowchartStore((state) => state.groupNodesIntoSubprocess);
   const defaultEdgeType = useFlowchartStore((state) => state.defaultEdgeType);
   const addBoundaryPortEdge = useFlowchartStore((state) => state.addBoundaryPortEdge);
@@ -748,12 +750,14 @@ function FlowCanvasInner({
       groupDisabledReason = 'Cannot group boundary port nodes';
     } else if (selectedNodes.some(n => n.type === 'start' || n.type === 'end')) {
       groupDisabledReason = 'Cannot group start or end nodes';
-    } else if (selectedNodes.some(n => n.data.parentId)) {
-      groupDisabledReason = 'Some nodes are already in a subprocess';
-    } else if (selectedNodes.some(n => n.type === 'subprocess')) {
-      groupDisabledReason = 'Cannot nest subprocesses';
     } else {
-      canGroup = true;
+      // Check if all nodes have the same parent (can only group nodes from the same level)
+      const parentIds = new Set(selectedNodes.map(n => n.data.parentId || null));
+      if (parentIds.size > 1) {
+        groupDisabledReason = 'Cannot group nodes from different subprocesses';
+      } else {
+        canGroup = true;
+      }
     }
 
     return {
@@ -776,15 +780,41 @@ function FlowCanvasInner({
 
   /**
    * Get sheet info for SheetBar
+   * Shows top-level subprocesses in main view, or direct child subprocesses in sheet view
    */
   const sheets = useMemo((): SheetInfo[] => {
-    return nodes
+    if (activeSheetId === null) {
+      // Main view: only top-level subprocesses (no parentId)
+      return nodes
+        .filter(n => n.type === 'subprocess' && !n.data.parentId)
+        .map(n => ({
+          id: n.id,
+          label: n.data.label || 'Subprocess',
+          nodeCount: ((n.data.childNodeIds as string[] | undefined) || []).length,
+        }));
+    } else {
+      // Sheet view: only direct child subprocesses (parentId equals activeSheetId)
+      return nodes
+        .filter(n => n.type === 'subprocess' && n.data.parentId === activeSheetId)
+        .map(n => ({
+          id: n.id,
+          label: n.data.label || 'Subprocess',
+          nodeCount: ((n.data.childNodeIds as string[] | undefined) || []).length,
+        }));
+    }
+  }, [nodes, activeSheetId]);
+
+  /**
+   * Create a map of subprocess IDs to their labels for breadcrumb navigation
+   */
+  const subprocessLabels = useMemo(() => {
+    const labels = new Map<string, string>();
+    nodes
       .filter(n => n.type === 'subprocess')
-      .map(n => ({
-        id: n.id,
-        label: n.data.label || 'Subprocess',
-        nodeCount: ((n.data.childNodeIds as string[] | undefined) || []).length,
-      }));
+      .forEach(n => {
+        labels.set(n.id, n.data.label || 'Subprocess');
+      });
+    return labels;
   }, [nodes]);
 
   /**
@@ -1309,6 +1339,9 @@ function FlowCanvasInner({
         sheets={sheets}
         onSheetSelect={handleSheetSelect}
         onSheetClose={closeActiveSheet}
+        sheetNavigationStack={sheetNavigationStack}
+        subprocessLabels={subprocessLabels}
+        onNavigateToSheet={navigateToSheet}
       />
     </div>
   );
