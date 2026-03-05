@@ -248,6 +248,24 @@ export const NodePropertiesPanel: React.FC = () => {
     [selectedNode, updateNode]
   );
 
+  const handlePainPointsChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      if (selectedNode) {
+        updateNode(selectedNode.id, { painPoints: e.target.value });
+      }
+    },
+    [selectedNode, updateNode]
+  );
+
+  const handleImprovementChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      if (selectedNode) {
+        updateNode(selectedNode.id, { improvement: e.target.value });
+      }
+    },
+    [selectedNode, updateNode]
+  );
+
   const handleUnitTypeChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
       if (selectedNode) {
@@ -512,6 +530,44 @@ export const NodePropertiesPanel: React.FC = () => {
               placeholder="Add a data element..."
               helperText="Press Enter or comma to add a data element"
             />
+          </section>
+        )}
+
+        {/* Pain Points Section - Only for Process and Manual Process nodes */}
+        {(nodeType === 'process' || nodeType === 'manualProcess') && (
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Pain Points
+            </h3>
+            <div>
+              <textarea
+                id="painPoints"
+                value={nodeData.painPoints || ''}
+                onChange={handlePainPointsChange}
+                rows={3}
+                className="block w-full rounded-md border border-gray-300 hover:border-gray-400 bg-white px-4 py-2 text-sm placeholder-gray-400 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="Current issues, bottlenecks, or inefficiencies"
+              />
+            </div>
+          </section>
+        )}
+
+        {/* Improvement Section - Only for Process and Manual Process nodes */}
+        {(nodeType === 'process' || nodeType === 'manualProcess') && (
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Improvement
+            </h3>
+            <div>
+              <textarea
+                id="improvement"
+                value={nodeData.improvement || ''}
+                onChange={handleImprovementChange}
+                rows={3}
+                className="block w-full rounded-md border border-gray-300 hover:border-gray-400 bg-white px-4 py-2 text-sm placeholder-gray-400 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="Proposed optimizations, automation ideas, or solutions"
+              />
+            </div>
           </section>
         )}
 

@@ -70,6 +70,10 @@ export interface BaseNodeData {
   role?: string;
   /** Whether the node is locked and cannot be moved */
   locked?: boolean;
+  /** Current issues, bottlenecks, or inefficiencies */
+  painPoints?: string;
+  /** Proposed optimizations, automation ideas, or solutions */
+  improvement?: string;
   /** Index signature to satisfy Record<string, unknown> constraint */
   [key: string]: unknown;
 }
