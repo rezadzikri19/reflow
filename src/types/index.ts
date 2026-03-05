@@ -45,6 +45,23 @@ export type UnitType =
   | 'custom';
 
 // ============================================================================
+// Frequency Types
+// ============================================================================
+
+/**
+ * Supported frequency types for process nodes
+ */
+export type FrequencyType =
+  | 'hourly'
+  | 'daily'
+  | 'weekly'
+  | 'biweekly'
+  | 'monthly'
+  | 'quarterly'
+  | 'yearly'
+  | 'asNeeded';
+
+// ============================================================================
 // Base Node Data
 // ============================================================================
 
@@ -74,6 +91,8 @@ export interface BaseNodeData {
   painPoints?: string;
   /** Proposed optimizations, automation ideas, or solutions */
   improvement?: string;
+  /** How often this process is performed */
+  frequency?: FrequencyType;
   /** Index signature to satisfy Record<string, unknown> constraint */
   [key: string]: unknown;
 }

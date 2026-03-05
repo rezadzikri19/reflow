@@ -5,7 +5,7 @@ import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { TagInput } from '../common/TagInput';
 import { RoleSelect } from '../common/RoleSelect';
-import type { ProcessNodeData, UnitType, ProcessNodeType, ManualPort } from '../../types';
+import type { ProcessNodeData, UnitType, FrequencyType, ProcessNodeType, ManualPort } from '../../types';
 import { Plus, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
 
 // ============================================================================
@@ -28,6 +28,22 @@ const UNIT_TYPE_OPTIONS: UnitTypeOption[] = [
   { value: 'customers', label: 'Customers' },
   { value: 'transactions', label: 'Transactions' },
   { value: 'custom', label: 'Custom' },
+];
+
+interface FrequencyOption {
+  value: FrequencyType;
+  label: string;
+}
+
+const FREQUENCY_OPTIONS: FrequencyOption[] = [
+  { value: 'hourly', label: 'Hourly' },
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'biweekly', label: 'Bi-Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'yearly', label: 'Yearly' },
+  { value: 'asNeeded', label: 'As Needed' },
 ];
 
 const NODE_TYPE_LABELS: Record<ProcessNodeType, string> = {
@@ -261,6 +277,15 @@ export const NodePropertiesPanel: React.FC = () => {
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       if (selectedNode) {
         updateNode(selectedNode.id, { improvement: e.target.value });
+      }
+    },
+    [selectedNode, updateNode]
+  );
+
+  const handleFrequencyChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      if (selectedNode) {
+        updateNode(selectedNode.id, { frequency: e.target.value as FrequencyType });
       }
     },
     [selectedNode, updateNode]
@@ -567,6 +592,36 @@ export const NodePropertiesPanel: React.FC = () => {
                 className="block w-full rounded-md border border-gray-300 hover:border-gray-400 bg-white px-4 py-2 text-sm placeholder-gray-400 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 placeholder="Proposed optimizations, automation ideas, or solutions"
               />
+            </div>
+          </section>
+        )}
+
+        {/* Frequency Section - Only for Process and Manual Process nodes */}
+        {(nodeType === 'process' || nodeType === 'manualProcess') && (
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Frequency
+            </h3>
+            <div>
+              <label
+                htmlFor="frequency"
+                className="block text-sm font-medium text-gray-700 mb-1.5"
+              >
+                How often is this process performed?
+              </label>
+              <select
+                id="frequency"
+                value={nodeData.frequency || ''}
+                onChange={handleFrequencyChange}
+                className="block w-full rounded-md border border-gray-300 hover:border-gray-400 bg-white px-4 py-2 text-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="">Select frequency...</option>
+                {FREQUENCY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </section>
         )}
