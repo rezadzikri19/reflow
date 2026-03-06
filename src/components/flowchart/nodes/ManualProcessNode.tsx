@@ -8,15 +8,24 @@ import {
   Users,
   CreditCard,
   Package,
+  Info,
+  Type,
+  Hash,
+  Repeat,
+  AlertTriangle,
+  TrendingUp,
+  User,
+  Database,
+  Tag,
 } from 'lucide-react';
 import type { ProcessNodeData, UnitType } from '../../../types/index';
-import NodeTags from './NodeTags';
 import NodeRole from './NodeRole';
 import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
 import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
 import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
+import { useTagColors } from '../../../hooks/useTagColors';
 
 /**
  * Maps unit types to their corresponding icons
@@ -78,12 +87,15 @@ function getTrapezoidPath(width: number, height: number, cornerRadius = 10, stro
  */
 function ManualProcessNode({ id, data, selected }: NodeProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const [svgPath, setSvgPath] = useState('');
   const [height, setHeight] = useState(120);
+  const { getTagColor } = useTagColors();
 
   const {
     label = 'Manual Process',
+    description,
     unitType = 'documents',
     customUnitName,
     unitTimeMinutes = 0,
@@ -93,6 +105,9 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
     data: nodeData,
     role,
     locked,
+    frequency,
+    painPoints,
+    improvement,
   } = (data as ProcessNodeData) || {};
 
   const UnitIcon = unitTypeIcons[unitType];
@@ -157,6 +172,193 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
 
         {/* Flow Order Badge */}
         <FlowOrderBadge order={flowOrder} />
+
+        {/* Info Icon with Toggle Popup */}
+        <div className="absolute -bottom-1 -left-1 z-30">
+          <div
+            className={`bg-white rounded-full p-0.5 shadow-md hover:shadow-lg transition-shadow cursor-pointer ${isInfoOpen ? 'ring-2 ring-orange-400' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsInfoOpen(!isInfoOpen);
+            }}
+          >
+            <Info className={`w-3.5 h-3.5 text-orange-600 ${isInfoOpen ? 'text-orange-800' : ''}`} />
+          </div>
+
+          {/* Info Popup */}
+          {isInfoOpen && (
+            <div
+              className={`
+                absolute z-50 top-full mt-2 left-0
+                min-w-[320px] max-w-[400px]
+                bg-white rounded-lg shadow-xl border border-gray-200
+                p-4
+              `}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Label */}
+              <div className="mb-3 pb-2 border-b border-gray-100">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  <Type className="w-3.5 h-3.5" />
+                  Label
+                </div>
+                <div className="text-sm font-medium text-gray-900">{label}</div>
+              </div>
+
+              {/* Description */}
+              {description && (
+                <div className="mb-3 pb-2 border-b border-gray-100">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    <FileText className="w-3.5 h-3.5" />
+                    Description
+                  </div>
+                  <div className="text-sm text-gray-700">{description}</div>
+                </div>
+              )}
+
+              {/* Unit Type */}
+              <div className="mb-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  <Package className="w-3.5 h-3.5" />
+                  Unit Type
+                </div>
+                <div className="text-sm text-gray-700 capitalize">
+                  {unitType === 'custom' ? (customUnitName || 'Custom') : unitType}
+                </div>
+              </div>
+
+              {/* Unit Time */}
+              <div className="mb-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  Unit Time
+                </div>
+                <div className="text-sm text-gray-700">{unitTimeMinutes} minutes</div>
+              </div>
+
+              {/* Default Quantity */}
+              <div className="mb-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  <Hash className="w-3.5 h-3.5" />
+                  Default Quantity
+                </div>
+                <div className="text-sm text-gray-700">{defaultQuantity}</div>
+              </div>
+
+              {/* Frequency */}
+              {frequency && (
+                <div className="mb-3">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    <Repeat className="w-3.5 h-3.5" />
+                    Frequency
+                  </div>
+                  <div className="text-sm text-gray-700 capitalize">{frequency}</div>
+                </div>
+              )}
+
+              {/* Pain Points */}
+              {painPoints && (
+                <div className="mb-3">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    Pain Points
+                  </div>
+                  <div className="text-sm text-gray-700">{painPoints}</div>
+                </div>
+              )}
+
+              {/* Improvement */}
+              {improvement && (
+                <div className="mb-3">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    Improvement
+                  </div>
+                  <div className="text-sm text-gray-700">{improvement}</div>
+                </div>
+              )}
+
+              {/* Role */}
+              {role && (
+                <div className="mb-3">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    <User className="w-3.5 h-3.5" />
+                    Role
+                  </div>
+                  <div className="text-sm text-gray-700">{role}</div>
+                </div>
+              )}
+
+              {/* Documents */}
+              {documents && documents.length > 0 && (
+                <div className="mb-3">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    <FileText className="w-3.5 h-3.5" />
+                    Documents
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {documents.map((doc) => {
+                      const color = getTagColor(doc);
+                      return (
+                        <span key={doc} className={`text-xs px-2 py-0.5 rounded-full font-medium ${color.bg} ${color.text}`}>
+                          {doc}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Data */}
+              {nodeData && nodeData.length > 0 && (
+                <div className="mb-3">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    <Database className="w-3.5 h-3.5" />
+                    Data
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {nodeData.map((item) => {
+                      const color = getTagColor(item);
+                      return (
+                        <span key={item} className={`text-xs px-2 py-0.5 rounded-full font-medium ${color.bg} ${color.text}`}>
+                          {item}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Tags */}
+              {tags && tags.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    <Tag className="w-3.5 h-3.5" />
+                    Tags
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {tags.map((tag) => {
+                      const color = getTagColor(tag);
+                      return (
+                        <span key={tag} className={`text-xs px-2 py-0.5 rounded-full font-medium ${color.bg} ${color.text}`}>
+                          {tag}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Arrow pointer */}
+              <div
+                className={`
+                  absolute top-0 left-2 -translate-y-1/2 w-2 h-2 bg-white border-gray-200
+                  border-l border-t rotate-45
+                `}
+              />
+            </div>
+          )}
+        </div>
 
         {/* SVG Background - positioned absolutely behind content */}
         <svg
@@ -225,15 +427,6 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
               {formatTime(calculatedTime)}
             </span>
           </div>
-
-          {/* Tags indicator */}
-          <NodeTags tags={tags} className="justify-center" type="tags" />
-
-          {/* Documents indicator */}
-          <NodeTags tags={documents} className="justify-center" label="Documents" type="documents" />
-
-          {/* Data indicator */}
-          <NodeTags tags={nodeData} className="justify-center" label="Data" type="data" />
         </div>
       </div>
 
