@@ -146,8 +146,26 @@ const evaluateRule = (nodeData: NodeDataForFilter, rule: FilterRule): boolean =>
     case 'notEquals':
       return !equalsValue(nodeValue, value as string);
     case 'is':
+      // Support multi-select: if value is array, check if nodeValue matches
+      if (Array.isArray(value)) {
+        // For array fields (tags, documents, data): check if node's array contains ANY of the selected values
+        if (Array.isArray(nodeValue)) {
+          return containsAnyValue(nodeValue, value);
+        }
+        // For single-value fields (role, nodeType, etc.): check if node's value is in the selected array
+        return inValue(nodeValue, value);
+      }
       return equalsValue(nodeValue, value as string | boolean);
     case 'isNot':
+      // Support multi-select: if value is array, check if nodeValue does NOT match
+      if (Array.isArray(value)) {
+        // For array fields (tags, documents, data): check if node's array contains NONE of the selected values
+        if (Array.isArray(nodeValue)) {
+          return !containsAnyValue(nodeValue, value);
+        }
+        // For single-value fields (role, nodeType, etc.): check if node's value is NOT in the selected array
+        return !inValue(nodeValue, value);
+      }
       return !equalsValue(nodeValue, value as string | boolean);
     case 'containsAny':
       return containsAnyValue(nodeValue, value as string[]);

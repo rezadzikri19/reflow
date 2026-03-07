@@ -75,7 +75,7 @@ export const FIELD_TYPES: Record<FilterableField, FieldType> = {
 export const OPERATORS_BY_TYPE: Record<FieldType, FilterOperator[]> = {
   text: ['contains', 'notContains', 'equals', 'notEquals', 'isEmpty', 'isNotEmpty'],
   select: ['is', 'isNot', 'isEmpty', 'isNotEmpty'],
-  multiselect: ['containsAny', 'containsAll', 'isEmpty', 'isNotEmpty'],
+  multiselect: ['is', 'isNot', 'containsAny', 'containsAll', 'isEmpty', 'isNotEmpty'],
   boolean: ['is'],
 };
 
