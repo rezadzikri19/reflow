@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { X, ChevronDown, User } from 'lucide-react';
+import { useRoleColors } from '../../hooks/useRoleColors';
 
 // ============================================================================
 // Types
@@ -43,6 +44,7 @@ export const RoleSelect: React.FC<RoleSelectProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { getRoleColor } = useRoleColors();
 
   // Filter suggestions based on input
   const filteredSuggestions = useMemo(() => {
@@ -168,22 +170,27 @@ export const RoleSelect: React.FC<RoleSelectProps> = ({
         {/* Selected role chip or input */}
         <div className="flex items-center gap-2 px-3 py-2">
           {value ? (
-            <>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium rounded-full bg-purple-100 text-purple-800">
-                <User className="w-3.5 h-3.5" />
-                {value}
-              </span>
-              {!disabled && (
-                <button
-                  type="button"
-                  onClick={clearRole}
-                  className="inline-flex items-center justify-center w-5 h-5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 focus:outline-none transition-colors"
-                  title="Clear role"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </>
+            (() => {
+              const color = getRoleColor(value);
+              return (
+                <>
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium rounded-full ${color.bg} ${color.text}`}>
+                    <User className="w-3.5 h-3.5" />
+                    {value}
+                  </span>
+                  {!disabled && (
+                    <button
+                      type="button"
+                      onClick={clearRole}
+                      className="inline-flex items-center justify-center w-5 h-5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 focus:outline-none transition-colors"
+                      title="Clear role"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </>
+              );
+            })()
           ) : (
             <input
               ref={inputRef}

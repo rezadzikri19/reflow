@@ -527,7 +527,7 @@ export const NodeTable: React.FC<NodeTableProps> = ({
               </th>
               {/* Row number column header */}
               <th
-                className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 z-20 border-b border-gray-200"
+                className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-[40px] bg-gray-50 z-20 border-b border-gray-200"
                 style={{ width: '40px', minWidth: '40px' }}
               >
                 #
@@ -585,7 +585,7 @@ export const NodeTable: React.FC<NodeTableProps> = ({
                   </td>
                   {/* Row number cell */}
                   <td
-                    className={`px-3 py-3 text-sm text-gray-500 text-center ${depthBackgroundClass} z-10 border-b border-gray-200`}
+                    className={`px-3 py-3 text-sm text-gray-500 text-center sticky left-[40px] ${depthBackgroundClass} z-10 border-b border-gray-200`}
                     style={{ width: '40px', minWidth: '40px' }}
                   >
                     {index + 1}

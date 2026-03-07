@@ -1,8 +1,6 @@
 import { useMemo } from 'react';
 import { useNodes } from '../stores/flowchartStore';
-import { getTagColorByIndex, assignUniqueTagColors, type TagColor } from '../utils/tagColors';
-
-const ROLE_COLOR_COUNT = 17;
+import { getTagColorByIndex, assignUniqueTagColors, getStableColorIndex, type TagColor } from '../utils/tagColors';
 
 /**
  * Hook to manage unique role colors across all nodes in the flowchart
@@ -31,12 +29,8 @@ export function useRoleColors() {
    * Get the color for a specific role
    */
   const getRoleColor = (roleName: string): TagColor => {
-    const index = roleColorMap.get(roleName);
-    if (index !== undefined) {
-      return getTagColorByIndex(index);
-    }
-    // Fallback: assign a color based on role name hash for new roles not yet in map
-    return getTagColorByIndex(hashString(roleName) % ROLE_COLOR_COUNT);
+    // Always use stable hash-based color assignment
+    return getTagColorByIndex(getStableColorIndex(roleName));
   };
 
   /**
@@ -56,17 +50,4 @@ export function useRoleColors() {
     getAllRoles,
     roleCount: roleColorMap.size,
   };
-}
-
-/**
- * Simple hash function for fallback color assignment
- */
-function hashString(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash);
 }

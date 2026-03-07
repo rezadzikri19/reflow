@@ -37,20 +37,39 @@ export function getTagColorByIndex(index: number): TagColor {
 }
 
 /**
- * Assigns unique color indices to a set of tags
- * Returns a map of tag name to color index
+ * Simple hash function for stable color assignment
+ * Returns a positive integer hash of the input string
+ */
+export function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+}
+
+/**
+ * Gets a stable color index for a tag based on its content
+ * This ensures the same tag always gets the same color regardless of other tags
+ */
+export function getStableColorIndex(tag: string): number {
+  return hashString(tag) % TAG_COLORS.length;
+}
+
+/**
+ * Assigns stable color indices to a set of tags
+ * Each tag's color is determined by its content hash, not position
+ * This ensures colors remain stable when adding/removing other tags
  */
 export function assignUniqueTagColors(tags: string[]): Map<string, number> {
   const colorMap = new Map<string, number>();
-  let colorIndex = 0;
 
-  // Sort tags to ensure consistent ordering
-  const sortedTags = [...tags].sort();
-
-  for (const tag of sortedTags) {
+  for (const tag of tags) {
     if (!colorMap.has(tag)) {
-      colorMap.set(tag, colorIndex);
-      colorIndex = (colorIndex + 1) % TAG_COLORS.length;
+      // Use hash-based assignment for stable colors
+      colorMap.set(tag, getStableColorIndex(tag));
     }
   }
 

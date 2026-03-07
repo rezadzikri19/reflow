@@ -26,6 +26,7 @@ import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
 import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
 import { useTagColors } from '../../../hooks/useTagColors';
+import { useRoleColors } from '../../../hooks/useRoleColors';
 
 /**
  * Maps unit types to their corresponding icons
@@ -61,6 +62,7 @@ function formatTime(minutes: number): string {
 function ProcessNode({ id, data, selected }: NodeProps) {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const { getTagColor } = useTagColors();
+  const { getRoleColor } = useRoleColors();
 
   const {
     label = 'Process',
@@ -204,10 +206,15 @@ function ProcessNode({ id, data, selected }: NodeProps) {
                   <User className="w-3.5 h-3.5" />
                   Role
                 </div>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium rounded-full bg-purple-100 text-purple-800">
-                  <User className="w-3.5 h-3.5" />
-                  {role}
-                </span>
+                {(() => {
+                  const color = getRoleColor(role);
+                  return (
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium rounded-full ${color.bg} ${color.text}`}>
+                      <User className="w-3.5 h-3.5" />
+                      {role}
+                    </span>
+                  );
+                })()}
               </div>
             )}
 
