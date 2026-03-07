@@ -140,26 +140,26 @@ const FlowchartView: React.FC = () => {
   return (
     <ReactFlowProvider>
       <div className="flex h-full">
-        {/* Left Panel - Node Palette */}
-        <div className="w-64 border-r border-gray-200 bg-gray-50 overflow-y-auto">
+        {/* Left Panel - Node Palette - Fixed width, scrollable */}
+        <div className="w-64 shrink-0 border-r border-gray-200 bg-gray-50 overflow-y-auto">
           <NodePalette />
         </div>
 
-        {/* Center - Flow Canvas */}
-        <div className="flex-1 flex flex-col">
+        {/* Center - Flow Canvas - Flexible width */}
+        <div className="flex-1 min-w-0 flex flex-col">
           <FlowToolbar
             showGrid={showGrid}
             showMinimap={showMinimap}
             onToggleGrid={toggleGrid}
             onToggleMinimap={toggleMinimap}
           />
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <FlowCanvas showGrid={showGrid} showMinimap={showMinimap} />
           </div>
         </div>
 
-        {/* Right Panel - Properties (Node or Edge) */}
-        <div className="w-80 border-l border-gray-200 bg-white overflow-y-auto">
+        {/* Right Panel - Properties - Fixed width, scrollable */}
+        <div className="w-80 shrink-0 border-l border-gray-200 bg-white overflow-y-auto">
           {selectedEdge ? (
             <EdgePropertiesPanel />
           ) : (

@@ -440,9 +440,9 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
     selectedNodes[0]?.type !== 'boundaryPort';
 
   return (
-    <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-gray-200 shadow-sm">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 bg-white border-b border-gray-200 shadow-sm">
       {/* Left Section - Flowchart Name & File Actions */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         {/* Flowchart Name */}
         <div className="flex items-center gap-2">
           <input
@@ -551,7 +551,7 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
       </div>
 
       {/* Center Section - Zoom Controls & Edit Tools */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         {/* Group/Ungroup Buttons */}
         <div className="flex items-center gap-1">
           <Button
@@ -622,7 +622,7 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
       </div>
 
       {/* Right Section - Undo/Redo & View Toggles */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         {/* Undo/Redo (Placeholder) */}
         <div className="flex items-center gap-1">
           <Button

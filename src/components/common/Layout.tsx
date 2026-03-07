@@ -58,7 +58,7 @@ export const Layout: React.FC<LayoutProps> = ({
         {/* Main Content */}
         <main
           className={`
-            flex-1 min-h-[calc(100vh-4rem)] overflow-hidden
+            flex-1 h-[calc(100vh-4rem)] overflow-hidden
             transition-all duration-300 ease-in-out
             ${sidebar ? (sidebarCollapsed ? 'ml-16' : 'ml-64') : ''}
           `.replace(/\s+/g, ' ').trim()}
