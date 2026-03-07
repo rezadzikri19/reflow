@@ -128,6 +128,12 @@ function FlowCanvasInner({
   const updateManualPort = useFlowchartStore((state) => state.updateManualPort);
   const addManualPortConnection = useFlowchartStore((state) => state.addManualPortConnection);
   const removeManualPortConnection = useFlowchartStore((state) => state.removeManualPortConnection);
+  const copySelectedNodes = useFlowchartStore((state) => state.copySelectedNodes);
+  const pasteNodes = useFlowchartStore((state) => state.pasteNodes);
+  const cutSelectedNodes = useFlowchartStore((state) => state.cutSelectedNodes);
+  const undo = useFlowchartStore((state) => state.undo);
+  const redo = useFlowchartStore((state) => state.redo);
+  const hasClipboardContent = useFlowchartStore((state) => state.clipboardNodes.length > 0);
 
   // Context menu state
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
@@ -689,11 +695,41 @@ function FlowCanvasInner({
         setSelectedNode(null);
         setContextMenuOpen(false);
       }
+
+      // Copy: Ctrl+C
+      if ((event.ctrlKey || event.metaKey) && event.key === 'c' && !event.shiftKey) {
+        event.preventDefault();
+        copySelectedNodes();
+      }
+
+      // Paste: Ctrl+V
+      if ((event.ctrlKey || event.metaKey) && event.key === 'v' && !event.shiftKey) {
+        event.preventDefault();
+        pasteNodes();
+      }
+
+      // Cut: Ctrl+X
+      if ((event.ctrlKey || event.metaKey) && event.key === 'x' && !event.shiftKey) {
+        event.preventDefault();
+        cutSelectedNodes();
+      }
+
+      // Undo: Ctrl+Z
+      if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        undo();
+      }
+
+      // Redo: Ctrl+Y or Ctrl+Shift+Z
+      if ((event.ctrlKey || event.metaKey) && (event.key === 'y' || (event.key === 'z' && event.shiftKey))) {
+        event.preventDefault();
+        redo();
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [readOnly, getNodes, getEdges, deleteNodes, deleteEdges, setSelectedNode, groupNodesIntoSubprocess, edges, removeBoundaryPortConnection, nodes, activeSubprocessId, removeManualPortConnection]);
+  }, [readOnly, getNodes, getEdges, deleteNodes, deleteEdges, setSelectedNode, groupNodesIntoSubprocess, edges, removeBoundaryPortConnection, nodes, activeSubprocessId, removeManualPortConnection, copySelectedNodes, pasteNodes, cutSelectedNodes, undo, redo]);
 
   // =============================================================================
   // Context Menu Handling
@@ -709,14 +745,16 @@ function FlowCanvasInner({
 
     const currentNodes = getNodes();
     const selectedNodes = currentNodes.filter((node) => node.selected);
+    const hasClipboardContent = useFlowchartStore.getState().clipboardNodes.length > 0;
 
-    // Show context menu if there are selected nodes OR if a single subprocess is selected
-    // (subprocess might be the only selected node for ungrouping)
-    if (selectedNodes.length > 0) {
+    // Show context menu if:
+    // 1. There are selected nodes, OR
+    // 2. There's content in the clipboard (to allow pasting on empty canvas)
+    if (selectedNodes.length > 0 || hasClipboardContent) {
       setContextMenuPosition({ x: event.clientX, y: event.clientY });
       setContextMenuOpen(true);
     }
-  }, [readOnly, getNodes]);
+  }, [readOnly, getNodes, hasClipboardContent]);
 
   /**
    * Close the context menu
@@ -775,6 +813,7 @@ function FlowCanvasInner({
       referenceableNode,
       hasLockedNodes,
       hasUnlockedNodes,
+      hasClipboardContent: useFlowchartStore.getState().clipboardNodes.length > 0,
     };
   }, [getNodes]);
 
@@ -1336,6 +1375,7 @@ function FlowCanvasInner({
           referenceableNode={contextMenuState.referenceableNode}
           hasLockedNodes={contextMenuState.hasLockedNodes}
           hasUnlockedNodes={contextMenuState.hasUnlockedNodes}
+          hasClipboardContent={contextMenuState.hasClipboardContent}
         />
       </div>
 

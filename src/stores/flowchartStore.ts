@@ -105,6 +105,20 @@ export interface NodeFilterState {
 // Store Types
 // =============================================================================
 
+// =============================================================================
+// History Types
+// =============================================================================
+
+/**
+ * Snapshot of sheet state for undo/redo functionality
+ */
+export interface SheetSnapshot {
+  nodes: FlowchartNode[];
+  edges: FlowchartEdge[];
+  actionType: string;
+  timestamp: number;
+}
+
 interface FlowchartState {
   /** Array of sheets (independent diagrams within the flowchart) */
   sheets: Sheet[];
@@ -147,6 +161,14 @@ interface FlowchartState {
   filterSheets: string[];
   isFilterPanelOpen: boolean;
   filterMode: FilterMode;
+  /** Clipboard state for copy/paste */
+  clipboardNodes: FlowchartNode[];
+  clipboardEdges: FlowchartEdge[];
+  /** History state for undo/redo */
+  past: SheetSnapshot[];
+  future: SheetSnapshot[];
+  /** Maximum history depth */
+  maxHistoryDepth: number;
 }
 
 // =============================================================================
@@ -277,6 +299,18 @@ interface FlowchartActions {
   toggleFilterPanel: () => void;
   setFilterPanelOpen: (isOpen: boolean) => void;
   setFilterMode: (mode: FilterMode) => void;
+  // Clipboard actions (copy/paste)
+  copySelectedNodes: () => void;
+  pasteNodes: (position?: { x: number; y: number }) => void;
+  cutSelectedNodes: () => void;
+  hasClipboardContent: () => boolean;
+  // History actions (undo/redo)
+  undo: () => void;
+  redo: () => void;
+  canUndo: () => boolean;
+  canRedo: () => boolean;
+  clearHistory: () => void;
+  saveSnapshot: (actionType: string) => void;
 }
 
 type FlowchartStore = FlowchartState & FlowchartActions;
@@ -326,6 +360,13 @@ const initialState: FlowchartState = {
   filterSheets: [],
   isFilterPanelOpen: false,
   filterMode: 'simple',
+  // Clipboard state
+  clipboardNodes: [],
+  clipboardEdges: [],
+  // History state
+  past: [],
+  future: [],
+  maxHistoryDepth: 50,
 };
 
 // =============================================================================
@@ -479,6 +520,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
       addNode: (type: ProcessNodeType, position: { x: number; y: number }) => {
         const id = uuidv4();
 
+        // Save snapshot for undo before making changes
+        get().saveSnapshot('Add node');
+
         set((state) => {
           const sheet = state.sheets.find(s => s.id === state.activeSheetId);
           if (!sheet) return;
@@ -585,6 +629,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
       },
 
       updateNode: (nodeId: string, data: Partial<ProcessNodeData>) => {
+        // Save snapshot for undo before making changes
+        get().saveSnapshot('Update node');
+
         set((state) => {
           const sheet = state.sheets.find(s => s.id === state.activeSheetId);
           if (!sheet) return;
@@ -715,6 +762,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
       deleteNodes: (nodeIds: string[]) => {
         if (nodeIds.length === 0) return;
 
+        // Save snapshot for undo before making changes
+        get().saveSnapshot(`Delete ${nodeIds.length} node${nodeIds.length > 1 ? 's' : ''}`);
+
         set((state) => {
           const sheet = state.sheets.find(s => s.id === state.activeSheetId);
           if (!sheet) return;
@@ -782,6 +832,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
       },
 
       addEdge: (source: string, target: string, sourceHandle?: string, targetHandle?: string) => {
+        // Save snapshot for undo before making changes
+        get().saveSnapshot('Add connection');
+
         // Normalize handle values (treat null and undefined as equivalent)
         const normalizedSourceHandle = sourceHandle || null;
         const normalizedTargetHandle = targetHandle || null;
@@ -921,6 +974,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
       },
 
       deleteEdge: (edgeId: string) => {
+        // Save snapshot for undo before making changes
+        get().saveSnapshot('Delete connection');
+
         set((state) => {
           const sheet = state.sheets.find(s => s.id === state.activeSheetId);
           if (!sheet) return;
@@ -1066,6 +1122,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
       deleteEdges: (edgeIds: string[]) => {
         if (edgeIds.length === 0) return;
+
+        // Save snapshot for undo before making changes
+        get().saveSnapshot(`Delete ${edgeIds.length} connection${edgeIds.length > 1 ? 's' : ''}`);
 
         set((state) => {
           const sheet = state.sheets.find(s => s.id === state.activeSheetId);
@@ -1276,6 +1335,12 @@ export const useFlowchartStore = create<FlowchartStore>()(
               state.subprocessNavigationStack = [];
               state.selectedNodeId = null;
               state.isDirty = true; // Mark dirty so user saves in new format
+              // Clear history when loading a different flowchart
+              state.past = [];
+              state.future = [];
+              // Clear clipboard
+              state.clipboardNodes = [];
+              state.clipboardEdges = [];
               syncNodesAndEdgesFromActiveSheet(state);
             });
           } else {
@@ -1290,6 +1355,12 @@ export const useFlowchartStore = create<FlowchartStore>()(
               state.subprocessNavigationStack = [];
               state.selectedNodeId = null;
               state.isDirty = false;
+              // Clear history when loading a different flowchart
+              state.past = [];
+              state.future = [];
+              // Clear clipboard
+              state.clipboardNodes = [];
+              state.clipboardEdges = [];
               syncNodesAndEdgesFromActiveSheet(state);
             });
           }
@@ -1319,6 +1390,12 @@ export const useFlowchartStore = create<FlowchartStore>()(
           state.flowchartId = null;
           state.flowchartName = name || 'Untitled Flowchart';
           state.isDirty = false;
+          // Clear history when creating a new flowchart
+          state.past = [];
+          state.future = [];
+          // Clear clipboard
+          state.clipboardNodes = [];
+          state.clipboardEdges = [];
           // Sync nodes/edges from the new empty sheet
           syncNodesAndEdgesFromActiveSheet(state);
         });
@@ -1394,6 +1471,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
         // Get common parent (null for root level)
         const commonParentId = nodesToGroup[0].data.parentId || null;
+
+        // Save snapshot for undo before making changes
+        get().saveSnapshot('Group nodes into subprocess');
 
         // Calculate bounding box of selected nodes
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -1604,6 +1684,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
           console.warn('Cannot ungroup: Subprocess not found');
           return;
         }
+
+        // Save snapshot for undo before making changes
+        get().saveSnapshot('Ungroup subprocess');
 
         const childIds = new Set(subprocessNode.data.childNodeIds || []);
         const manualInputPorts = (subprocessNode.data.manualInputPorts || []) as ManualPort[];
@@ -2686,6 +2769,464 @@ export const useFlowchartStore = create<FlowchartStore>()(
       setFilterMode: (mode: FilterMode) => {
         set((state) => {
           state.filterMode = mode;
+        });
+      },
+
+      // =============================================================================
+      // Clipboard Actions (Copy/Paste)
+      // =============================================================================
+
+      /**
+       * Copy selected nodes and their internal connections to clipboard
+       * When copying a subprocess, also includes all child nodes
+       */
+      copySelectedNodes: () => {
+        const state = get();
+        const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+        if (!sheet) return;
+
+        const selectedNodes = sheet.nodes.filter(n => n.selected);
+        if (selectedNodes.length === 0) return;
+
+        const selectedIds = new Set(selectedNodes.map(n => n.id));
+        const nodesToCopy = [...selectedNodes];
+
+        // For each selected subprocess, also include its child nodes
+        selectedNodes.forEach(node => {
+          if (node.type === 'subprocess') {
+            const childNodeIds = (node.data as ProcessNodeData).childNodeIds || [];
+            childNodeIds.forEach(childId => {
+              if (!selectedIds.has(childId)) {
+                const childNode = sheet.nodes.find(n => n.id === childId);
+                if (childNode) {
+                  nodesToCopy.push(childNode);
+                  selectedIds.add(childId);
+                }
+              }
+            });
+          }
+        });
+
+        // Get all IDs including children
+        const allCopiedIds = new Set(nodesToCopy.map(n => n.id));
+
+        // Get internal edges (both ends in the copied set)
+        const internalEdges = sheet.edges.filter(e =>
+          allCopiedIds.has(e.source) && allCopiedIds.has(e.target)
+        );
+
+        // Deep clone to avoid reference issues
+        set({
+          clipboardNodes: JSON.parse(JSON.stringify(nodesToCopy)),
+          clipboardEdges: JSON.parse(JSON.stringify(internalEdges)),
+        });
+      },
+
+      /**
+       * Paste nodes from clipboard at offset position
+       * Handles parent-child relationships for subprocess nodes
+       * Handles manual port labels based on whether connected external nodes were also copied
+       */
+      pasteNodes: (position?: { x: number; y: number }) => {
+        const state = get();
+        if (state.clipboardNodes.length === 0) return;
+
+        const OFFSET = position ?? { x: 50, y: 50 };
+        const idMap = new Map<string, string>();
+
+        // Save snapshot for undo
+        get().saveSnapshot('Paste nodes');
+
+        set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          // First pass: create ID mapping for all nodes
+          state.clipboardNodes.forEach(node => {
+            const newId = uuidv4();
+            idMap.set(node.id, newId);
+          });
+
+          // Build a map of external nodes that connect to subprocess ports
+          // Key: subprocessId, Value: Map of portId -> externalNodeId
+          // Handles both manual ports (manual-input-xxx) and auto-created ports (input-xxx)
+          const subprocessExternalConnections = new Map<string, Map<string, string>>();
+
+          state.clipboardEdges.forEach(edge => {
+            // Check if this edge connects to a subprocess port
+            const sourceNode = state.clipboardNodes.find(n => n.id === edge.source);
+            const targetNode = state.clipboardNodes.find(n => n.id === edge.target);
+
+            // Case: External node -> Subprocess input port
+            // Handles both "manual-input-xxx" and "input-xxx" formats
+            if (targetNode?.type === 'subprocess' && edge.targetHandle) {
+              const isInputPort = edge.targetHandle.startsWith('manual-input-') ||
+                                  edge.targetHandle.startsWith('input-');
+              if (isInputPort) {
+                const portId = edge.targetHandle;
+                if (!subprocessExternalConnections.has(edge.target)) {
+                  subprocessExternalConnections.set(edge.target, new Map());
+                }
+                subprocessExternalConnections.get(edge.target)!.set(portId, edge.source);
+              }
+            }
+            // Case: Subprocess output port -> External node
+            // Handles both "manual-output-xxx" and "output-xxx" formats
+            if (sourceNode?.type === 'subprocess' && edge.sourceHandle) {
+              const isOutputPort = edge.sourceHandle.startsWith('manual-output-') ||
+                                   edge.sourceHandle.startsWith('output-');
+              if (isOutputPort) {
+                const portId = edge.sourceHandle;
+                if (!subprocessExternalConnections.has(edge.source)) {
+                  subprocessExternalConnections.set(edge.source, new Map());
+                }
+                subprocessExternalConnections.get(edge.source)!.set(portId, edge.target);
+              }
+            }
+          });
+
+          // Track port ID changes for updating edge handles
+          // Key: oldPortId, Value: newPortId
+          const portIdMap = new Map<string, string>();
+
+          // Clone nodes with new IDs
+          const newNodes = state.clipboardNodes.map(node => {
+            const newId = idMap.get(node.id)!;
+            const nodeData = node.data as ProcessNodeData;
+
+            // Create a deep copy of the node data
+            const newData = {
+              ...JSON.parse(JSON.stringify(nodeData)),
+              id: newId,
+              locked: false, // Pasted nodes are unlocked by default
+            };
+
+            // Update parentId reference if it exists
+            if (newData.parentId && idMap.has(newData.parentId)) {
+              newData.parentId = idMap.get(newData.parentId);
+            }
+
+            // Update childNodeIds if this is a subprocess
+            if (node.type === 'subprocess' && newData.childNodeIds) {
+              newData.childNodeIds = newData.childNodeIds.map((childId: string) =>
+                idMap.get(childId) || childId
+              );
+            }
+
+            // Handle manual ports for subprocess nodes
+            if (node.type === 'subprocess') {
+              const originalSubprocessId = node.id;
+              const externalConnections = subprocessExternalConnections.get(originalSubprocessId);
+
+              // Update manual input ports
+              if (newData.manualInputPorts) {
+                newData.manualInputPorts = newData.manualInputPorts.map((port: ManualPort, index: number) => {
+                  const oldPortId = port.id;
+                  let newPortId = oldPortId;
+                  let newLabel = `Input ${index + 1}`; // Default label
+
+                  // Check if this port has an external connection that was also copied
+                  const externalNodeId = externalConnections?.get(oldPortId);
+
+                  if (externalNodeId) {
+                    // External node was copied - get its new name for the label
+                    const externalNode = state.clipboardNodes.find(n => n.id === externalNodeId);
+                    if (externalNode) {
+                      const externalNodeData = externalNode.data as ProcessNodeData;
+                      newLabel = externalNodeData.label || externalNodeData.name || `Input ${index + 1}`;
+
+                      // For auto-created ports (input-xxx), update the port ID to use new external node ID
+                      if (oldPortId.startsWith('input-')) {
+                        const newExternalNodeId = idMap.get(externalNodeId);
+                        if (newExternalNodeId) {
+                          newPortId = `input-${newExternalNodeId}`;
+                        }
+                      }
+                    }
+                  }
+
+                  // Track port ID change if it changed
+                  if (newPortId !== oldPortId) {
+                    portIdMap.set(oldPortId, newPortId);
+                  }
+
+                  return {
+                    ...port,
+                    id: newPortId,
+                    label: newLabel,
+                    // Update internal connections with new node IDs (these are to internal nodes)
+                    internalConnections: (port.internalConnections || []).map((conn: { nodeId: string; handleId?: string | null }) => ({
+                      ...conn,
+                      nodeId: idMap.get(conn.nodeId) || conn.nodeId,
+                    })),
+                    // Clear position to use default positioning
+                    position: undefined,
+                  };
+                });
+              }
+
+              // Update manual output ports
+              if (newData.manualOutputPorts) {
+                newData.manualOutputPorts = newData.manualOutputPorts.map((port: ManualPort, index: number) => {
+                  const oldPortId = port.id;
+                  let newPortId = oldPortId;
+                  let newLabel = `Output ${index + 1}`; // Default label
+
+                  // Check if this port has an external connection that was also copied
+                  const externalNodeId = externalConnections?.get(oldPortId);
+
+                  if (externalNodeId) {
+                    // External node was copied - get its new name for the label
+                    const externalNode = state.clipboardNodes.find(n => n.id === externalNodeId);
+                    if (externalNode) {
+                      const externalNodeData = externalNode.data as ProcessNodeData;
+                      newLabel = externalNodeData.label || externalNodeData.name || `Output ${index + 1}`;
+
+                      // For auto-created ports (output-xxx), update the port ID to use new external node ID
+                      if (oldPortId.startsWith('output-')) {
+                        const newExternalNodeId = idMap.get(externalNodeId);
+                        if (newExternalNodeId) {
+                          newPortId = `output-${newExternalNodeId}`;
+                        }
+                      }
+                    }
+                  }
+
+                  // Track port ID change if it changed
+                  if (newPortId !== oldPortId) {
+                    portIdMap.set(oldPortId, newPortId);
+                  }
+
+                  return {
+                    ...port,
+                    id: newPortId,
+                    label: newLabel,
+                    // Update internal connections with new node IDs (these are to internal nodes)
+                    internalConnections: (port.internalConnections || []).map((conn: { nodeId: string; handleId?: string | null }) => ({
+                      ...conn,
+                      nodeId: idMap.get(conn.nodeId) || conn.nodeId,
+                    })),
+                    // Clear position to use default positioning
+                    position: undefined,
+                  };
+                });
+              }
+            }
+
+            return {
+              ...JSON.parse(JSON.stringify(node)),
+              id: newId,
+              position: {
+                x: node.position.x + OFFSET.x,
+                y: node.position.y + OFFSET.y,
+              },
+              selected: true,
+              data: newData,
+            } as FlowchartNode;
+          });
+
+          // Clone edges with updated IDs
+          // Also update port handles if port IDs changed
+          const newEdges = state.clipboardEdges.map(edge => {
+            const newEdge = {
+              ...JSON.parse(JSON.stringify(edge)),
+              id: `edge-${uuidv4()}`,
+              source: idMap.get(edge.source)!,
+              target: idMap.get(edge.target)!,
+            };
+
+            // Update targetHandle if it's a port ID that changed
+            if (edge.targetHandle && portIdMap.has(edge.targetHandle)) {
+              newEdge.targetHandle = portIdMap.get(edge.targetHandle);
+            }
+
+            // Update sourceHandle if it's a port ID that changed
+            if (edge.sourceHandle && portIdMap.has(edge.sourceHandle)) {
+              newEdge.sourceHandle = portIdMap.get(edge.sourceHandle);
+            }
+
+            return newEdge;
+          });
+
+          // Deselect existing nodes
+          sheet.nodes = sheet.nodes.map(n => ({ ...n, selected: false }));
+
+          // Add new nodes and edges
+          sheet.nodes = [...sheet.nodes, ...newNodes];
+          sheet.edges = [...sheet.edges, ...newEdges];
+
+          sheet.updatedAt = new Date();
+          state.isDirty = true;
+          state.nodeVersion += 1;
+          state.edgeVersion += 1;
+          syncNodesAndEdgesFromActiveSheet(state);
+        });
+      },
+
+      /**
+       * Cut selected nodes (copy + delete)
+       */
+      cutSelectedNodes: () => {
+        const state = get();
+        const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+        if (!sheet) return;
+
+        const selectedNodes = sheet.nodes.filter(n => n.selected);
+        if (selectedNodes.length === 0) return;
+
+        // First copy
+        get().copySelectedNodes();
+
+        // Save snapshot for undo
+        get().saveSnapshot('Cut nodes');
+
+        // Then delete
+        const selectedIds = new Set(selectedNodes.map(n => n.id));
+        set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          // Remove nodes
+          sheet.nodes = sheet.nodes.filter(n => !selectedIds.has(n.id));
+
+          // Remove edges connected to deleted nodes
+          sheet.edges = sheet.edges.filter(
+            e => !selectedIds.has(e.source) && !selectedIds.has(e.target)
+          );
+
+          sheet.updatedAt = new Date();
+          state.isDirty = true;
+          state.nodeVersion += 1;
+          state.edgeVersion += 1;
+          state.selectedNodeId = null;
+          syncNodesAndEdgesFromActiveSheet(state);
+        });
+      },
+
+      /**
+       * Check if clipboard has content
+       */
+      hasClipboardContent: () => {
+        const state = get();
+        return state.clipboardNodes.length > 0;
+      },
+
+      // =============================================================================
+      // History Actions (Undo/Redo)
+      // =============================================================================
+
+      /**
+       * Save a snapshot for undo (internal helper - used by other actions)
+       */
+      saveSnapshot: (actionType: string) => {
+        set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const snapshot: SheetSnapshot = {
+            nodes: JSON.parse(JSON.stringify(sheet.nodes)),
+            edges: JSON.parse(JSON.stringify(sheet.edges)),
+            actionType,
+            timestamp: Date.now(),
+          };
+
+          state.past.push(snapshot);
+          state.future = []; // Clear redo stack on new action
+
+          // Limit history depth
+          if (state.past.length > state.maxHistoryDepth) {
+            state.past.shift();
+          }
+        });
+      },
+
+      /**
+       * Undo the last action
+       */
+      undo: () => {
+        const state = get();
+        if (state.past.length === 0) return;
+
+        set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          // Save current state to future
+          const currentSnapshot: SheetSnapshot = {
+            nodes: JSON.parse(JSON.stringify(sheet.nodes)),
+            edges: JSON.parse(JSON.stringify(sheet.edges)),
+            actionType: 'Current state',
+            timestamp: Date.now(),
+          };
+          state.future.push(currentSnapshot);
+
+          // Restore previous state
+          const previousState = state.past.pop()!;
+          sheet.nodes = previousState.nodes;
+          sheet.edges = previousState.edges;
+          sheet.updatedAt = new Date();
+          state.isDirty = true;
+          state.nodeVersion += 1;
+          state.edgeVersion += 1;
+          syncNodesAndEdgesFromActiveSheet(state);
+        });
+      },
+
+      /**
+       * Redo the last undone action
+       */
+      redo: () => {
+        const state = get();
+        if (state.future.length === 0) return;
+
+        set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          // Save current state to past
+          const currentSnapshot: SheetSnapshot = {
+            nodes: JSON.parse(JSON.stringify(sheet.nodes)),
+            edges: JSON.parse(JSON.stringify(sheet.edges)),
+            actionType: 'Before redo',
+            timestamp: Date.now(),
+          };
+          state.past.push(currentSnapshot);
+
+          // Restore future state
+          const nextState = state.future.pop()!;
+          sheet.nodes = nextState.nodes;
+          sheet.edges = nextState.edges;
+          sheet.updatedAt = new Date();
+          state.isDirty = true;
+          state.nodeVersion += 1;
+          state.edgeVersion += 1;
+          syncNodesAndEdgesFromActiveSheet(state);
+        });
+      },
+
+      /**
+       * Check if undo is available
+       */
+      canUndo: () => {
+        const state = get();
+        return state.past.length > 0;
+      },
+
+      /**
+       * Check if redo is available
+       */
+      canRedo: () => {
+        const state = get();
+        return state.future.length > 0;
+      },
+
+      /**
+       * Clear history stacks
+       */
+      clearHistory: () => {
+        set((state) => {
+          state.past = [];
+          state.future = [];
         });
       },
 

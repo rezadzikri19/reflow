@@ -229,6 +229,10 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
     groupNodesIntoSubprocess,
     ungroupSubprocess,
     createReferenceToNode,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   } = useFlowchartStore();
 
   // Get nodes and edges from active sheet using hooks
@@ -625,25 +629,25 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
 
       {/* Right Section - Undo/Redo & View Toggles */}
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Undo/Redo (Placeholder) */}
+        {/* Undo/Redo */}
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="sm"
-            disabled
-            onClick={() => {}}
-            title="Undo (Coming Soon)"
-            className="!p-1.5 opacity-50"
+            disabled={!canUndo()}
+            onClick={undo}
+            title={canUndo() ? 'Undo (Ctrl+Z)' : 'Nothing to undo'}
+            className="!p-1.5"
           >
             <UndoIcon />
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            disabled
-            onClick={() => {}}
-            title="Redo (Coming Soon)"
-            className="!p-1.5 opacity-50"
+            disabled={!canRedo()}
+            onClick={redo}
+            title={canRedo() ? 'Redo (Ctrl+Y)' : 'Nothing to redo'}
+            className="!p-1.5"
           >
             <RedoIcon />
           </Button>
