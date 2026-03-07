@@ -11,6 +11,8 @@ import type {
   EdgeStyleOptions,
   ManualPort,
   InternalNodeConnection,
+  FrequencyType,
+  UnitType,
 } from '../types';
 import {
   DEFAULT_PROCESS_NODE_DATA,
@@ -39,6 +41,22 @@ export interface NodeFilterState {
   filterDocuments: string[];
   /** Selected data elements for filtering */
   filterData: string[];
+  /** Text search query for filtering across label, description, painPoints, improvement */
+  filterSearchText: string;
+  /** Selected node types for filtering */
+  filterNodeTypes: ProcessNodeType[];
+  /** Selected frequencies for filtering */
+  filterFrequencies: FrequencyType[];
+  /** Selected unit types for filtering */
+  filterUnitTypes: UnitType[];
+  /** Filter by locked status (null = any) */
+  filterLocked: boolean | null;
+  /** Filter by requiresFTE status (null = any) */
+  filterRequiresFTE: boolean | null;
+  /** Filter by presence of pain points (null = any) */
+  filterHasPainPoints: boolean | null;
+  /** Filter by presence of improvement (null = any) */
+  filterHasImprovement: boolean | null;
   /** Whether the filter panel is visible */
   isFilterPanelOpen: boolean;
 }
@@ -72,6 +90,14 @@ interface FlowchartState {
   filterRoles: string[];
   filterDocuments: string[];
   filterData: string[];
+  filterSearchText: string;
+  filterNodeTypes: ProcessNodeType[];
+  filterFrequencies: FrequencyType[];
+  filterUnitTypes: UnitType[];
+  filterLocked: boolean | null;
+  filterRequiresFTE: boolean | null;
+  filterHasPainPoints: boolean | null;
+  filterHasImprovement: boolean | null;
   isFilterPanelOpen: boolean;
 }
 
@@ -159,6 +185,14 @@ interface FlowchartActions {
   setFilterRoles: (roles: string[]) => void;
   setFilterDocuments: (documents: string[]) => void;
   setFilterData: (data: string[]) => void;
+  setFilterSearchText: (text: string) => void;
+  setFilterNodeTypes: (nodeTypes: ProcessNodeType[]) => void;
+  setFilterFrequencies: (frequencies: FrequencyType[]) => void;
+  setFilterUnitTypes: (unitTypes: UnitType[]) => void;
+  setFilterLocked: (locked: boolean | null) => void;
+  setFilterRequiresFTE: (requiresFTE: boolean | null) => void;
+  setFilterHasPainPoints: (hasPainPoints: boolean | null) => void;
+  setFilterHasImprovement: (hasImprovement: boolean | null) => void;
   clearAllFilters: () => void;
   toggleFilterPanel: () => void;
   setFilterPanelOpen: (isOpen: boolean) => void;
@@ -189,6 +223,14 @@ const initialState: FlowchartState = {
   filterRoles: [],
   filterDocuments: [],
   filterData: [],
+  filterSearchText: '',
+  filterNodeTypes: [],
+  filterFrequencies: [],
+  filterUnitTypes: [],
+  filterLocked: null,
+  filterRequiresFTE: null,
+  filterHasPainPoints: null,
+  filterHasImprovement: null,
   isFilterPanelOpen: false,
 };
 
@@ -2107,6 +2149,78 @@ export const useFlowchartStore = create<FlowchartStore>()(
       },
 
       /**
+       * Set filter search text
+       */
+      setFilterSearchText: (text: string) => {
+        set((state) => {
+          state.filterSearchText = text;
+        });
+      },
+
+      /**
+       * Set filter node types
+       */
+      setFilterNodeTypes: (nodeTypes: ProcessNodeType[]) => {
+        set((state) => {
+          state.filterNodeTypes = nodeTypes;
+        });
+      },
+
+      /**
+       * Set filter frequencies
+       */
+      setFilterFrequencies: (frequencies: FrequencyType[]) => {
+        set((state) => {
+          state.filterFrequencies = frequencies;
+        });
+      },
+
+      /**
+       * Set filter unit types
+       */
+      setFilterUnitTypes: (unitTypes: UnitType[]) => {
+        set((state) => {
+          state.filterUnitTypes = unitTypes;
+        });
+      },
+
+      /**
+       * Set filter locked status
+       */
+      setFilterLocked: (locked: boolean | null) => {
+        set((state) => {
+          state.filterLocked = locked;
+        });
+      },
+
+      /**
+       * Set filter requiresFTE status
+       */
+      setFilterRequiresFTE: (requiresFTE: boolean | null) => {
+        set((state) => {
+          state.filterRequiresFTE = requiresFTE;
+        });
+      },
+
+      /**
+       * Set filter hasPainPoints status
+       */
+      setFilterHasPainPoints: (hasPainPoints: boolean | null) => {
+        set((state) => {
+          state.filterHasPainPoints = hasPainPoints;
+        });
+      },
+
+      /**
+       * Set filter hasImprovement status
+       */
+      setFilterHasImprovement: (hasImprovement: boolean | null) => {
+        set((state) => {
+          state.filterHasImprovement = hasImprovement;
+        });
+      },
+
+      /**
        * Clear all filters
        */
       clearAllFilters: () => {
@@ -2115,6 +2229,14 @@ export const useFlowchartStore = create<FlowchartStore>()(
           state.filterRoles = [];
           state.filterDocuments = [];
           state.filterData = [];
+          state.filterSearchText = '';
+          state.filterNodeTypes = [];
+          state.filterFrequencies = [];
+          state.filterUnitTypes = [];
+          state.filterLocked = null;
+          state.filterRequiresFTE = null;
+          state.filterHasPainPoints = null;
+          state.filterHasImprovement = null;
         });
       },
 
@@ -2180,6 +2302,14 @@ export const useFilterTags = () => useFlowchartStore((state) => state.filterTags
 export const useFilterRoles = () => useFlowchartStore((state) => state.filterRoles);
 export const useFilterDocuments = () => useFlowchartStore((state) => state.filterDocuments);
 export const useFilterData = () => useFlowchartStore((state) => state.filterData);
+export const useFilterSearchText = () => useFlowchartStore((state) => state.filterSearchText);
+export const useFilterNodeTypes = () => useFlowchartStore((state) => state.filterNodeTypes);
+export const useFilterFrequencies = () => useFlowchartStore((state) => state.filterFrequencies);
+export const useFilterUnitTypes = () => useFlowchartStore((state) => state.filterUnitTypes);
+export const useFilterLocked = () => useFlowchartStore((state) => state.filterLocked);
+export const useFilterRequiresFTE = () => useFlowchartStore((state) => state.filterRequiresFTE);
+export const useFilterHasPainPoints = () => useFlowchartStore((state) => state.filterHasPainPoints);
+export const useFilterHasImprovement = () => useFlowchartStore((state) => state.filterHasImprovement);
 export const useIsFilterPanelOpen = () => useFlowchartStore((state) => state.isFilterPanelOpen);
 
 /**
@@ -2190,8 +2320,29 @@ export const useHasActiveFilters = () => {
   const filterRoles = useFlowchartStore((state) => state.filterRoles);
   const filterDocuments = useFlowchartStore((state) => state.filterDocuments);
   const filterData = useFlowchartStore((state) => state.filterData);
+  const filterSearchText = useFlowchartStore((state) => state.filterSearchText);
+  const filterNodeTypes = useFlowchartStore((state) => state.filterNodeTypes);
+  const filterFrequencies = useFlowchartStore((state) => state.filterFrequencies);
+  const filterUnitTypes = useFlowchartStore((state) => state.filterUnitTypes);
+  const filterLocked = useFlowchartStore((state) => state.filterLocked);
+  const filterRequiresFTE = useFlowchartStore((state) => state.filterRequiresFTE);
+  const filterHasPainPoints = useFlowchartStore((state) => state.filterHasPainPoints);
+  const filterHasImprovement = useFlowchartStore((state) => state.filterHasImprovement);
 
-  return filterTags.length > 0 || filterRoles.length > 0 || filterDocuments.length > 0 || filterData.length > 0;
+  return (
+    filterTags.length > 0 ||
+    filterRoles.length > 0 ||
+    filterDocuments.length > 0 ||
+    filterData.length > 0 ||
+    filterSearchText.length > 0 ||
+    filterNodeTypes.length > 0 ||
+    filterFrequencies.length > 0 ||
+    filterUnitTypes.length > 0 ||
+    filterLocked !== null ||
+    filterRequiresFTE !== null ||
+    filterHasPainPoints !== null ||
+    filterHasImprovement !== null
+  );
 };
 
 // Expose store to window for debugging (only in development)

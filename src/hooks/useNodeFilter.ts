@@ -1,6 +1,24 @@
 import { useMemo, useCallback } from 'react';
-import { useNodes, useFilterTags, useFilterRoles, useFilterDocuments, useFilterData } from '../stores/flowchartStore';
-import type { FlowchartNode } from '../types';
+import {
+  useNodes,
+  useFilterTags,
+  useFilterRoles,
+  useFilterDocuments,
+  useFilterData,
+  useFilterSearchText,
+  useFilterNodeTypes,
+  useFilterFrequencies,
+  useFilterUnitTypes,
+  useFilterLocked,
+  useFilterRequiresFTE,
+  useFilterHasPainPoints,
+  useFilterHasImprovement,
+} from '../stores/flowchartStore';
+import type { FlowchartNode, ProcessNodeType, FrequencyType, UnitType } from '../types';
+
+// =============================================================================
+// Types
+// =============================================================================
 
 /**
  * Available filter options derived from all nodes
@@ -10,6 +28,9 @@ export interface FilterOptions {
   roles: string[];
   documents: string[];
   data: string[];
+  nodeTypes: ProcessNodeType[];
+  frequencies: FrequencyType[];
+  unitTypes: UnitType[];
 }
 
 /**
@@ -24,6 +45,14 @@ export interface UseNodeFilterReturn {
     roles: string[];
     documents: string[];
     data: string[];
+    searchText: string;
+    nodeTypes: ProcessNodeType[];
+    frequencies: FrequencyType[];
+    unitTypes: UnitType[];
+    locked: boolean | null;
+    requiresFTE: boolean | null;
+    hasPainPoints: boolean | null;
+    hasImprovement: boolean | null;
   };
   /** Check if any filters are active */
   hasActiveFilters: boolean;
@@ -33,6 +62,25 @@ export interface UseNodeFilterReturn {
   getFilteredNodes: () => FlowchartNode[];
   /** Check if a specific node ID matches the current filter */
   nodeIdMatchesFilter: (nodeId: string) => boolean;
+}
+
+/**
+ * Node data interface for filtering
+ */
+interface NodeDataForFilter {
+  label: string;
+  description?: string;
+  nodeType: ProcessNodeType;
+  tags?: string[];
+  documents?: string[];
+  data?: string[];
+  role?: string;
+  locked?: boolean;
+  painPoints?: string;
+  improvement?: string;
+  frequency?: FrequencyType;
+  unitType?: UnitType;
+  requiresFTE?: boolean;
 }
 
 /**
@@ -57,15 +105,31 @@ export function useIsNodeMuted(nodeId: string): boolean {
   const filterRoles = useFilterRoles();
   const filterDocuments = useFilterDocuments();
   const filterData = useFilterData();
+  const filterSearchText = useFilterSearchText();
+  const filterNodeTypes = useFilterNodeTypes();
+  const filterFrequencies = useFilterFrequencies();
+  const filterUnitTypes = useFilterUnitTypes();
+  const filterLocked = useFilterLocked();
+  const filterRequiresFTE = useFilterRequiresFTE();
+  const filterHasPainPoints = useFilterHasPainPoints();
+  const filterHasImprovement = useFilterHasImprovement();
   const nodes = useNodes();
 
   return useMemo(() => {
-    // If no filters are active, nothing is muted
+    // Check if any filters are active
     const hasActiveFilters =
       filterTags.length > 0 ||
       filterRoles.length > 0 ||
       filterDocuments.length > 0 ||
-      filterData.length > 0;
+      filterData.length > 0 ||
+      filterSearchText.length > 0 ||
+      filterNodeTypes.length > 0 ||
+      filterFrequencies.length > 0 ||
+      filterUnitTypes.length > 0 ||
+      filterLocked !== null ||
+      filterRequiresFTE !== null ||
+      filterHasPainPoints !== null ||
+      filterHasImprovement !== null;
 
     if (!hasActiveFilters) {
       return false;
@@ -77,54 +141,185 @@ export function useIsNodeMuted(nodeId: string): boolean {
       return false;
     }
 
-    const nodeData = node.data as {
-      tags?: string[];
-      role?: string;
-      documents?: string[];
-      data?: string[];
-    };
+    return !nodeMatchesFilterCriteria(node.data as NodeDataForFilter, {
+      filterTags,
+      filterRoles,
+      filterDocuments,
+      filterData,
+      filterSearchText,
+      filterNodeTypes,
+      filterFrequencies,
+      filterUnitTypes,
+      filterLocked,
+      filterRequiresFTE,
+      filterHasPainPoints,
+      filterHasImprovement,
+    });
+  }, [
+    nodeId,
+    nodes,
+    filterTags,
+    filterRoles,
+    filterDocuments,
+    filterData,
+    filterSearchText,
+    filterNodeTypes,
+    filterFrequencies,
+    filterUnitTypes,
+    filterLocked,
+    filterRequiresFTE,
+    filterHasPainPoints,
+    filterHasImprovement,
+  ]);
+}
 
-    // Check tags filter (OR within category)
-    if (filterTags.length > 0) {
-      const nodeTags = nodeData.tags || [];
-      const hasMatchingTag = filterTags.some((tag) => nodeTags.includes(tag));
-      if (!hasMatchingTag) {
-        return true; // Muted - doesn't match tag filter
-      }
+/**
+ * Check if a node matches the filter criteria
+ */
+function nodeMatchesFilterCriteria(
+  nodeData: NodeDataForFilter,
+  filters: {
+    filterTags: string[];
+    filterRoles: string[];
+    filterDocuments: string[];
+    filterData: string[];
+    filterSearchText: string;
+    filterNodeTypes: ProcessNodeType[];
+    filterFrequencies: FrequencyType[];
+    filterUnitTypes: UnitType[];
+    filterLocked: boolean | null;
+    filterRequiresFTE: boolean | null;
+    filterHasPainPoints: boolean | null;
+    filterHasImprovement: boolean | null;
+  }
+): boolean {
+  const {
+    filterTags,
+    filterRoles,
+    filterDocuments,
+    filterData,
+    filterSearchText,
+    filterNodeTypes,
+    filterFrequencies,
+    filterUnitTypes,
+    filterLocked,
+    filterRequiresFTE,
+    filterHasPainPoints,
+    filterHasImprovement,
+  } = filters;
+
+  // Check text search filter
+  if (filterSearchText.length > 0) {
+    const searchLower = filterSearchText.toLowerCase();
+    const labelMatch = nodeData.label.toLowerCase().includes(searchLower);
+    const descriptionMatch = nodeData.description?.toLowerCase().includes(searchLower) ?? false;
+    const painPointsMatch = nodeData.painPoints?.toLowerCase().includes(searchLower) ?? false;
+    const improvementMatch = nodeData.improvement?.toLowerCase().includes(searchLower) ?? false;
+
+    if (!labelMatch && !descriptionMatch && !painPointsMatch && !improvementMatch) {
+      return false;
     }
+  }
 
-    // Check roles filter
-    if (filterRoles.length > 0) {
-      const nodeRole = nodeData.role;
-      if (!nodeRole || !filterRoles.includes(nodeRole)) {
-        return true; // Muted - doesn't match role filter
-      }
+  // Check node type filter
+  if (filterNodeTypes.length > 0) {
+    if (!filterNodeTypes.includes(nodeData.nodeType)) {
+      return false;
     }
+  }
 
-    // Check documents filter
-    if (filterDocuments.length > 0) {
-      const nodeDocuments = nodeData.documents || [];
-      const hasMatchingDocument = filterDocuments.some((doc) =>
-        nodeDocuments.includes(doc)
-      );
-      if (!hasMatchingDocument) {
-        return true; // Muted - doesn't match document filter
-      }
+  // Check tags filter (OR within category)
+  if (filterTags.length > 0) {
+    const nodeTags = nodeData.tags || [];
+    const hasMatchingTag = filterTags.some((tag) => nodeTags.includes(tag));
+    if (!hasMatchingTag) {
+      return false;
     }
+  }
 
-    // Check data filter
-    if (filterData.length > 0) {
-      const nodeDataElements = nodeData.data || [];
-      const hasMatchingData = filterData.some((d) =>
-        nodeDataElements.includes(d)
-      );
-      if (!hasMatchingData) {
-        return true; // Muted - doesn't match data filter
-      }
+  // Check roles filter
+  if (filterRoles.length > 0) {
+    const nodeRole = nodeData.role;
+    if (!nodeRole || !filterRoles.includes(nodeRole)) {
+      return false;
     }
+  }
 
-    return false; // Not muted - matches all active filters
-  }, [nodeId, nodes, filterTags, filterRoles, filterDocuments, filterData]);
+  // Check documents filter
+  if (filterDocuments.length > 0) {
+    const nodeDocuments = nodeData.documents || [];
+    const hasMatchingDocument = filterDocuments.some((doc) => nodeDocuments.includes(doc));
+    if (!hasMatchingDocument) {
+      return false;
+    }
+  }
+
+  // Check data filter
+  if (filterData.length > 0) {
+    const nodeDataElements = nodeData.data || [];
+    const hasMatchingData = filterData.some((d) => nodeDataElements.includes(d));
+    if (!hasMatchingData) {
+      return false;
+    }
+  }
+
+  // Check frequency filter
+  if (filterFrequencies.length > 0) {
+    if (!nodeData.frequency || !filterFrequencies.includes(nodeData.frequency)) {
+      return false;
+    }
+  }
+
+  // Check unit type filter
+  if (filterUnitTypes.length > 0) {
+    if (!nodeData.unitType || !filterUnitTypes.includes(nodeData.unitType)) {
+      return false;
+    }
+  }
+
+  // Check locked filter
+  if (filterLocked !== null) {
+    if (filterLocked && !nodeData.locked) {
+      return false;
+    }
+    if (!filterLocked && nodeData.locked) {
+      return false;
+    }
+  }
+
+  // Check requiresFTE filter
+  if (filterRequiresFTE !== null) {
+    if (filterRequiresFTE && !nodeData.requiresFTE) {
+      return false;
+    }
+    if (!filterRequiresFTE && nodeData.requiresFTE) {
+      return false;
+    }
+  }
+
+  // Check hasPainPoints filter
+  if (filterHasPainPoints !== null) {
+    const hasPainPoints = !!nodeData.painPoints && nodeData.painPoints.trim().length > 0;
+    if (filterHasPainPoints && !hasPainPoints) {
+      return false;
+    }
+    if (!filterHasPainPoints && hasPainPoints) {
+      return false;
+    }
+  }
+
+  // Check hasImprovement filter
+  if (filterHasImprovement !== null) {
+    const hasImprovement = !!nodeData.improvement && nodeData.improvement.trim().length > 0;
+    if (filterHasImprovement && !hasImprovement) {
+      return false;
+    }
+    if (!filterHasImprovement && hasImprovement) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -147,6 +342,14 @@ export function useNodeFilter(): UseNodeFilterReturn {
   const filterRoles = useFilterRoles();
   const filterDocuments = useFilterDocuments();
   const filterData = useFilterData();
+  const filterSearchText = useFilterSearchText();
+  const filterNodeTypes = useFilterNodeTypes();
+  const filterFrequencies = useFilterFrequencies();
+  const filterUnitTypes = useFilterUnitTypes();
+  const filterLocked = useFilterLocked();
+  const filterRequiresFTE = useFilterRequiresFTE();
+  const filterHasPainPoints = useFilterHasPainPoints();
+  const filterHasImprovement = useFilterHasImprovement();
 
   // Derive available filter options from all nodes
   const filterOptions = useMemo<FilterOptions>(() => {
@@ -154,14 +357,12 @@ export function useNodeFilter(): UseNodeFilterReturn {
     const roles = new Set<string>();
     const documents = new Set<string>();
     const dataElements = new Set<string>();
+    const nodeTypes = new Set<ProcessNodeType>();
+    const frequencies = new Set<FrequencyType>();
+    const unitTypes = new Set<UnitType>();
 
     nodes.forEach((node) => {
-      const nodeData = node.data as {
-        tags?: string[];
-        role?: string;
-        documents?: string[];
-        data?: string[];
-      };
+      const nodeData = node.data as NodeDataForFilter;
 
       // Collect tags
       if (nodeData.tags) {
@@ -182,6 +383,21 @@ export function useNodeFilter(): UseNodeFilterReturn {
       if (nodeData.data) {
         nodeData.data.forEach((d) => dataElements.add(d));
       }
+
+      // Collect node type
+      if (nodeData.nodeType) {
+        nodeTypes.add(nodeData.nodeType);
+      }
+
+      // Collect frequency
+      if (nodeData.frequency) {
+        frequencies.add(nodeData.frequency);
+      }
+
+      // Collect unit type
+      if (nodeData.unitType) {
+        unitTypes.add(nodeData.unitType);
+      }
     });
 
     return {
@@ -189,6 +405,9 @@ export function useNodeFilter(): UseNodeFilterReturn {
       roles: Array.from(roles).sort(),
       documents: Array.from(documents).sort(),
       data: Array.from(dataElements).sort(),
+      nodeTypes: Array.from(nodeTypes).sort(),
+      frequencies: Array.from(frequencies).sort(),
+      unitTypes: Array.from(unitTypes).sort(),
     };
   }, [nodes]);
 
@@ -198,9 +417,30 @@ export function useNodeFilter(): UseNodeFilterReturn {
       filterTags.length > 0 ||
       filterRoles.length > 0 ||
       filterDocuments.length > 0 ||
-      filterData.length > 0
+      filterData.length > 0 ||
+      filterSearchText.length > 0 ||
+      filterNodeTypes.length > 0 ||
+      filterFrequencies.length > 0 ||
+      filterUnitTypes.length > 0 ||
+      filterLocked !== null ||
+      filterRequiresFTE !== null ||
+      filterHasPainPoints !== null ||
+      filterHasImprovement !== null
     );
-  }, [filterTags, filterRoles, filterDocuments, filterData]);
+  }, [
+    filterTags,
+    filterRoles,
+    filterDocuments,
+    filterData,
+    filterSearchText,
+    filterNodeTypes,
+    filterFrequencies,
+    filterUnitTypes,
+    filterLocked,
+    filterRequiresFTE,
+    filterHasPainPoints,
+    filterHasImprovement,
+  ]);
 
   // Check if a node matches the filter criteria
   const nodeMatchesFilter = useCallback(
@@ -210,55 +450,36 @@ export function useNodeFilter(): UseNodeFilterReturn {
         return true;
       }
 
-      const nodeData = node.data as {
-        tags?: string[];
-        role?: string;
-        documents?: string[];
-        data?: string[];
-      };
-
-      // Check tags filter (OR within category)
-      if (filterTags.length > 0) {
-        const nodeTags = nodeData.tags || [];
-        const hasMatchingTag = filterTags.some((tag) => nodeTags.includes(tag));
-        if (!hasMatchingTag) {
-          return false;
-        }
-      }
-
-      // Check roles filter (OR within category - role is single value, so check if it's in the list)
-      if (filterRoles.length > 0) {
-        const nodeRole = nodeData.role;
-        if (!nodeRole || !filterRoles.includes(nodeRole)) {
-          return false;
-        }
-      }
-
-      // Check documents filter (OR within category)
-      if (filterDocuments.length > 0) {
-        const nodeDocuments = nodeData.documents || [];
-        const hasMatchingDocument = filterDocuments.some((doc) =>
-          nodeDocuments.includes(doc)
-        );
-        if (!hasMatchingDocument) {
-          return false;
-        }
-      }
-
-      // Check data filter (OR within category)
-      if (filterData.length > 0) {
-        const nodeDataElements = nodeData.data || [];
-        const hasMatchingData = filterData.some((d) =>
-          nodeDataElements.includes(d)
-        );
-        if (!hasMatchingData) {
-          return false;
-        }
-      }
-
-      return true;
+      return nodeMatchesFilterCriteria(node.data as NodeDataForFilter, {
+        filterTags,
+        filterRoles,
+        filterDocuments,
+        filterData,
+        filterSearchText,
+        filterNodeTypes,
+        filterFrequencies,
+        filterUnitTypes,
+        filterLocked,
+        filterRequiresFTE,
+        filterHasPainPoints,
+        filterHasImprovement,
+      });
     },
-    [hasActiveFilters, filterTags, filterRoles, filterDocuments, filterData]
+    [
+      hasActiveFilters,
+      filterTags,
+      filterRoles,
+      filterDocuments,
+      filterData,
+      filterSearchText,
+      filterNodeTypes,
+      filterFrequencies,
+      filterUnitTypes,
+      filterLocked,
+      filterRequiresFTE,
+      filterHasPainPoints,
+      filterHasImprovement,
+    ]
   );
 
   // Get all filtered nodes
@@ -288,6 +509,14 @@ export function useNodeFilter(): UseNodeFilterReturn {
       roles: filterRoles,
       documents: filterDocuments,
       data: filterData,
+      searchText: filterSearchText,
+      nodeTypes: filterNodeTypes,
+      frequencies: filterFrequencies,
+      unitTypes: filterUnitTypes,
+      locked: filterLocked,
+      requiresFTE: filterRequiresFTE,
+      hasPainPoints: filterHasPainPoints,
+      hasImprovement: filterHasImprovement,
     },
     hasActiveFilters,
     nodeMatchesFilter,
