@@ -119,11 +119,11 @@ function DecisionNode({ id, data, selected }: NodeProps) {
         <NodeTags tags={tags} />
       </div>
 
-      {/* Role indicator below tags */}
+      {/* Role indicator above node */}
       {role && (
         <div
           className="absolute pointer-events-none -translate-x-1/2"
-          style={{ top: '100%', left: centerOffset, marginTop: '76px' }}
+          style={{ bottom: '100%', left: centerOffset, marginBottom: '36px' }}
         >
           <NodeRole role={role} />
         </div>

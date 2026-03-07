@@ -90,11 +90,11 @@ function StartNode({ id, data, selected }: NodeProps) {
         <NodeTags tags={tags} />
       </div>
 
-      {/* Role indicator below tags */}
+      {/* Role indicator above node */}
       {role && (
         <div
           className="absolute pointer-events-none left-1/2 -translate-x-1/2"
-          style={{ top: '100%', marginTop: '76px' }}
+          style={{ bottom: '100%', marginBottom: '36px' }}
         >
           <NodeRole role={role} />
         </div>

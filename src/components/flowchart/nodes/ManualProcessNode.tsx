@@ -433,9 +433,9 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
         </div>
       </div>
 
-      {/* Role indicator below node */}
+      {/* Role indicator above node */}
       {role && (
-        <div className="absolute pointer-events-none left-1/2 -translate-x-1/2" style={{ top: '100%', marginTop: '36px' }}>
+        <div className="absolute pointer-events-none left-1/2 -translate-x-1/2" style={{ bottom: '100%', marginBottom: '36px' }}>
           <NodeRole role={role} />
         </div>
       )}
