@@ -21,16 +21,19 @@ import {
 import { useNodeConnections } from '../../hooks/useNodeConnections';
 import { useRuleFilter } from '../../hooks/useRuleFilter';
 import { useFilterStore, useListFilterConfig } from '../../stores/filterStore';
-import { NodeTable, type SortState } from './NodeTable';
+import { NodeTable, type SortState, COLUMNS } from './NodeTable';
 import { RuleBasedFilter } from '../filter';
 import { AdvancedFilter } from '../flowchart/AdvancedFilter';
+import { exportTableData, type ExportFormat } from '../../utils/tableExport';
 import type { ProcessNodeType, FrequencyType, UnitType } from '../../types';
 import {
   buildNodeTree,
   flattenTreeWithDepth,
+  flattenTreeAllNodes,
   sortTreeNodes,
   filterTreeWithAncestors,
   getParentChain,
+  getBreadcrumbPath,
 } from '../../utils/nodeHierarchy';
 
 // ============================================================================
@@ -40,6 +43,44 @@ import {
 const FilterIcon = () => (
   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+  </svg>
+);
+
+const ExportIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+  </svg>
+);
+
+const ExcelIcon = () => (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2zM6 4h7.5v4H18v12H6V4zm2 8v2h3v-2H8zm0 3v2h3v-2H8zm5-3v2h3v-2h-3zm0 3v2h3v-2h-3z" />
+  </svg>
+);
+
+const CSVIcon = () => (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
+    <path d="M14 2v6h6" />
+    <path d="M8 13h2l2 3-2 3H8l2-3-2-3z" />
+    <path d="M16 13v6" />
+    <path d="M14 16h4" />
+  </svg>
+);
+
+const JSONIcon = () => (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" />
+    <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" />
+  </svg>
+);
+
+const XMLIcon = () => (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M2 6l4 12 4-12" />
+    <path d="M18 6l-4 12-4-12" />
+    <path d="M22 6v12" />
+    <path d="M20 6h4" />
   </svg>
 );
 
@@ -78,6 +119,10 @@ export const ListView: React.FC = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const filterPanelRef = useRef<HTMLDivElement>(null);
+
+  // Export state
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const exportButtonRef = useRef<HTMLButtonElement>(null);
 
   // Local state for sorting
   const [sort, setSort] = useState<SortState>({
@@ -376,6 +421,30 @@ export const ListView: React.FC = () => {
     setIsFilterOpen(!isFilterOpen);
   }, [isFilterOpen]);
 
+  // Get ALL nodes for export (ignoring expansion state) with hierarchy info
+  const allNodesForExport = useMemo(() => {
+    return flattenTreeAllNodes(sortedTree);
+  }, [sortedTree]);
+
+  // Build hierarchy map for export (nodeId -> breadcrumb path)
+  const hierarchyMap = useMemo(() => {
+    const map = new Map<string, string>();
+    allNodesForExport.forEach(({ node }) => {
+      const breadcrumb = getBreadcrumbPath(node.id, nodes);
+      map.set(node.id, breadcrumb);
+    });
+    return map;
+  }, [allNodesForExport, nodes]);
+
+  // Handle export - exports ALL nodes in expanded form with hierarchy
+  const handleExport = useCallback((format: ExportFormat) => {
+    const nodesToExport = allNodesForExport.map(item => item.node);
+    exportTableData(nodesToExport, connections, COLUMNS, format, {
+      hierarchyMap,
+    });
+    setIsExportMenuOpen(false);
+  }, [allNodesForExport, connections, hierarchyMap]);
+
   return (
     <div className="h-full flex flex-col p-6 overflow-hidden">
       {/* Header */}
@@ -405,82 +474,146 @@ export const ListView: React.FC = () => {
           </p>
         </div>
 
-        {/* Filter toggle button with popup */}
-        <div className="relative">
-          <button
-            ref={filterButtonRef}
-            onClick={toggleFilterOpen}
-            className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-              filterActive
-                ? 'bg-primary-100 text-primary-700 hover:bg-primary-200'
-                : isFilterOpen
-                  ? 'bg-gray-200 text-gray-800'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <FilterIcon />
-            <span>Filter</span>
-            {filterActive && filterMode === 'advanced' && ruleCount > 0 && (
-              <span className="flex items-center justify-center w-5 h-5 bg-primary-500 text-white rounded-full text-xs">
-                {ruleCount}
-              </span>
-            )}
-            {filterActive && filterMode === 'simple' && (
-              <span className="flex items-center justify-center w-5 h-5 bg-primary-500 text-white rounded-full text-xs">
-                *
-              </span>
-            )}
-          </button>
+        {/* Action buttons - Filter and Export */}
+        <div className="flex items-center gap-2">
+          {/* Filter toggle button with popup */}
+          <div className="relative">
+            <button
+              ref={filterButtonRef}
+              onClick={toggleFilterOpen}
+              className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                filterActive
+                  ? 'bg-primary-100 text-primary-700 hover:bg-primary-200'
+                  : isFilterOpen
+                    ? 'bg-gray-200 text-gray-800'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <FilterIcon />
+              <span>Filter</span>
+              {filterActive && filterMode === 'advanced' && ruleCount > 0 && (
+                <span className="flex items-center justify-center w-5 h-5 bg-primary-500 text-white rounded-full text-xs">
+                  {ruleCount}
+                </span>
+              )}
+              {filterActive && filterMode === 'simple' && (
+                <span className="flex items-center justify-center w-5 h-5 bg-primary-500 text-white rounded-full text-xs">
+                  *
+                </span>
+              )}
+            </button>
 
-          {/* Filter Popup Dropdown */}
-          {isFilterOpen && (
-            <>
-              {/* Click-outside overlay */}
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setIsFilterOpen(false)}
-              />
-              {/* Filter dropdown panel */}
-              <div
-                ref={filterPanelRef}
-                className="absolute right-0 mt-2 z-30"
-              >
-                {/* Filter Mode Toggle */}
-                <div className="bg-white rounded-lg shadow-lg border border-gray-200 mb-0 p-1 flex gap-1">
+            {/* Filter Popup Dropdown */}
+            {isFilterOpen && (
+              <>
+                {/* Click-outside overlay */}
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setIsFilterOpen(false)}
+                />
+                {/* Filter dropdown panel */}
+                <div
+                  ref={filterPanelRef}
+                  className="absolute right-0 mt-2 z-30"
+                >
+                  {/* Filter Mode Toggle */}
+                  <div className="bg-white rounded-lg shadow-lg border border-gray-200 mb-0 p-1 flex gap-1">
+                    <button
+                      onClick={() => setFilterMode('simple')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                        filterMode === 'simple'
+                          ? 'bg-primary-100 text-primary-700'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      Simple
+                    </button>
+                    <button
+                      onClick={() => setFilterMode('advanced')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                        filterMode === 'advanced'
+                          ? 'bg-primary-100 text-primary-700'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      Advanced
+                    </button>
+                  </div>
+
+                  {/* Filter Content */}
+                  {filterMode === 'simple' ? (
+                    <AdvancedFilter />
+                  ) : (
+                    <RuleBasedFilter
+                      isCollapsed={false}
+                      onToggleCollapse={() => setIsFilterOpen(false)}
+                    />
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Export button with dropdown */}
+          <div className="relative">
+            <button
+              ref={exportButtonRef}
+              onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+              disabled={nodesForTable.length === 0}
+              className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                nodesForTable.length === 0
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : isExportMenuOpen
+                    ? 'bg-gray-200 text-gray-800'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <ExportIcon />
+              <span>Export</span>
+            </button>
+
+            {/* Export Dropdown Menu */}
+            {isExportMenuOpen && (
+              <>
+                {/* Click-outside overlay */}
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setIsExportMenuOpen(false)}
+                />
+                {/* Export dropdown panel */}
+                <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 z-30 py-1">
                   <button
-                    onClick={() => setFilterMode('simple')}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                      filterMode === 'simple'
-                        ? 'bg-primary-100 text-primary-700'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
+                    onClick={() => handleExport('xlsx')}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
-                    Simple
+                    <ExcelIcon />
+                    <span>Excel (.xlsx)</span>
                   </button>
                   <button
-                    onClick={() => setFilterMode('advanced')}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                      filterMode === 'advanced'
-                        ? 'bg-primary-100 text-primary-700'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
+                    onClick={() => handleExport('csv')}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
-                    Advanced
+                    <CSVIcon />
+                    <span>CSV (.csv)</span>
+                  </button>
+                  <button
+                    onClick={() => handleExport('json')}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    <JSONIcon />
+                    <span>JSON (.json)</span>
+                  </button>
+                  <button
+                    onClick={() => handleExport('xml')}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    <XMLIcon />
+                    <span>XML (.xml)</span>
                   </button>
                 </div>
-
-                {/* Filter Content */}
-                {filterMode === 'simple' ? (
-                  <AdvancedFilter />
-                ) : (
-                  <RuleBasedFilter
-                    isCollapsed={false}
-                    onToggleCollapse={() => setIsFilterOpen(false)}
-                  />
-                )}
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -493,6 +626,7 @@ export const ListView: React.FC = () => {
           nodeTypeFilter={nodeTypeFilter}
           expandedIds={effectiveExpandedIds}
           nodeDepths={nodeDepths}
+          hierarchyMap={hierarchyMap}
           onSortChange={setSort}
           onRowClick={handleRowClick}
           onToggleExpand={toggleExpand}

@@ -286,3 +286,49 @@ export function getDescendantIds(nodeId: string, nodes: FlowchartNode[]): string
   collectChildren(nodeId);
   return descendants;
 }
+
+/**
+ * Flatten tree to array with depth info, including ALL nodes regardless of expansion state
+ * Use this for exports where you want the complete hierarchy
+ */
+export function flattenTreeAllNodes(
+  tree: TreeNode[]
+): Array<{ node: FlowchartNode; depth: number }> {
+  const result: Array<{ node: FlowchartNode; depth: number }> = [];
+
+  function traverse(treeNodes: TreeNode[], currentDepth: number) {
+    treeNodes.forEach(treeNode => {
+      result.push({
+        node: treeNode.node,
+        depth: currentDepth,
+      });
+
+      // Always include children for subprocesses (unlike flattenTreeWithDepth)
+      if (treeNode.node.type === 'subprocess' && treeNode.children.length > 0) {
+        traverse(treeNode.children, currentDepth + 1);
+      }
+    });
+  }
+
+  traverse(tree, 0);
+  return result;
+}
+
+/**
+ * Get breadcrumb path for a node (from root to parent)
+ * Returns a string like "Subprocess A > Subprocess B" or empty string if at root level
+ */
+export function getBreadcrumbPath(nodeId: string, nodes: FlowchartNode[]): string {
+  const parentChain = getParentChain(nodeId, nodes);
+
+  if (parentChain.length === 0) {
+    return '';
+  }
+
+  // Reverse to get root first, then filter to only subprocesses and get labels
+  const breadcrumbs = parentChain
+    .reverse()
+    .map(node => getNodeLabel(node));
+
+  return breadcrumbs.join(' > ');
+}

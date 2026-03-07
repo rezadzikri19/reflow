@@ -19,6 +19,12 @@ export interface SortState {
   direction: SortDirection;
 }
 
+/** Context passed to column accessors for additional information */
+export interface AccessorContext {
+  /** Map of nodeId to breadcrumb path (e.g., "Subprocess A > Subprocess B") */
+  hierarchyMap?: Map<string, string>;
+}
+
 interface NodeTableProps {
   nodes: FlowchartNode[];
   connections: NodeConnectionsMap;
@@ -26,6 +32,7 @@ interface NodeTableProps {
   nodeTypeFilter: ProcessNodeType | 'all';
   expandedIds: Set<string>;
   nodeDepths: Map<string, number>;
+  hierarchyMap?: Map<string, string>;
   onSortChange: (sort: SortState) => void;
   onRowClick: (nodeId: string) => void;
   onToggleExpand: (nodeId: string) => void;
@@ -35,26 +42,36 @@ interface NodeTableProps {
 // Column Definitions
 // ============================================================================
 
-interface ColumnDef {
+export interface ColumnDef {
   key: string;
   label: string;
   defaultVisible: boolean;
-  accessor: (node: FlowchartNode, connections: NodeConnectionsMap) => React.ReactNode;
+  accessor: (node: FlowchartNode, connections: NodeConnectionsMap, context?: AccessorContext) => React.ReactNode;
   sortable: boolean;
   width?: string;
 }
 
-const COLUMNS: ColumnDef[] = [
+export const COLUMNS: ColumnDef[] = [
   {
     key: 'label',
     label: 'Label',
     defaultVisible: true,
-    accessor: (node) => {
+    accessor: (node, _connections, context) => {
       const label = hasProcessNodeData(node) ? node.data.label : undefined;
-      return label || '-';
+      const nodeLabel = label || '-';
+
+      // If hierarchy context is provided, prepend breadcrumb path
+      if (context?.hierarchyMap) {
+        const hierarchy = context.hierarchyMap.get(node.id);
+        if (hierarchy) {
+          return `${hierarchy} > ${nodeLabel}`;
+        }
+      }
+
+      return nodeLabel;
     },
     sortable: true,
-    width: '200px',
+    width: '350px',
   },
   {
     key: 'sheet',
@@ -387,10 +404,16 @@ export const NodeTable: React.FC<NodeTableProps> = ({
   nodeTypeFilter,
   expandedIds,
   nodeDepths,
+  hierarchyMap,
   onSortChange,
   onRowClick,
   onToggleExpand,
 }) => {
+  // Create accessor context with hierarchy info
+  const accessorContext: AccessorContext = useMemo(() => ({
+    hierarchyMap,
+  }), [hierarchyMap]);
+
   // Filter visible columns
   const visibleColumns = COLUMNS.filter((col) => col.defaultVisible);
 
@@ -541,7 +564,7 @@ export const NodeTable: React.FC<NodeTableProps> = ({
               </th>
               {/* Row number column header */}
               <th
-                className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-[40px] bg-gray-50 z-20 border-b border-gray-200"
+                className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 border-b border-gray-200"
                 style={{ width: '40px', minWidth: '40px' }}
               >
                 #
@@ -553,7 +576,6 @@ export const NodeTable: React.FC<NodeTableProps> = ({
                   className={`
                     px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap
                     ${column.sortable ? 'cursor-pointer hover:bg-gray-100 select-none' : ''}
-                    ${column.key === 'label' ? 'sticky left-[80px] bg-gray-50 z-20' : ''}
                     border-b border-gray-200
                   `}
                   style={{ width: column.width, minWidth: column.width }}
@@ -599,7 +621,7 @@ export const NodeTable: React.FC<NodeTableProps> = ({
                   </td>
                   {/* Row number cell */}
                   <td
-                    className={`px-3 py-3 text-sm text-gray-500 text-center sticky left-[40px] ${depthBackgroundClass} z-10 border-b border-gray-200`}
+                    className={`px-3 py-3 text-sm text-gray-500 text-center ${depthBackgroundClass} border-b border-gray-200`}
                     style={{ width: '40px', minWidth: '40px' }}
                   >
                     {index + 1}
@@ -610,7 +632,7 @@ export const NodeTable: React.FC<NodeTableProps> = ({
                         key={column.key}
                         className={`
                           px-4 py-3 text-sm text-gray-900 whitespace-nowrap
-                          ${column.key === 'label' ? `sticky left-[80px] ${depthBackgroundClass} z-10 font-medium` : ''}
+                          ${column.key === 'label' ? `${depthBackgroundClass} font-medium` : ''}
                           border-b border-gray-200
                         `}
                         style={{
@@ -630,7 +652,7 @@ export const NodeTable: React.FC<NodeTableProps> = ({
                                 {'→'.repeat(Math.min(depth, 3))}
                               </span>
                             )}
-                            {column.accessor(node, connections)}
+                            {column.accessor(node, connections, accessorContext)}
                             {isSubprocess && childCount > 0 && (
                               <span className="text-xs text-gray-400 font-normal">
                                 ({childCount} {childCount === 1 ? 'node' : 'nodes'})
@@ -638,7 +660,7 @@ export const NodeTable: React.FC<NodeTableProps> = ({
                             )}
                           </span>
                         ) : (
-                          column.accessor(node, connections)
+                          column.accessor(node, connections, accessorContext)
                         )}
                       </td>
                     );
