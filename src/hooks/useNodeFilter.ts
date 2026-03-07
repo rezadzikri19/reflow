@@ -14,6 +14,7 @@ import {
   useFilterHasPainPoints,
   useFilterHasImprovement,
   useFilterMode,
+  useHighlightedNodeIds,
 } from '../stores/flowchartStore';
 import { useFlowchartFilterConfig } from '../stores/filterStore';
 import { evaluateGroup } from './useRuleFilter';
@@ -123,7 +124,15 @@ export function useIsNodeMuted(nodeId: string): boolean {
   const filterMode = useFilterMode();
   const flowchartFilterConfig = useFlowchartFilterConfig();
 
+  // Highlighted nodes state (from ListView selection)
+  const highlightedNodeIds = useHighlightedNodeIds();
+
   return useMemo(() => {
+    // Check if node is muted due to highlighting (ListView -> Flowchart filtering)
+    if (highlightedNodeIds.length > 0 && !highlightedNodeIds.includes(nodeId)) {
+      return true;
+    }
+
     // Find the node
     const node = nodes.find((n) => n.id === nodeId);
     if (!node) {
@@ -186,6 +195,7 @@ export function useIsNodeMuted(nodeId: string): boolean {
     filterRequiresFTE,
     filterHasPainPoints,
     filterHasImprovement,
+    highlightedNodeIds,
   ]);
 }
 

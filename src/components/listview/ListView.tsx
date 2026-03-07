@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import {
   useFlowchartStore,
   useFilterMode,
@@ -17,6 +17,7 @@ import {
   useFilterHasImprovement,
   useFilterSheets,
   useSheets,
+  useHighlightedNodeIds,
 } from '../../stores/flowchartStore';
 import { useNodeConnections } from '../../hooks/useNodeConnections';
 import { useRuleFilter } from '../../hooks/useRuleFilter';
@@ -132,6 +133,11 @@ export const ListView: React.FC = () => {
 
   // Expand/collapse state for tree view
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  // Get highlighted nodes from store (single source of truth for selection)
+  const highlightedNodeIds = useHighlightedNodeIds();
+  const setHighlightedNodes = useFlowchartStore((state) => state.setHighlightedNodes);
+  const clearHighlightedNodes = useFlowchartStore((state) => state.clearHighlightedNodes);
 
   // Node type filter (legacy - kept for compatibility, but we use 'all' since we filter with rules)
   const nodeTypeFilter: ProcessNodeType | 'all' = 'all';
@@ -401,20 +407,53 @@ export const ListView: React.FC = () => {
     return displayNodes.map((item) => item.node);
   }, [displayNodes]);
 
-  // Handle row click - navigate to flowchart and select node
-  const handleRowClick = useCallback(
-    (nodeId: string) => {
-      // Set the selected node and navigate to flowchart
-      setSelectedNode(nodeId);
-      // Store the view to navigate to in sessionStorage for App.tsx to pick up
-      sessionStorage.setItem('navigateToView', 'flowchart');
-      // Trigger a storage event for same-tab navigation
-      window.dispatchEvent(new StorageEvent('storage', { key: 'navigateToView', newValue: 'flowchart' }));
-      // Also set a flag that App.tsx can check
-      window.dispatchEvent(new CustomEvent('navigateToFlowchart', { detail: { nodeId } }));
-    },
-    [setSelectedNode]
-  );
+  // Toggle highlighted node in store
+  const handleToggleSelection = useCallback((nodeId: string) => {
+    const currentIds = useFlowchartStore.getState().highlightedNodeIds;
+    const newIds = currentIds.includes(nodeId)
+      ? currentIds.filter(id => id !== nodeId)
+      : [...currentIds, nodeId];
+    setHighlightedNodes(newIds);
+  }, [setHighlightedNodes]);
+
+  // Toggle select all / deselect all
+  const handleToggleSelectAll = useCallback(() => {
+    const currentIds = useFlowchartStore.getState().highlightedNodeIds;
+    // If all visible nodes are selected, deselect all
+    if (currentIds.length === nodesForTable.length) {
+      clearHighlightedNodes();
+    } else {
+      // Otherwise, select all visible nodes
+      setHighlightedNodes(nodesForTable.map(n => n.id));
+    }
+  }, [nodesForTable, setHighlightedNodes, clearHighlightedNodes]);
+
+  // Handle double-click to navigate to flowchart
+  const handleRowDoubleClick = useCallback((nodeId: string) => {
+    // Set the selected node and navigate to flowchart
+    setSelectedNode(nodeId);
+    sessionStorage.setItem('navigateToView', 'flowchart');
+    window.dispatchEvent(new StorageEvent('storage', { key: 'navigateToView', newValue: 'flowchart' }));
+    window.dispatchEvent(new CustomEvent('navigateToFlowchart', { detail: { nodeId } }));
+  }, [setSelectedNode]);
+
+  // Clear selection handler
+  const handleClearSelection = useCallback(() => {
+    clearHighlightedNodes();
+  }, [clearHighlightedNodes]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape: Clear selection
+      if (e.key === 'Escape' && highlightedNodeIds.length > 0) {
+        handleClearSelection();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleClearSelection, highlightedNodeIds.length]);
 
   // Toggle filter panel
   const toggleFilterOpen = useCallback(() => {
@@ -627,17 +666,39 @@ export const ListView: React.FC = () => {
           expandedIds={effectiveExpandedIds}
           nodeDepths={nodeDepths}
           hierarchyMap={hierarchyMap}
+          selectedNodeIds={new Set(highlightedNodeIds)}
           onSortChange={setSort}
-          onRowClick={handleRowClick}
+          onRowDoubleClick={handleRowDoubleClick}
+          onToggleSelection={handleToggleSelection}
+          onToggleSelectAll={handleToggleSelectAll}
           onToggleExpand={toggleExpand}
         />
       </div>
 
-      {/* Help text */}
-      <p className="mt-3 text-xs text-gray-500">
-        Click on a row to view the node in the flowchart. Click column headers to sort.
-        {filterActive && ' Use the filter above to refine the node list.'}
-      </p>
+      {/* Selection status bar */}
+      {highlightedNodeIds.length > 0 ? (
+        <div className="mt-3 flex items-center justify-between px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-blue-700">
+              {highlightedNodeIds.length} node{highlightedNodeIds.length !== 1 ? 's' : ''} selected
+            </span>
+            <span className="text-xs text-blue-500">
+              (highlighted in flowchart)
+            </span>
+          </div>
+          <button
+            onClick={handleClearSelection}
+            className="px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 rounded transition-colors"
+          >
+            Clear Selection
+          </button>
+        </div>
+      ) : (
+        <p className="mt-3 text-xs text-gray-500">
+          Use checkboxes to select nodes and highlight them in the flowchart. Double-click a row to navigate to that node.
+          {filterActive && ' Use the filter above to refine the node list.'}
+        </p>
+      )}
     </div>
   );
 };

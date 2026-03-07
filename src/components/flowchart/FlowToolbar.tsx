@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { useReactFlow, useStore } from '@xyflow/react';
 import { Button } from '../common/Button';
 import { Modal, ModalFooter, ModalBody } from '../common/Modal';
-import { useFlowchartStore, useHasActiveFilters, useIsFilterPanelOpen, useFilterMode, useNodes, useEdges } from '../../stores/flowchartStore';
+import { useFlowchartStore, useHasActiveFilters, useIsFilterPanelOpen, useFilterMode, useNodes, useEdges, useHighlightedNodeIds, useHasHighlightedNodes } from '../../stores/flowchartStore';
 import { useFlowchartFilterConfig, useSetFlowchartFilterConfig, useClearFlowchartFilter } from '../../stores/filterStore';
 import { getAllFlowcharts, deleteFlowchart } from '../../db/database';
 import type { FlowchartRecord } from '../../db/database';
@@ -216,6 +216,11 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
 
   // Combined active filter state based on mode
   const hasActiveFilters = filterMode === 'advanced' ? hasAdvancedFilters : hasSimpleFilters;
+
+  // Highlighted nodes state (from ListView selection)
+  const highlightedNodeIds = useHighlightedNodeIds();
+  const hasHighlightedNodes = useHasHighlightedNodes();
+  const clearHighlightedNodes = useFlowchartStore((state) => state.clearHighlightedNodes);
 
   const {
     flowchartName,
@@ -680,6 +685,21 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
 
         {/* Divider */}
         <div className="h-6 w-px bg-gray-200" />
+
+        {/* Highlight Indicator - Shows when nodes are highlighted from ListView */}
+        {hasHighlightedNodes && (
+          <div className="flex items-center gap-2 px-2 py-1 bg-blue-50 border border-blue-200 rounded-md">
+            <span className="text-sm font-medium text-blue-700">
+              {highlightedNodeIds.length} highlighted
+            </span>
+            <button
+              onClick={clearHighlightedNodes}
+              className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+            >
+              Clear
+            </button>
+          </div>
+        )}
 
         {/* Filter Button */}
         <div className="relative">

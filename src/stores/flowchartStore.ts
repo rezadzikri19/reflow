@@ -275,6 +275,8 @@ interface FlowchartState {
   future: SheetSnapshot[];
   /** Maximum history depth */
   maxHistoryDepth: number;
+  /** Highlighted node IDs from ListView selection (for Flowchart visual filtering) */
+  highlightedNodeIds: string[];
 }
 
 // =============================================================================
@@ -405,6 +407,10 @@ interface FlowchartActions {
   toggleFilterPanel: () => void;
   setFilterPanelOpen: (isOpen: boolean) => void;
   setFilterMode: (mode: FilterMode) => void;
+  // Highlighted nodes actions (ListView -> Flowchart visual filtering)
+  setHighlightedNodes: (nodeIds: string[]) => void;
+  toggleHighlightedNode: (nodeId: string) => void;
+  clearHighlightedNodes: () => void;
   // Clipboard actions (copy/paste)
   copySelectedNodes: () => void;
   pasteNodes: (position?: { x: number; y: number }) => void;
@@ -473,6 +479,8 @@ const initialState: FlowchartState = {
   past: [],
   future: [],
   maxHistoryDepth: 50,
+  // Highlighted nodes for visual filtering
+  highlightedNodeIds: [],
 };
 
 // =============================================================================
@@ -2954,6 +2962,42 @@ export const useFlowchartStore = create<FlowchartStore>()(
       },
 
       // =============================================================================
+      // Highlighted Nodes Actions (ListView -> Flowchart visual filtering)
+      // =============================================================================
+
+      /**
+       * Set the highlighted nodes (replaces current selection)
+       */
+      setHighlightedNodes: (nodeIds: string[]) => {
+        set((state) => {
+          state.highlightedNodeIds = nodeIds;
+        });
+      },
+
+      /**
+       * Toggle a node's highlight status
+       */
+      toggleHighlightedNode: (nodeId: string) => {
+        set((state) => {
+          const index = state.highlightedNodeIds.indexOf(nodeId);
+          if (index === -1) {
+            state.highlightedNodeIds.push(nodeId);
+          } else {
+            state.highlightedNodeIds.splice(index, 1);
+          }
+        });
+      },
+
+      /**
+       * Clear all highlighted nodes
+       */
+      clearHighlightedNodes: () => {
+        set((state) => {
+          state.highlightedNodeIds = [];
+        });
+      },
+
+      // =============================================================================
       // Clipboard Actions (Copy/Paste)
       // =============================================================================
 
@@ -3461,6 +3505,16 @@ export const useFilterHasImprovement = () => useFlowchartStore((state) => state.
 export const useFilterSheets = () => useFlowchartStore((state) => state.filterSheets);
 export const useIsFilterPanelOpen = () => useFlowchartStore((state) => state.isFilterPanelOpen);
 export const useFilterMode = () => useFlowchartStore((state) => state.filterMode);
+
+/**
+ * Get highlighted node IDs from ListView selection
+ */
+export const useHighlightedNodeIds = () => useFlowchartStore((state) => state.highlightedNodeIds);
+
+/**
+ * Check if there are any highlighted nodes
+ */
+export const useHasHighlightedNodes = () => useFlowchartStore((state) => state.highlightedNodeIds.length > 0);
 
 /**
  * Check if any filters are active

@@ -33,8 +33,15 @@ interface NodeTableProps {
   expandedIds: Set<string>;
   nodeDepths: Map<string, number>;
   hierarchyMap?: Map<string, string>;
+  /** Currently selected node IDs for multi-selection */
+  selectedNodeIds: Set<string>;
   onSortChange: (sort: SortState) => void;
-  onRowClick: (nodeId: string) => void;
+  /** Called when a row is double-clicked to navigate to flowchart */
+  onRowDoubleClick: (nodeId: string) => void;
+  /** Called when checkbox is toggled */
+  onToggleSelection: (nodeId: string) => void;
+  /** Called when select all is toggled */
+  onToggleSelectAll: () => void;
   onToggleExpand: (nodeId: string) => void;
 }
 
@@ -405,8 +412,11 @@ export const NodeTable: React.FC<NodeTableProps> = ({
   expandedIds,
   nodeDepths,
   hierarchyMap,
+  selectedNodeIds,
   onSortChange,
-  onRowClick,
+  onRowDoubleClick,
+  onToggleSelection,
+  onToggleSelectAll,
   onToggleExpand,
 }) => {
   // Create accessor context with hierarchy info
@@ -555,9 +565,27 @@ export const NodeTable: React.FC<NodeTableProps> = ({
         <table className="border-collapse w-max">
           <thead className="bg-gray-50 sticky top-0 z-20">
             <tr>
+              {/* Checkbox column header */}
+              <th
+                className="px-2 py-3 text-center bg-gray-50 border-b border-gray-200 sticky left-0 z-30"
+                style={{ width: '40px', minWidth: '40px' }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedNodeIds.size === sortedNodes.length && sortedNodes.length > 0}
+                  ref={(el) => {
+                    if (el) {
+                      el.indeterminate = selectedNodeIds.size > 0 && selectedNodeIds.size < sortedNodes.length;
+                    }
+                  }}
+                  onChange={onToggleSelectAll}
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                  title={selectedNodeIds.size === sortedNodes.length ? 'Deselect all' : 'Select all'}
+                />
+              </th>
               {/* Expand toggle column header */}
               <th
-                className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-30 border-b border-gray-200"
+                className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 border-b border-gray-200"
                 style={{ width: '40px', minWidth: '40px' }}
               >
                 {/* Tree column */}
@@ -593,35 +621,52 @@ export const NodeTable: React.FC<NodeTableProps> = ({
               const depth = nodeDepths.get(node.id) || 0;
               const isSubprocess = node.type === 'subprocess';
               const childCount = hasProcessNodeData(node) ? (node.data.childNodeIds?.length || 0) : 0;
+              const isSelected = selectedNodeIds.has(node.id);
 
-              // Calculate visual styles based on depth
-              const depthBackgroundClass = depth === 0
-                ? 'bg-white'
-                : depth === 1
-                  ? 'bg-gray-50/30'
-                  : depth === 2
-                    ? 'bg-gray-50/50'
-                    : 'bg-gray-50/70';
+              // Calculate visual styles based on depth and selection
+              const depthBackgroundClass = isSelected
+                ? 'bg-blue-100'
+                : depth === 0
+                  ? 'bg-white'
+                  : depth === 1
+                    ? 'bg-gray-50/30'
+                    : depth === 2
+                      ? 'bg-gray-50/50'
+                      : 'bg-gray-50/70';
 
               return (
                 <tr
                   key={node.id}
-                  onClick={() => onRowClick(node.id)}
+                  onDoubleClick={() => onRowDoubleClick(node.id)}
                   className={`
                     hover:bg-blue-50 cursor-pointer transition-colors
+                    ${isSelected ? 'bg-blue-100 hover:bg-blue-100' : ''}
                     ${depthBackgroundClass}
                   `}
                 >
+                  {/* Checkbox cell */}
+                  <td
+                    className={`px-2 py-3 text-center sticky left-0 ${isSelected ? 'bg-blue-100' : depthBackgroundClass} z-10 border-b border-gray-200`}
+                    style={{ width: '40px', minWidth: '40px' }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => onToggleSelection(node.id)}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                    />
+                  </td>
                   {/* Expand toggle cell */}
                   <td
-                    className={`px-1 py-3 sticky left-0 ${depthBackgroundClass} z-10 border-b border-gray-200`}
+                    className={`px-1 py-3 ${isSelected ? 'bg-blue-100' : depthBackgroundClass} border-b border-gray-200`}
                     style={{ width: '40px', minWidth: '40px' }}
                   >
                     {renderExpandToggle(node)}
                   </td>
                   {/* Row number cell */}
                   <td
-                    className={`px-3 py-3 text-sm text-gray-500 text-center ${depthBackgroundClass} border-b border-gray-200`}
+                    className={`px-3 py-3 text-sm text-gray-500 text-center ${isSelected ? 'bg-blue-100' : depthBackgroundClass} border-b border-gray-200`}
                     style={{ width: '40px', minWidth: '40px' }}
                   >
                     {index + 1}
@@ -632,7 +677,7 @@ export const NodeTable: React.FC<NodeTableProps> = ({
                         key={column.key}
                         className={`
                           px-4 py-3 text-sm text-gray-900 whitespace-nowrap
-                          ${column.key === 'label' ? `${depthBackgroundClass} font-medium` : ''}
+                          ${column.key === 'label' ? `${isSelected ? 'bg-blue-100' : depthBackgroundClass} font-medium` : ''}
                           border-b border-gray-200
                         `}
                         style={{

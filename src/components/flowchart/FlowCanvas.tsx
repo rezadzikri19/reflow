@@ -135,6 +135,7 @@ function FlowCanvasInner({
   const undo = useFlowchartStore((state) => state.undo);
   const redo = useFlowchartStore((state) => state.redo);
   const hasClipboardContent = useFlowchartStore((state) => state.clipboardNodes.length > 0);
+  const clearHighlightedNodes = useFlowchartStore((state) => state.clearHighlightedNodes);
 
   // Context menu state
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
@@ -585,6 +586,11 @@ function FlowCanvasInner({
         return;
       }
 
+      // Check for Escape key - clear highlighted nodes from ListView selection
+      if (event.key === 'Escape') {
+        clearHighlightedNodes();
+      }
+
       // Check for Delete or Backspace key
       if (event.key === 'Delete' || event.key === 'Backspace') {
         // Get all currently selected nodes from React Flow
@@ -718,7 +724,7 @@ function FlowCanvasInner({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [readOnly, getNodes, getEdges, deleteNodes, deleteEdges, setSelectedNode, groupNodesIntoSubprocess, edges, removeBoundaryPortConnection, nodes, activeSubprocessId, removeManualPortConnection, copySelectedNodes, pasteNodes, cutSelectedNodes, undo, redo]);
+  }, [readOnly, getNodes, getEdges, deleteNodes, deleteEdges, setSelectedNode, groupNodesIntoSubprocess, edges, removeBoundaryPortConnection, nodes, activeSubprocessId, removeManualPortConnection, copySelectedNodes, pasteNodes, cutSelectedNodes, undo, redo, clearHighlightedNodes]);
 
   // =============================================================================
   // Context Menu Handling
