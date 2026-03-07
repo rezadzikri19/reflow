@@ -23,7 +23,7 @@ import type {
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
 import { useFlowchartStore } from '../../stores/flowchartStore';
-import type { FlowchartNode, FlowchartEdge, ProcessNodeType, ProcessNodeData, ManualPort } from '../../types';
+import type { FlowchartNode, FlowchartEdge, ProcessNodeType, ProcessNodeData, Port } from '../../types';
 import type { BoundaryPortNodeData } from './nodes/BoundaryPortNode';
 import ContextMenu from './ContextMenu';
 import SheetBar, { type SheetInfo } from './SheetBar';
@@ -165,24 +165,22 @@ function FlowCanvasInner({
         // Skip changes that don't have an id (e.g., NodeAddChange)
         if (!('id' in change)) return;
 
-        const isBoundaryPort = change.id.startsWith('boundary-input-') ||
-                                change.id.startsWith('boundary-output-') ||
-                                change.id.startsWith('boundary-manual-input-') ||
-                                change.id.startsWith('boundary-manual-output-');
+        const isBoundaryPort = change.id.startsWith('boundary-in-') ||
+                                change.id.startsWith('boundary-out-');
 
         if (change.type === 'position' && change.position && isBoundaryPort) {
           // Store the position in our ref for boundary port nodes
           boundaryPortPositionsRef.current.set(change.id, change.position);
           markDirty();
 
-          // If this is a manual port, also update its position in the store
-          const manualInputMatch = change.id.match(/^boundary-manual-input-(.+)$/);
-          const manualOutputMatch = change.id.match(/^boundary-manual-output-(.+)$/);
+          // If this is a port, also update its position in the store
+          const inputMatch = change.id.match(/^boundary-in-(.+)$/);
+          const outputMatch = change.id.match(/^boundary-out-(.+)$/);
 
-          if (manualInputMatch && activeSubprocessId) {
-            updateManualPort(activeSubprocessId, manualInputMatch[1], { position: change.position });
-          } else if (manualOutputMatch && activeSubprocessId) {
-            updateManualPort(activeSubprocessId, manualOutputMatch[1], { position: change.position });
+          if (inputMatch && activeSubprocessId) {
+            updateManualPort(activeSubprocessId, inputMatch[1], { position: change.position });
+          } else if (outputMatch && activeSubprocessId) {
+            updateManualPort(activeSubprocessId, outputMatch[1], { position: change.position });
           }
         }
 
@@ -206,10 +204,8 @@ function FlowCanvasInner({
         // Skip changes that don't have an id (e.g., NodeAddChange)
         if (!('id' in change)) return;
 
-        const isBoundaryPort = change.id.startsWith('boundary-input-') ||
-                                change.id.startsWith('boundary-output-') ||
-                                change.id.startsWith('boundary-manual-input-') ||
-                                change.id.startsWith('boundary-manual-output-');
+        const isBoundaryPort = change.id.startsWith('boundary-in-') ||
+                                change.id.startsWith('boundary-out-');
 
         if (change.type === 'remove' && !isBoundaryPort) {
           deleteNode(change.id);
@@ -245,72 +241,47 @@ function FlowCanvasInner({
       changes.forEach((change) => {
         if (!('id' in change)) return;
 
-        const isVirtualEdge = change.id.startsWith('boundary-edge-input-') ||
-                              change.id.startsWith('boundary-edge-output-') ||
-                              change.id.startsWith('boundary-edge-manual-input-') ||
-                              change.id.startsWith('boundary-edge-manual-output-');
+        // Unified format: boundary-edge-in-{portId}-{index} or boundary-edge-out-{portId}-{index}
+        const isVirtualEdge = change.id.startsWith('boundary-edge-in-') ||
+                              change.id.startsWith('boundary-edge-out-');
 
         if (change.type === 'remove' && isVirtualEdge) {
           // Handle virtual edge deletion
-          // Try to match manual input edge
-          const manualInputMatch = change.id.match(/^boundary-edge-manual-input-(.+?)(?:-(\d+))?$/);
-          // Try to match manual output edge
-          const manualOutputMatch = change.id.match(/^boundary-edge-manual-output-(.+?)(?:-(\d+))?$/);
-          // Try to match edge-based input edge
-          const inputMatch = change.id.match(/^boundary-edge-input-(.+?)(?:-(\d+))?$/);
-          // Try to match edge-based output edge
-          const outputMatch = change.id.match(/^boundary-edge-output-(.+?)(?:-(\d+))?$/);
+          // Try to match input edge
+          const inputMatch = change.id.match(/^boundary-edge-in-(.+?)(?:-(\d+))?$/);
+          // Try to match output edge
+          const outputMatch = change.id.match(/^boundary-edge-out-(.+?)(?:-(\d+))?$/);
 
-          if (manualInputMatch) {
-            // Manual input edge deletion - find the edge and remove the connection
-            const manualPortId = manualInputMatch[1];
-            const connectionIndex = manualInputMatch[2] ? parseInt(manualInputMatch[2], 10) : 0;
-            const originalEdge = edges.find(e => e.target === activeSubprocessId && e.targetHandle === manualPortId);
-            if (originalEdge && originalEdge.originalTargets) {
-              const connection = originalEdge.originalTargets[connectionIndex];
-              if (connection) {
-                removeBoundaryPortConnection(originalEdge.id, 'input', connection.nodeId, connection.handleId);
-              }
-            }
-            virtualEdgeSelectionRef.current.delete(change.id);
-            hasVirtualEdgeChanges = true;
-          } else if (manualOutputMatch) {
-            // Manual output edge deletion - find the edge and remove the connection
-            const manualPortId = manualOutputMatch[1];
-            const connectionIndex = manualOutputMatch[2] ? parseInt(manualOutputMatch[2], 10) : 0;
-            const originalEdge = edges.find(e => e.source === activeSubprocessId && e.sourceHandle === manualPortId);
-            if (originalEdge && originalEdge.originalSources) {
-              const connection = originalEdge.originalSources[connectionIndex];
-              if (connection) {
-                removeBoundaryPortConnection(originalEdge.id, 'output', connection.nodeId, connection.handleId);
-              }
-            }
-            virtualEdgeSelectionRef.current.delete(change.id);
-            hasVirtualEdgeChanges = true;
-          } else if (inputMatch) {
-            const originalEdgeId = inputMatch[1];
+          if (inputMatch && activeSubprocessId) {
+            // Input edge deletion - remove connection from the port
+            const portId = inputMatch[1];
             const connectionIndex = inputMatch[2] ? parseInt(inputMatch[2], 10) : 0;
-            const originalEdge = edges.find(e => e.id === originalEdgeId);
-            if (originalEdge && originalEdge.originalTargets) {
-              const connection = originalEdge.originalTargets[connectionIndex];
-              if (connection) {
-                removeBoundaryPortConnection(originalEdgeId, 'input', connection.nodeId, connection.handleId);
-              }
+            // Find the subprocess node and get the port's internal connections
+            const subprocessNode = nodes.find(n => n.id === activeSubprocessId);
+            const subprocessData = subprocessNode?.data as ProcessNodeData | undefined;
+            const inputPorts = subprocessData?.inputPorts || [];
+            const port = inputPorts.find(p => p.id === portId);
+            const connections = port?.internalConnections || [];
+            const connection = connections[connectionIndex];
+            if (connection) {
+              removeManualPortConnection(activeSubprocessId, portId, connection.nodeId, connection.handleId);
             }
-            // Remove from selection tracking
             virtualEdgeSelectionRef.current.delete(change.id);
             hasVirtualEdgeChanges = true;
-          } else if (outputMatch) {
-            const originalEdgeId = outputMatch[1];
+          } else if (outputMatch && activeSubprocessId) {
+            // Output edge deletion - remove connection from the port
+            const portId = outputMatch[1];
             const connectionIndex = outputMatch[2] ? parseInt(outputMatch[2], 10) : 0;
-            const originalEdge = edges.find(e => e.id === originalEdgeId);
-            if (originalEdge && originalEdge.originalSources) {
-              const connection = originalEdge.originalSources[connectionIndex];
-              if (connection) {
-                removeBoundaryPortConnection(originalEdgeId, 'output', connection.nodeId, connection.handleId);
-              }
+            // Find the subprocess node and get the port's internal connections
+            const subprocessNode = nodes.find(n => n.id === activeSubprocessId);
+            const subprocessData = subprocessNode?.data as ProcessNodeData | undefined;
+            const outputPorts = subprocessData?.outputPorts || [];
+            const port = outputPorts.find(p => p.id === portId);
+            const connections = port?.internalConnections || [];
+            const connection = connections[connectionIndex];
+            if (connection) {
+              removeManualPortConnection(activeSubprocessId, portId, connection.nodeId, connection.handleId);
             }
-            // Remove from selection tracking
             virtualEdgeSelectionRef.current.delete(change.id);
             hasVirtualEdgeChanges = true;
           }
@@ -421,13 +392,13 @@ function FlowCanvasInner({
         if (targetHasConnection) return;
       }
 
-      // Check if source is a boundary port (edge-based or manual)
-      const isSourceBoundaryInput = sourceId.startsWith('boundary-input-') || sourceId.startsWith('boundary-manual-input-');
-      const isSourceBoundaryOutput = sourceId.startsWith('boundary-output-') || sourceId.startsWith('boundary-manual-output-');
+      // Check if source is a boundary port
+      const isSourceBoundaryInput = sourceId.startsWith('boundary-in-');
+      const isSourceBoundaryOutput = sourceId.startsWith('boundary-out-');
 
-      // Check if target is a boundary port (edge-based or manual)
-      const isTargetBoundaryInput = targetId.startsWith('boundary-input-') || targetId.startsWith('boundary-manual-input-');
-      const isTargetBoundaryOutput = targetId.startsWith('boundary-output-') || targetId.startsWith('boundary-manual-output-');
+      // Check if target is a boundary port
+      const isTargetBoundaryInput = targetId.startsWith('boundary-in-');
+      const isTargetBoundaryOutput = targetId.startsWith('boundary-out-');
 
       // Handle input boundary port as source (input port -> internal node)
       // This creates a NEW edge from the external source to the new internal target
@@ -435,43 +406,49 @@ function FlowCanvasInner({
         // Don't allow connection to another boundary port
         if (isTargetBoundaryInput || isTargetBoundaryOutput) return;
 
-        // Determine if this is a manual port or edge-based port
-        const manualMatch = sourceId.match(/^boundary-manual-input-(.+)$/);
-        const edgeMatch = sourceId.match(/^boundary-input-(.+)$/);
+        // Extract port ID from boundary node ID
+        const match = sourceId.match(/^boundary-in-(.+)$/);
 
-        if (manualMatch && activeSubprocessId) {
-          // Manual port: add internal connection to the manual port
-          const manualPortId = manualMatch[1];
-          addManualPortConnection(activeSubprocessId, manualPortId, targetId, connection.targetHandle);
-          return;
-        } else if (edgeMatch) {
-          // Edge-based port: use existing logic
-          const originalEdgeId = edgeMatch[1];
-          addBoundaryPortEdge(originalEdgeId, 'input', targetId, connection.targetHandle);
-          return;
+        if (match) {
+          const portId = match[1];
+          // Check if this is a UUID-based port ID (new format) or edge ID (legacy)
+          const isNewFormat = portId.startsWith('port-in-');
+
+          if (isNewFormat && activeSubprocessId) {
+            // New format: add internal connection to the port
+            addManualPortConnection(activeSubprocessId, portId, targetId, connection.targetHandle);
+            return;
+          } else {
+            // Legacy format: use edge-based logic
+            addBoundaryPortEdge(portId, 'input', targetId, connection.targetHandle);
+            return;
+          }
         }
       }
 
       // Handle output boundary port as target (internal node -> output port)
-      // This adds a connection from internal node to the manual port's internal connections
+      // This adds a connection from internal node to the port's internal connections
       if (isTargetBoundaryOutput) {
         // Don't allow connection from another boundary port
         if (isSourceBoundaryInput || isSourceBoundaryOutput) return;
 
-        // Determine if this is a manual port or edge-based port
-        const manualMatch = targetId.match(/^boundary-manual-output-(.+)$/);
-        const edgeMatch = targetId.match(/^boundary-output-(.+)$/);
+        // Extract port ID from boundary node ID
+        const match = targetId.match(/^boundary-out-(.+)$/);
 
-        if (manualMatch && activeSubprocessId) {
-          // Manual port: add connection to port's internal connections
-          const manualPortId = manualMatch[1];
-          addManualPortConnection(activeSubprocessId, manualPortId, sourceId, connection.sourceHandle);
-          return;
-        } else if (edgeMatch) {
-          // Edge-based port: use existing logic
-          const originalEdgeId = edgeMatch[1];
-          addBoundaryPortEdge(originalEdgeId, 'output', sourceId, connection.sourceHandle);
-          return;
+        if (match) {
+          const portId = match[1];
+          // Check if this is a UUID-based port ID (new format) or edge ID (legacy)
+          const isNewFormat = portId.startsWith('port-out-');
+
+          if (isNewFormat && activeSubprocessId) {
+            // New format: add connection to port's internal connections
+            addManualPortConnection(activeSubprocessId, portId, sourceId, connection.sourceHandle);
+            return;
+          } else {
+            // Legacy format: use edge-based logic
+            addBoundaryPortEdge(portId, 'output', sourceId, connection.sourceHandle);
+            return;
+          }
         }
       }
 
@@ -600,10 +577,8 @@ function FlowCanvasInner({
           const regularEdgeIds: string[] = [];
 
           selectedEdgeIds.forEach(edgeId => {
-            if (edgeId.startsWith('boundary-edge-input-') ||
-                edgeId.startsWith('boundary-edge-output-') ||
-                edgeId.startsWith('boundary-edge-manual-input-') ||
-                edgeId.startsWith('boundary-edge-manual-output-')) {
+            if (edgeId.startsWith('boundary-edge-in-') ||
+                edgeId.startsWith('boundary-edge-out-')) {
               boundaryEdgeIds.push(edgeId);
             } else {
               regularEdgeIds.push(edgeId);
@@ -617,56 +592,37 @@ function FlowCanvasInner({
 
           // Handle boundary edge deletion - remove specific connections
           boundaryEdgeIds.forEach(edgeId => {
-            const manualInputMatch = edgeId.match(/^boundary-edge-manual-input-(.+?)(?:-(\d+))?$/);
-            const manualOutputMatch = edgeId.match(/^boundary-edge-manual-output-(.+?)(?:-(\d+))?$/);
-            const inputMatch = edgeId.match(/^boundary-edge-input-(.+?)(?:-(\d+))?$/);
-            const outputMatch = edgeId.match(/^boundary-edge-output-(.+?)(?:-(\d+))?$/);
+            // Unified format: boundary-edge-in-{portId}-{index} or boundary-edge-out-{portId}-{index}
+            const inputMatch = edgeId.match(/^boundary-edge-in-(.+?)(?:-(\d+))?$/);
+            const outputMatch = edgeId.match(/^boundary-edge-out-(.+?)(?:-(\d+))?$/);
 
-            if (manualInputMatch && activeSubprocessId) {
-              // Manual input edge deletion - use removeManualPortConnection
-              const manualPortId = manualInputMatch[1];
-              const connectionIndex = manualInputMatch[2] ? parseInt(manualInputMatch[2], 10) : 0;
-              // Get the internal connection from the subprocess node data
-              const subprocessNode = nodes.find(n => n.id === activeSubprocessId);
-              const subprocessData = subprocessNode?.data as ProcessNodeData | undefined;
-              const manualPort = (subprocessData?.manualInputPorts || []).find(p => p.id === manualPortId);
-              const connections = manualPort?.internalConnections || [];
-              const connection = connections[connectionIndex];
-              if (connection) {
-                removeManualPortConnection(activeSubprocessId, manualPortId, connection.nodeId, connection.handleId);
-              }
-            } else if (manualOutputMatch && activeSubprocessId) {
-              // Manual output edge deletion - use removeManualPortConnection
-              const manualPortId = manualOutputMatch[1];
-              const connectionIndex = manualOutputMatch[2] ? parseInt(manualOutputMatch[2], 10) : 0;
-              // Get the internal connection from the subprocess node data
-              const subprocessNode = nodes.find(n => n.id === activeSubprocessId);
-              const subprocessData = subprocessNode?.data as ProcessNodeData | undefined;
-              const manualPort = (subprocessData?.manualOutputPorts || []).find(p => p.id === manualPortId);
-              const connections = manualPort?.internalConnections || [];
-              const connection = connections[connectionIndex];
-              if (connection) {
-                removeManualPortConnection(activeSubprocessId, manualPortId, connection.nodeId, connection.handleId);
-              }
-            } else if (inputMatch) {
-              const originalEdgeId = inputMatch[1];
+            if (inputMatch && activeSubprocessId) {
+              // Input edge deletion - use removeManualPortConnection
+              const portId = inputMatch[1];
               const connectionIndex = inputMatch[2] ? parseInt(inputMatch[2], 10) : 0;
-              const originalEdge = edges.find(e => e.id === originalEdgeId);
-              if (originalEdge && originalEdge.originalTargets) {
-                const connection = originalEdge.originalTargets[connectionIndex];
-                if (connection) {
-                  removeBoundaryPortConnection(originalEdgeId, 'input', connection.nodeId, connection.handleId);
-                }
+              // Get the internal connection from the subprocess node data
+              const subprocessNode = nodes.find(n => n.id === activeSubprocessId);
+              const subprocessData = subprocessNode?.data as ProcessNodeData | undefined;
+              const inputPorts = subprocessData?.inputPorts || [];
+              const port = inputPorts.find(p => p.id === portId);
+              const connections = port?.internalConnections || [];
+              const connection = connections[connectionIndex];
+              if (connection) {
+                removeManualPortConnection(activeSubprocessId, portId, connection.nodeId, connection.handleId);
               }
-            } else if (outputMatch) {
-              const originalEdgeId = outputMatch[1];
+            } else if (outputMatch && activeSubprocessId) {
+              // Output edge deletion - use removeManualPortConnection
+              const portId = outputMatch[1];
               const connectionIndex = outputMatch[2] ? parseInt(outputMatch[2], 10) : 0;
-              const originalEdge = edges.find(e => e.id === originalEdgeId);
-              if (originalEdge && originalEdge.originalSources) {
-                const connection = originalEdge.originalSources[connectionIndex];
-                if (connection) {
-                  removeBoundaryPortConnection(originalEdgeId, 'output', connection.nodeId, connection.handleId);
-                }
+              // Get the internal connection from the subprocess node data
+              const subprocessNode = nodes.find(n => n.id === activeSubprocessId);
+              const subprocessData = subprocessNode?.data as ProcessNodeData | undefined;
+              const outputPorts = subprocessData?.outputPorts || [];
+              const port = outputPorts.find(p => p.id === portId);
+              const connections = port?.internalConnections || [];
+              const connection = connections[connectionIndex];
+              if (connection) {
+                removeManualPortConnection(activeSubprocessId, portId, connection.nodeId, connection.handleId);
               }
             }
           });
@@ -888,7 +844,7 @@ function FlowCanvasInner({
     const inputPorts: FlowchartNode[] = [];
     const outputPorts: FlowchartNode[] = [];
 
-    // Get the subprocess node data to access manual ports
+    // Get the subprocess node data to access ports
     const subprocessNode = nodes.find((n) => n.id === activeSubprocessId);
     const subprocessData = subprocessNode?.data as ProcessNodeData | undefined;
 
@@ -898,7 +854,7 @@ function FlowCanvasInner({
       // One port per edge (edge represents unique external source)
       if (edge.target === activeSubprocessId && (edge.originalTarget || edge.originalTargets)) {
         const externalNode = nodes.find((n) => n.id === edge.source);
-        const portId = `boundary-input-${edge.id}`;
+        const portId = `boundary-in-${edge.id}`;
 
         // Get all internal targets this port connects to
         const internalTargets = edge.originalTargets || [
@@ -920,7 +876,7 @@ function FlowCanvasInner({
             internalHandleId: internalTargets[0].handleId,
             // Store all internal connections for this port
             allInternalConnections: internalTargets,
-            isManual: false,
+            portId: edge.targetHandle || `port-in-${edge.id}`,
           } as BoundaryPortNodeData,
         });
       }
@@ -929,7 +885,7 @@ function FlowCanvasInner({
       // One port per edge (edge represents unique external target)
       if (edge.source === activeSubprocessId && (edge.originalSource || edge.originalSources)) {
         const externalNode = nodes.find((n) => n.id === edge.target);
-        const portId = `boundary-output-${edge.id}`;
+        const portId = `boundary-out-${edge.id}`;
 
         // Get all internal sources this port connects from
         const internalSources = edge.originalSources || [
@@ -951,18 +907,18 @@ function FlowCanvasInner({
             internalHandleId: internalSources[0].handleId,
             // Store all internal connections for this port
             allInternalConnections: internalSources,
-            isManual: false,
+            portId: edge.sourceHandle || `port-out-${edge.id}`,
           } as BoundaryPortNodeData,
         });
       }
     });
 
-    // Add manual input ports
-    (subprocessData?.manualInputPorts || []).forEach((port: ManualPort) => {
+    // Add input ports (unified - from node's inputPorts array)
+    (subprocessData?.inputPorts || []).forEach((port: Port) => {
       // Get internal connections from the port's stored data
       const connections = port.internalConnections || [];
 
-      const portNodeId = `boundary-manual-input-${port.id}`;
+      const portNodeId = `boundary-in-${port.id}`;
       inputPorts.push({
         id: portNodeId,
         type: 'boundaryPort',
@@ -973,22 +929,21 @@ function FlowCanvasInner({
         data: {
           label: port.label,
           direction: 'input',
-          edgeId: `manual-${port.id}`, // Use manual port ID as edge reference
+          edgeId: `port-${port.id}`, // Use port ID as edge reference
           internalNodeId: connections[0]?.nodeId || '', // Primary connection or empty
           internalHandleId: connections[0]?.handleId || null,
           allInternalConnections: connections,
-          isManual: true,
-          manualPortId: port.id,
+          portId: port.id,
         } as BoundaryPortNodeData,
       });
     });
 
-    // Add manual output ports
-    (subprocessData?.manualOutputPorts || []).forEach((port: ManualPort) => {
+    // Add output ports (unified - from node's outputPorts array)
+    (subprocessData?.outputPorts || []).forEach((port: Port) => {
       // Get internal connections from the port's stored data
       const connections = port.internalConnections || [];
 
-      const portNodeId = `boundary-manual-output-${port.id}`;
+      const portNodeId = `boundary-out-${port.id}`;
       outputPorts.push({
         id: portNodeId,
         type: 'boundaryPort',
@@ -999,12 +954,11 @@ function FlowCanvasInner({
         data: {
           label: port.label,
           direction: 'output',
-          edgeId: `manual-${port.id}`, // Use manual port ID as edge reference
+          edgeId: `port-${port.id}`, // Use port ID as edge reference
           internalNodeId: connections[0]?.nodeId || '', // Primary connection or empty
           internalHandleId: connections[0]?.handleId || null,
           allInternalConnections: connections,
-          isManual: true,
-          manualPortId: port.id,
+          portId: port.id,
         } as BoundaryPortNodeData,
       });
     });
@@ -1085,7 +1039,7 @@ function FlowCanvasInner({
 
     // Add virtual edges from boundary port nodes to ALL internal nodes they connect to
     if (activeSubprocessId) {
-      // Add input edges: boundary-input-{edgeId} -> each internal target
+      // Add input edges: boundary-in-{portId} -> each internal target
       boundaryPortNodes.inputs.forEach((port) => {
         const portData = port.data as BoundaryPortNodeData;
         const connections = portData.allInternalConnections || [
@@ -1097,11 +1051,10 @@ function FlowCanvasInner({
 
         // Create an edge to each internal connection
         connections.forEach((conn, index) => {
-          const edgeId = portData.isManual
-            ? `boundary-edge-manual-input-${portData.manualPortId}${index > 0 ? `-${index}` : ''}`
-            : (index === 0
-              ? `boundary-edge-input-${portData.edgeId}`
-              : `boundary-edge-input-${portData.edgeId}-${index}`);
+          // Unified edge ID format: boundary-edge-in-{portId}-{index}
+          const edgeId = index === 0
+            ? `boundary-edge-in-${portData.portId}`
+            : `boundary-edge-in-${portData.portId}-${index}`;
 
           // Apply custom style if provided, otherwise use default style
           const customStyle = conn.style;
@@ -1135,15 +1088,14 @@ function FlowCanvasInner({
               originalEdgeId: portData.edgeId,
               direction: 'input',
               connectionIndex: index,
-              isManual: portData.isManual,
-              manualPortId: portData.manualPortId,
+              portId: portData.portId,
               subprocessId: activeSubprocessId,
             },
           } as FlowchartEdge);
         });
       });
 
-      // Add output edges: each internal source -> boundary-output-{edgeId}
+      // Add output edges: each internal source -> boundary-out-{portId}
       boundaryPortNodes.outputs.forEach((port) => {
         const portData = port.data as BoundaryPortNodeData;
         const connections = portData.allInternalConnections || [
@@ -1155,11 +1107,10 @@ function FlowCanvasInner({
 
         // Create an edge from each internal connection
         connections.forEach((conn, index) => {
-          const edgeId = portData.isManual
-            ? `boundary-edge-manual-output-${portData.manualPortId}${index > 0 ? `-${index}` : ''}`
-            : (index === 0
-              ? `boundary-edge-output-${portData.edgeId}`
-              : `boundary-edge-output-${portData.edgeId}-${index}`);
+          // Unified edge ID format: boundary-edge-out-{portId}-{index}
+          const edgeId = index === 0
+            ? `boundary-edge-out-${portData.portId}`
+            : `boundary-edge-out-${portData.portId}-${index}`;
 
           // Apply custom style if provided, otherwise use default style
           const customStyle = conn.style;
@@ -1193,8 +1144,7 @@ function FlowCanvasInner({
               originalEdgeId: portData.edgeId,
               direction: 'output',
               connectionIndex: index,
-              isManual: portData.isManual,
-              manualPortId: portData.manualPortId,
+              portId: portData.portId,
               subprocessId: activeSubprocessId,
             },
           } as FlowchartEdge);

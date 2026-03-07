@@ -5,7 +5,7 @@ import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { TagInput } from '../common/TagInput';
 import { RoleSelect } from '../common/RoleSelect';
-import type { ProcessNodeData, UnitType, FrequencyType, ProcessNodeType, ManualPort } from '../../types';
+import type { ProcessNodeData, UnitType, FrequencyType, ProcessNodeType, Port } from '../../types';
 import { Plus, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
 
 // ============================================================================
@@ -137,7 +137,7 @@ export const NodePropertiesPanel: React.FC = () => {
     return Array.from(roleSet).sort();
   }, [nodes]);
 
-  // Compute all ports (edge-based + manual) for subprocess nodes
+  // Compute all ports (edge-based + stored) for subprocess nodes
   const { allInputPorts, allOutputPorts } = useMemo(() => {
     if (!selectedNode || (selectedNode.data as ProcessNodeData).nodeType !== 'subprocess') {
       return { allInputPorts: [], allOutputPorts: [] };
@@ -145,14 +145,14 @@ export const NodePropertiesPanel: React.FC = () => {
 
     const nodeId = selectedNode.id;
     const nodeData = selectedNode.data as ProcessNodeData;
-    const inputs: { id: string; label: string; isManual: boolean; edgeId?: string; direction: 'input' | 'output' }[] = [];
-    const outputs: { id: string; label: string; isManual: boolean; edgeId?: string; direction: 'input' | 'output' }[] = [];
+    const inputs: { id: string; label: string; edgeId?: string; direction: 'input' | 'output' }[] = [];
+    const outputs: { id: string; label: string; edgeId?: string; direction: 'input' | 'output' }[] = [];
 
     // Add edge-based ports
     edges.forEach((edge) => {
       // Incoming edge (external -> subprocess) - input port
       if (edge.target === nodeId && (edge.originalTarget || edge.originalTargets)) {
-        const portId = edge.targetHandle || `input-${edge.source}`;
+        const portId = edge.targetHandle || `port-in-${edge.id}`;
         const internalTargets = edge.originalTargets || [
           { nodeId: edge.originalTarget!, handleId: edge.originalTargetHandle }
         ];
@@ -162,7 +162,6 @@ export const NodePropertiesPanel: React.FC = () => {
         inputs.push({
           id: portId,
           label: (edge.data as { portLabel?: string })?.portLabel || defaultLabel,
-          isManual: false,
           edgeId: edge.id,
           direction: 'input',
         });
@@ -170,7 +169,7 @@ export const NodePropertiesPanel: React.FC = () => {
 
       // Outgoing edge (subprocess -> external) - output port
       if (edge.source === nodeId && (edge.originalSource || edge.originalSources)) {
-        const portId = edge.sourceHandle || `output-${edge.target}`;
+        const portId = edge.sourceHandle || `port-out-${edge.id}`;
         const internalSources = edge.originalSources || [
           { nodeId: edge.originalSource!, handleId: edge.originalSourceHandle }
         ];
@@ -180,34 +179,31 @@ export const NodePropertiesPanel: React.FC = () => {
         outputs.push({
           id: portId,
           label: (edge.data as { portLabel?: string })?.portLabel || defaultLabel,
-          isManual: false,
           edgeId: edge.id,
           direction: 'output',
         });
       }
     });
 
-    // Add manual ports
+    // Add stored ports
     const existingInputIds = new Set(inputs.map(p => p.id));
     const existingOutputIds = new Set(outputs.map(p => p.id));
 
-    (nodeData.manualInputPorts || []).forEach((port: ManualPort) => {
+    (nodeData.inputPorts || []).forEach((port: Port) => {
       if (!existingInputIds.has(port.id)) {
         inputs.push({
           id: port.id,
           label: port.label || 'Input',
-          isManual: true,
           direction: 'input',
         });
       }
     });
 
-    (nodeData.manualOutputPorts || []).forEach((port: ManualPort) => {
+    (nodeData.outputPorts || []).forEach((port: Port) => {
       if (!existingOutputIds.has(port.id)) {
         outputs.push({
           id: port.id,
           label: port.label || 'Output',
-          isManual: true,
           direction: 'output',
         });
       }
@@ -216,31 +212,32 @@ export const NodePropertiesPanel: React.FC = () => {
     return { allInputPorts: inputs, allOutputPorts: outputs };
   }, [selectedNode, edges, nodes]);
 
-  // Handler for updating port label (works for both manual and edge-based ports)
-  const handlePortLabelChange = useCallback((port: { id: string; label: string; isManual: boolean; edgeId?: string; direction: 'input' | 'output' }, newLabel: string) => {
+  // Handler for updating port label
+  const handlePortLabelChange = useCallback((port: { id: string; label: string; edgeId?: string; direction: 'input' | 'output' }, newLabel: string) => {
     if (!selectedNode) return;
 
-    if (port.isManual) {
-      updateManualPort(selectedNode.id, port.id, { label: newLabel });
-    } else if (port.edgeId) {
-      // Find the edge and merge the portLabel into its data
+    if (port.edgeId) {
+      // Edge-based port: update the edge's portLabel
       const edge = edges.find(e => e.id === port.edgeId);
       if (edge) {
         updateEdge(port.edgeId, { data: { ...(edge.data as Record<string, unknown>), portLabel: newLabel } });
       }
+    } else {
+      // Stored port: update the port's label
+      updateManualPort(selectedNode.id, port.id, { label: newLabel });
     }
   }, [selectedNode, updateManualPort, updateEdge, edges]);
 
-  // Handler for deleting port (works for both manual and edge-based ports)
-  const handlePortDelete = useCallback((port: { id: string; label: string; isManual: boolean; edgeId?: string; direction: 'input' | 'output' }) => {
+  // Handler for deleting port
+  const handlePortDelete = useCallback((port: { id: string; label: string; edgeId?: string; direction: 'input' | 'output' }) => {
     if (!selectedNode) return;
 
-    if (port.isManual) {
-      deleteManualPort(selectedNode.id, port.id);
-    } else if (port.edgeId) {
+    if (port.edgeId) {
       // For edge-based ports, just delete the edge
-      // The deleteEdge function in the store will automatically create a manual port
       deleteEdge(port.edgeId);
+    } else {
+      // For stored ports, delete the port
+      deleteManualPort(selectedNode.id, port.id);
     }
     // Force React Flow to recalculate handle positions
     updateNodeInternals(selectedNode.id);

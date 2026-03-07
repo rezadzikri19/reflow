@@ -64,25 +64,25 @@ const DEFAULT_REGULAR_DASH = ''; // Solid for regular connections
  * Check if an edge ID represents a virtual boundary edge
  */
 function isBoundaryEdge(edgeId: string): boolean {
-  return edgeId.startsWith('boundary-edge-input-') || edgeId.startsWith('boundary-edge-output-');
+  return edgeId.startsWith('boundary-edge-in-') || edgeId.startsWith('boundary-edge-out-');
 }
 
 /**
- * Parse boundary edge ID to extract original edge ID, direction, and connection index
+ * Parse boundary edge ID to extract port ID, direction, and connection index
  */
-function parseBoundaryEdgeId(edgeId: string): { originalEdgeId: string; direction: 'input' | 'output'; connectionIndex: number } | null {
-  const inputMatch = edgeId.match(/^boundary-edge-input-(.+?)(?:-(\d+))?$/);
-  const outputMatch = edgeId.match(/^boundary-edge-output-(.+?)(?:-(\d+))?$/);
+function parseBoundaryEdgeId(edgeId: string): { portId: string; direction: 'input' | 'output'; connectionIndex: number } | null {
+  const inputMatch = edgeId.match(/^boundary-edge-in-(.+?)(?:-(\d+))?$/);
+  const outputMatch = edgeId.match(/^boundary-edge-out-(.+?)(?:-(\d+))?$/);
 
   if (inputMatch) {
     return {
-      originalEdgeId: inputMatch[1],
+      portId: inputMatch[1],
       direction: 'input',
       connectionIndex: inputMatch[2] ? parseInt(inputMatch[2], 10) : 0,
     };
   } else if (outputMatch) {
     return {
-      originalEdgeId: outputMatch[1],
+      portId: outputMatch[1],
       direction: 'output',
       connectionIndex: outputMatch[2] ? parseInt(outputMatch[2], 10) : 0,
     };
@@ -129,12 +129,13 @@ export const EdgePropertiesPanel: React.FC = () => {
   const boundaryConnectionData = useMemo(() => {
     if (!isBoundary || !boundaryInfo) return null;
 
-    const originalEdge = edges.find((e) => e.id === boundaryInfo.originalEdgeId);
-    if (!originalEdge) return null;
+    // Find the edge that corresponds to this port
+    const edge = edges.find((e) => e.id === boundaryInfo.portId);
+    if (!edge) return null;
 
     const connections = boundaryInfo.direction === 'input'
-      ? originalEdge.originalTargets
-      : originalEdge.originalSources;
+      ? edge.originalTargets
+      : edge.originalSources;
 
     if (!connections || !connections[boundaryInfo.connectionIndex]) return null;
 
@@ -149,7 +150,7 @@ export const EdgePropertiesPanel: React.FC = () => {
         // Update boundary connection edge type
         const currentStyle = boundaryConnectionData?.style || {};
         updateBoundaryConnectionStyle(
-          boundaryInfo.originalEdgeId,
+          boundaryInfo.portId,
           boundaryInfo.direction,
           boundaryInfo.connectionIndex,
           { ...currentStyle, edgeType: newType },
@@ -173,7 +174,7 @@ export const EdgePropertiesPanel: React.FC = () => {
       if (isBoundary && boundaryInfo) {
         // Update boundary connection label
         updateBoundaryConnectionStyle(
-          boundaryInfo.originalEdgeId,
+          boundaryInfo.portId,
           boundaryInfo.direction,
           boundaryInfo.connectionIndex,
           undefined,
@@ -197,7 +198,7 @@ export const EdgePropertiesPanel: React.FC = () => {
         // Update boundary connection color
         const currentStyle = boundaryConnectionData?.style || {};
         updateBoundaryConnectionStyle(
-          boundaryInfo.originalEdgeId,
+          boundaryInfo.portId,
           boundaryInfo.direction,
           boundaryInfo.connectionIndex,
           { ...currentStyle, stroke: newColor },
@@ -224,7 +225,7 @@ export const EdgePropertiesPanel: React.FC = () => {
         // Update boundary connection dash pattern
         const currentStyle = boundaryConnectionData?.style || {};
         updateBoundaryConnectionStyle(
-          boundaryInfo.originalEdgeId,
+          boundaryInfo.portId,
           boundaryInfo.direction,
           boundaryInfo.connectionIndex,
           { ...currentStyle, strokeDasharray: newDash || undefined },
@@ -250,16 +251,16 @@ export const EdgePropertiesPanel: React.FC = () => {
 
     if (isBoundary && boundaryInfo) {
       // For boundary edges, remove the specific connection
-      const originalEdge = edges.find((e) => e.id === boundaryInfo.originalEdgeId);
-      if (originalEdge) {
+      const edge = edges.find((e) => e.id === boundaryInfo.portId);
+      if (edge) {
         const connections = boundaryInfo.direction === 'input'
-          ? originalEdge.originalTargets
-          : originalEdge.originalSources;
+          ? edge.originalTargets
+          : edge.originalSources;
 
         if (connections && connections[boundaryInfo.connectionIndex]) {
           const conn = connections[boundaryInfo.connectionIndex];
           removeBoundaryPortConnection(
-            boundaryInfo.originalEdgeId,
+            boundaryInfo.portId,
             boundaryInfo.direction,
             conn.nodeId,
             conn.handleId

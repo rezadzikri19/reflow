@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 import { Position, type NodeProps } from '@xyflow/react';
 import { Layers, ExternalLink, ArrowLeft, ArrowRight } from 'lucide-react';
-import type { ProcessNodeData, ManualPort } from '../../../types/index';
+import type { ProcessNodeData, Port } from '../../../types/index';
 import NodeTags from './NodeTags';
 import FlowOrderBadge from './FlowOrderBadge';
 import { useFlowOrder } from '../../../contexts/FlowOrderContext';
@@ -24,14 +24,13 @@ const getPortPosition = (index: number, total: number): string => {
 };
 
 /**
- * Extended port info for rendering (includes manual port flag)
+ * Extended port info for rendering
  */
 interface PortRenderInfo {
   id: string;
   internalNodeId: string;
   internalHandleId?: string | null;
   direction: 'input' | 'output';
-  isManual: boolean;
   label?: string;
 }
 
@@ -40,7 +39,7 @@ interface PortRenderInfo {
 // =============================================================================
 
 function SubprocessNode({ data, selected, id }: NodeProps) {
-  const { label = 'Subprocess', description, tags, childNodeIds = [], manualInputPorts = [], manualOutputPorts = [], locked } = (data as ProcessNodeData) || {};
+  const { label = 'Subprocess', description, tags, childNodeIds = [], inputPorts = [], outputPorts = [], locked } = (data as ProcessNodeData) || {};
   const openSubprocessSheet = useFlowchartStore((state) => state.openSubprocessSheet);
   const edges = useFlowchartStore((state) => state.edges);
   const nodeVersion = useFlowchartStore((state) => state.nodeVersion);
@@ -50,8 +49,8 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
   // Get child count from childNodeIds array directly
   const childCount = childNodeIds.length;
 
-  // Compute input/output ports from edges AND manual ports
-  const { inputPorts, outputPorts } = useMemo(() => {
+  // Compute input/output ports from edges AND stored ports
+  const { inputPorts: computedInputPorts, outputPorts: computedOutputPorts } = useMemo(() => {
     const inputs: PortRenderInfo[] = [];
     const outputs: PortRenderInfo[] = [];
 
@@ -60,8 +59,8 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
       // Incoming edge (external -> subprocess) - this is an input port
       // Check for both originalTarget (single connection) and originalTargets (multiple connections)
       if (edge.target === id && (edge.originalTarget || edge.originalTargets)) {
-        // Get the targetHandle which contains the port ID (e.g., "input-{externalSourceId}")
-        const portId = edge.targetHandle || `input-${edge.source}`;
+        // Get the targetHandle which contains the port ID (e.g., "port-in-{uuid}")
+        const portId = edge.targetHandle || `port-in-${edge.source}`;
 
         // If we have multiple internal targets, use the first one for the port display
         const internalTargets = edge.originalTargets || [
@@ -73,15 +72,14 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
           internalNodeId: internalTargets[0].nodeId,
           internalHandleId: internalTargets[0].handleId,
           direction: 'input',
-          isManual: false,
         });
       }
 
       // Outgoing edge (subprocess -> external) - this is an output port
       // Check for both originalSource (single connection) and originalSources (multiple connections)
       if (edge.source === id && (edge.originalSource || edge.originalSources)) {
-        // Get the sourceHandle which contains the port ID (e.g., "output-{externalTargetId}")
-        const portId = edge.sourceHandle || `output-${edge.target}`;
+        // Get the sourceHandle which contains the port ID (e.g., "port-out-{uuid}")
+        const portId = edge.sourceHandle || `port-out-${edge.target}`;
 
         // If we have multiple internal sources, use the first one for the port display
         const internalSources = edge.originalSources || [
@@ -93,45 +91,42 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
           internalNodeId: internalSources[0].nodeId,
           internalHandleId: internalSources[0].handleId,
           direction: 'output',
-          isManual: false,
         });
       }
     });
 
-    // Then, add manual ports (avoiding duplicates if a manual port has the same ID as an edge port)
+    // Then, add stored ports (avoiding duplicates)
     const existingInputIds = new Set(inputs.map(p => p.id));
     const existingOutputIds = new Set(outputs.map(p => p.id));
 
-    // Add manual input ports
-    (manualInputPorts as ManualPort[]).forEach((port) => {
+    // Add stored input ports
+    (inputPorts as Port[]).forEach((port) => {
       if (!existingInputIds.has(port.id)) {
         inputs.push({
           id: port.id,
-          internalNodeId: '', // Manual ports don't have a specific internal node until connected
-          internalHandleId: null,
+          internalNodeId: port.internalConnections?.[0]?.nodeId || '',
+          internalHandleId: port.internalConnections?.[0]?.handleId || null,
           direction: 'input',
-          isManual: true,
           label: port.label,
         });
       }
     });
 
-    // Add manual output ports
-    (manualOutputPorts as ManualPort[]).forEach((port) => {
+    // Add stored output ports
+    (outputPorts as Port[]).forEach((port) => {
       if (!existingOutputIds.has(port.id)) {
         outputs.push({
           id: port.id,
-          internalNodeId: '', // Manual ports don't have a specific internal node until connected
-          internalHandleId: null,
+          internalNodeId: port.internalConnections?.[0]?.nodeId || '',
+          internalHandleId: port.internalConnections?.[0]?.handleId || null,
           direction: 'output',
-          isManual: true,
           label: port.label,
         });
       }
     });
 
     return { inputPorts: inputs, outputPorts: outputs };
-  }, [edges, id, manualInputPorts, manualOutputPorts, nodeVersion]);
+  }, [edges, id, inputPorts, outputPorts, nodeVersion]);
 
   // Handle opening the subprocess sheet
   const handleOpenSheet = useCallback((e: React.MouseEvent) => {
@@ -163,9 +158,9 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
       <FlowOrderBadge order={flowOrder} />
 
       {/* Dynamic Input Handles - Left side for incoming connections */}
-      {/* Only render handles when there are actual ports (manual or edge-based) */}
+      {/* Only render handles when there are actual ports */}
       {/* Using HybridHandle with forceType="target" for input ports */}
-      {inputPorts.map((port, index) => (
+      {computedInputPorts.map((port, index) => (
         <HybridHandle
           key={port.id}
           position={Position.Left}
@@ -173,14 +168,14 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
           nodeId={id}
           nodeColor="purple"
           forceType="target"
-          style={{ top: getPortPosition(index, inputPorts.length) }}
+          style={{ top: getPortPosition(index, computedInputPorts.length) }}
         />
       ))}
 
       {/* Dynamic Output Handles - Right side for outgoing connections */}
-      {/* Only render handles when there are actual ports (manual or edge-based) */}
+      {/* Only render handles when there are actual ports */}
       {/* Using HybridHandle with forceType="source" for output ports */}
-      {outputPorts.map((port, index) => (
+      {computedOutputPorts.map((port, index) => (
         <HybridHandle
           key={port.id}
           position={Position.Right}
@@ -188,7 +183,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
           nodeId={id}
           nodeColor="purple"
           forceType="source"
-          style={{ top: getPortPosition(index, outputPorts.length) }}
+          style={{ top: getPortPosition(index, computedOutputPorts.length) }}
         />
       ))}
 
@@ -216,18 +211,18 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
           </div>
 
           {/* Port count indicators */}
-          {(inputPorts.length > 0 || outputPorts.length > 0) && (
+          {(computedInputPorts.length > 0 || computedOutputPorts.length > 0) && (
             <div className="flex items-center gap-2 text-xs text-purple-100">
-              {inputPorts.length > 0 && (
-                <div className="flex items-center gap-0.5" title={`${inputPorts.length} input${inputPorts.length !== 1 ? 's' : ''}`}>
+              {computedInputPorts.length > 0 && (
+                <div className="flex items-center gap-0.5" title={`${computedInputPorts.length} input${computedInputPorts.length !== 1 ? 's' : ''}`}>
                   <ArrowLeft className="w-3 h-3" />
-                  <span>{inputPorts.length}</span>
+                  <span>{computedInputPorts.length}</span>
                 </div>
               )}
-              {outputPorts.length > 0 && (
-                <div className="flex items-center gap-0.5" title={`${outputPorts.length} output${outputPorts.length !== 1 ? 's' : ''}`}>
+              {computedOutputPorts.length > 0 && (
+                <div className="flex items-center gap-0.5" title={`${computedOutputPorts.length} output${computedOutputPorts.length !== 1 ? 's' : ''}`}>
                   <ArrowRight className="w-3 h-3" />
-                  <span>{outputPorts.length}</span>
+                  <span>{computedOutputPorts.length}</span>
                 </div>
               )}
             </div>

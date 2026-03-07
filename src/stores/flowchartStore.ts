@@ -9,7 +9,7 @@ import type {
   ProcessNodeType,
   EdgeType,
   EdgeStyleOptions,
-  ManualPort,
+  Port,
   InternalNodeConnection,
   FrequencyType,
   UnitType,
@@ -22,6 +22,9 @@ import {
 import type {
   FlowchartRecord,
 } from '../db/database';
+
+// Re-export the FlowchartRecord type for use in migration functions
+type FlowchartRecordWithVersion = FlowchartRecord & { version?: number };
 import {
   saveFlowchart as dbSaveFlowchart,
   loadFlowchart as dbLoadFlowchart,
@@ -31,7 +34,7 @@ import {
 // Migration Utilities
 // =============================================================================
 
-const CURRENT_SCHEMA_VERSION = 2;
+const CURRENT_SCHEMA_VERSION = 3;
 
 /**
  * Migrate legacy flowchart format (v1: direct nodes/edges) to new sheet format (v2)
@@ -54,6 +57,109 @@ function migrateToSheetFormat(legacy: LegacyFlowchart): Sheet[] {
 function isLegacyFormat(record: FlowchartRecord): boolean {
   // Legacy format has nodes/edges at root level
   return 'nodes' in record && Array.isArray((record as unknown as LegacyFlowchart).nodes);
+}
+
+/**
+ * Migrate port property names and ID formats
+ * - Renames inputPorts → inputPorts, outputPorts → outputPorts
+ * - Converts old port ID formats to new unified format:
+ *   - "manual-input-{uuid}" → "port-in-{uuid}"
+ *   - "manual-output-{uuid}" → "port-out-{uuid}"
+ *   - "input-{externalNodeId}" → "port-in-{uuid}" (generates new UUID)
+ *   - "output-{externalNodeId}" → "port-out-{uuid}" (generates new UUID)
+ */
+function migratePorts(node: FlowchartNode): FlowchartNode {
+  if (node.type !== 'subprocess') return node;
+
+  const data = node.data as ProcessNodeData;
+  const migratedData = { ...data };
+  let hasChanges = false;
+
+  // Migrate manualInputPorts → inputPorts
+  if (data.manualInputPorts && !data.inputPorts) {
+    hasChanges = true;
+    migratedData.inputPorts = (data.manualInputPorts as Port[]).map(port => {
+      let newId = port.id;
+      // Convert old ID formats to new unified format
+      if (port.id.startsWith('manual-input-')) {
+        newId = port.id.replace('manual-input-', 'port-in-');
+      } else if (port.id.startsWith('input-') && !port.id.startsWith('port-in-')) {
+        // Old auto-created format - generate new UUID
+        newId = `port-in-${uuidv4()}`;
+      }
+      return { ...port, id: newId };
+    });
+    delete migratedData.manualInputPorts;
+  }
+
+  // Migrate manualOutputPorts → outputPorts
+  if (data.manualOutputPorts && !data.outputPorts) {
+    hasChanges = true;
+    migratedData.outputPorts = (data.manualOutputPorts as Port[]).map(port => {
+      let newId = port.id;
+      // Convert old ID formats to new unified format
+      if (port.id.startsWith('manual-output-')) {
+        newId = port.id.replace('manual-output-', 'port-out-');
+      } else if (port.id.startsWith('output-') && !port.id.startsWith('port-out-')) {
+        // Old auto-created format - generate new UUID
+        newId = `port-out-${uuidv4()}`;
+      }
+      return { ...port, id: newId };
+    });
+    delete migratedData.manualOutputPorts;
+  }
+
+  // Also check for existing inputPorts/outputPorts that might have old ID formats
+  if (data.inputPorts) {
+    const migratedInputPorts = data.inputPorts.map(port => {
+      let newId = port.id;
+      if (port.id.startsWith('manual-input-')) {
+        newId = port.id.replace('manual-input-', 'port-in-');
+      } else if (port.id.startsWith('input-') && !port.id.startsWith('port-in-')) {
+        newId = `port-in-${uuidv4()}`;
+      }
+      return newId !== port.id ? { ...port, id: newId } : port;
+    });
+    if (migratedInputPorts.some((p, i) => p.id !== data.inputPorts![i].id)) {
+      hasChanges = true;
+      migratedData.inputPorts = migratedInputPorts;
+    }
+  }
+
+  if (data.outputPorts) {
+    const migratedOutputPorts = data.outputPorts.map(port => {
+      let newId = port.id;
+      if (port.id.startsWith('manual-output-')) {
+        newId = port.id.replace('manual-output-', 'port-out-');
+      } else if (port.id.startsWith('output-') && !port.id.startsWith('port-out-')) {
+        newId = `port-out-${uuidv4()}`;
+      }
+      return newId !== port.id ? { ...port, id: newId } : port;
+    });
+    if (migratedOutputPorts.some((p, i) => p.id !== data.outputPorts![i].id)) {
+      hasChanges = true;
+      migratedData.outputPorts = migratedOutputPorts;
+    }
+  }
+
+  return hasChanges ? { ...node, data: migratedData } : node;
+}
+
+/**
+ * Migrate a sheet's nodes to the new port format
+ */
+function migrateSheetPorts(sheet: Sheet): Sheet {
+  return {
+    ...sheet,
+    nodes: sheet.nodes.map(migratePorts),
+  };
+}
+
+/**
+ * Check if a record needs port migration (schema version < 3)
+ */
+function needsPortMigration(record: FlowchartRecordWithVersion): boolean {
+  return !record.version || record.version < 3;
 }
 
 // =============================================================================
@@ -263,7 +369,7 @@ interface FlowchartActions {
   ) => void;
   // Manual port actions for subprocess nodes
   addManualPort: (subprocessId: string, direction: 'input' | 'output', label?: string) => string;
-  updateManualPort: (subprocessId: string, portId: string, updates: Partial<Pick<ManualPort, 'label' | 'position'>>) => void;
+  updateManualPort: (subprocessId: string, portId: string, updates: Partial<Pick<Port, 'label' | 'position'>>) => void;
   deleteManualPort: (subprocessId: string, portId: string) => void;
   // Manual port internal connection actions
   addManualPortConnection: (
@@ -651,41 +757,41 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
               // Find all edges where this node is the source (connected to subprocess manual input ports)
               sheet.edges.forEach((edge) => {
-                if (edge.source === nodeId && edge.targetHandle?.startsWith('manual-input-')) {
-                  // Find the target subprocess node and update the manual input port label
+                if (edge.source === nodeId && edge.targetHandle?.startsWith('port-in-')) {
+                  // Find the target subprocess node and update the input port label
                   const targetNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.target);
                   if (targetNodeIndex !== -1) {
                     const targetNode = sheet.nodes[targetNodeIndex];
                     if (targetNode.type === 'subprocess') {
                       const targetData = targetNode.data as ProcessNodeData;
-                      const manualInputPorts = targetData.manualInputPorts || [];
-                      const portIndex = manualInputPorts.findIndex(p => p.id === edge.targetHandle);
+                      const inputPorts = targetData.inputPorts || [];
+                      const portIndex = inputPorts.findIndex(p => p.id === edge.targetHandle);
                       if (portIndex !== -1) {
-                        manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: newLabel };
+                        inputPorts[portIndex] = { ...inputPorts[portIndex], label: newLabel };
                         sheet.nodes[targetNodeIndex] = {
                           ...targetNode,
-                          data: { ...targetData, manualInputPorts: [...manualInputPorts] },
+                          data: { ...targetData, inputPorts: [...inputPorts] },
                         } as FlowchartNode;
                       }
                     }
                   }
                 }
 
-                // Find all edges where this node is the target (connected from subprocess manual output ports)
-                if (edge.target === nodeId && edge.sourceHandle?.startsWith('manual-output-')) {
-                  // Find the source subprocess node and update the manual output port label
+                // Find all edges where this node is the target (connected from subprocess output ports)
+                if (edge.target === nodeId && edge.sourceHandle?.startsWith('port-out-')) {
+                  // Find the source subprocess node and update the output port label
                   const sourceNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.source);
                   if (sourceNodeIndex !== -1) {
                     const sourceNode = sheet.nodes[sourceNodeIndex];
                     if (sourceNode.type === 'subprocess') {
                       const sourceData = sourceNode.data as ProcessNodeData;
-                      const manualOutputPorts = sourceData.manualOutputPorts || [];
-                      const portIndex = manualOutputPorts.findIndex(p => p.id === edge.sourceHandle);
+                      const outputPorts = sourceData.outputPorts || [];
+                      const portIndex = outputPorts.findIndex(p => p.id === edge.sourceHandle);
                       if (portIndex !== -1) {
-                        manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: newLabel };
+                        outputPorts[portIndex] = { ...outputPorts[portIndex], label: newLabel };
                         sheet.nodes[sourceNodeIndex] = {
                           ...sourceNode,
-                          data: { ...sourceData, manualOutputPorts: [...manualOutputPorts] },
+                          data: { ...sourceData, outputPorts: [...outputPorts] },
                         } as FlowchartNode;
                       }
                     }
@@ -840,14 +946,14 @@ export const useFlowchartStore = create<FlowchartStore>()(
         const normalizedTargetHandle = targetHandle || null;
         const id = `edge-${source}-${normalizedSourceHandle || 'default'}-${target}-${normalizedTargetHandle || 'default'}`;
 
-        // Check if connecting to a manual port that might not have a handle rendered yet
-        const isManualPortConnection =
-          (normalizedTargetHandle && normalizedTargetHandle.startsWith('manual-input-')) ||
-          (normalizedSourceHandle && normalizedSourceHandle.startsWith('manual-output-'));
+        // Check if connecting to a port that might not have a handle rendered yet
+        const isPortConnection =
+          (normalizedTargetHandle && normalizedTargetHandle.startsWith('port-in-')) ||
+          (normalizedSourceHandle && normalizedSourceHandle.startsWith('port-out-'));
 
-        // For manual port connections, we need to ensure the handle exists before adding the edge
+        // For port connections, we need to ensure the handle exists before adding the edge
         // Increment nodeVersion first in a separate update to trigger re-render
-        if (isManualPortConnection) {
+        if (isPortConnection) {
           set((state) => {
             state.nodeVersion += 1;
           });
@@ -881,37 +987,37 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 state.edgeVersion += 1;
                 state.isDirty = true;
 
-                // Update manual port labels when connecting external nodes
-                if (normalizedTargetHandle && normalizedTargetHandle.startsWith('manual-input-')) {
+                // Update port labels when connecting external nodes
+                if (normalizedTargetHandle && normalizedTargetHandle.startsWith('port-in-')) {
                   const targetNode = sheet.nodes.find(n => n.id === target);
                   if (targetNode && targetNode.type === 'subprocess') {
                     const sourceNode = sheet.nodes.find(n => n.id === source);
                     const sourceLabel = (sourceNode?.data as ProcessNodeData)?.label || 'Unknown';
-                    const manualInputPorts = (targetNode.data as ProcessNodeData).manualInputPorts || [];
-                    const portIndex = manualInputPorts.findIndex(p => p.id === normalizedTargetHandle);
+                    const inputPorts = (targetNode.data as ProcessNodeData).inputPorts || [];
+                    const portIndex = inputPorts.findIndex(p => p.id === normalizedTargetHandle);
                     if (portIndex !== -1) {
-                      manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: sourceLabel };
+                      inputPorts[portIndex] = { ...inputPorts[portIndex], label: sourceLabel };
                       sheet.nodes = sheet.nodes.map(n =>
                         n.id === target
-                          ? { ...n, data: { ...n.data, manualInputPorts: [...manualInputPorts] } } as FlowchartNode
+                          ? { ...n, data: { ...n.data, inputPorts: [...inputPorts] } } as FlowchartNode
                           : n
                       );
                     }
                   }
                 }
 
-                if (normalizedSourceHandle && normalizedSourceHandle.startsWith('manual-output-')) {
+                if (normalizedSourceHandle && normalizedSourceHandle.startsWith('port-out-')) {
                   const sourceNode = sheet.nodes.find(n => n.id === source);
                   if (sourceNode && sourceNode.type === 'subprocess') {
                     const targetNode = sheet.nodes.find(n => n.id === target);
                     const targetLabel = (targetNode?.data as ProcessNodeData)?.label || 'Unknown';
-                    const manualOutputPorts = (sourceNode.data as ProcessNodeData).manualOutputPorts || [];
-                    const portIndex = manualOutputPorts.findIndex(p => p.id === normalizedSourceHandle);
+                    const outputPorts = (sourceNode.data as ProcessNodeData).outputPorts || [];
+                    const portIndex = outputPorts.findIndex(p => p.id === normalizedSourceHandle);
                     if (portIndex !== -1) {
-                      manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: targetLabel };
+                      outputPorts[portIndex] = { ...outputPorts[portIndex], label: targetLabel };
                       sheet.nodes = sheet.nodes.map(n =>
                         n.id === source
-                          ? { ...n, data: { ...n.data, manualOutputPorts: [...manualOutputPorts] } } as FlowchartNode
+                          ? { ...n, data: { ...n.data, outputPorts: [...outputPorts] } } as FlowchartNode
                           : n
                       );
                     }
@@ -991,26 +1097,26 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
           // Check if this is an incoming edge to a subprocess (input port)
           // Skip if already connected to a manual port
-          if (edge.target && edge.originalTarget && !edge.targetHandle?.startsWith('manual-input-')) {
+          if (edge.target && edge.originalTarget && !edge.targetHandle?.startsWith('port-in-')) {
             const targetNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.target);
             if (targetNodeIndex !== -1) {
               const targetNode = sheet.nodes[targetNodeIndex];
               if (targetNode.type === 'subprocess') {
                 const targetData = targetNode.data as ProcessNodeData;
-                const manualInputPorts = targetData.manualInputPorts || [];
+                const inputPorts = targetData.inputPorts || [];
 
                 // Get label from edge data, or generate based on existing port count
                 const existingPortLabel = (edge.data as { portLabel?: string })?.portLabel;
-                const portLabel = existingPortLabel || `Input ${manualInputPorts.length + 1}`;
+                const portLabel = existingPortLabel || `Input ${inputPorts.length + 1}`;
 
                 // Check if a manual port with this label already exists
-                const existingPortWithLabel = manualInputPorts.find(p => p.label === portLabel);
+                const existingPortWithLabel = inputPorts.find(p => p.label === portLabel);
 
                 if (!existingPortWithLabel) {
-                  // Create a new manual input port only if one with the same label doesn't exist
+                  // Create a new input port only if one with the same label doesn't exist
                   // Preserve internal connections from the edge's originalTargets
-                  const newPort: ManualPort = {
-                    id: `manual-input-${uuidv4()}`,
+                  const newPort: Port = {
+                    id: `port-in-${uuidv4()}`,
                     direction: 'input',
                     label: portLabel,
                     internalConnections: edge.originalTargets ? [...edge.originalTargets] : undefined,
@@ -1020,7 +1126,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                     ...targetNode,
                     data: {
                       ...targetData,
-                      manualInputPorts: [...manualInputPorts, newPort],
+                      inputPorts: [...inputPorts, newPort],
                     },
                   } as FlowchartNode;
                 }
@@ -1030,26 +1136,26 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
           // Check if this is an outgoing edge from a subprocess (output port)
           // Skip if already connected to a manual port
-          if (edge.source && edge.originalSource && !edge.sourceHandle?.startsWith('manual-output-')) {
+          if (edge.source && edge.originalSource && !edge.sourceHandle?.startsWith('port-out-')) {
             const sourceNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.source);
             if (sourceNodeIndex !== -1) {
               const sourceNode = sheet.nodes[sourceNodeIndex];
               if (sourceNode.type === 'subprocess') {
                 const sourceData = sourceNode.data as ProcessNodeData;
-                const manualOutputPorts = sourceData.manualOutputPorts || [];
+                const outputPorts = sourceData.outputPorts || [];
 
                 // Get label from edge data, or generate based on existing port count
                 const existingPortLabel = (edge.data as { portLabel?: string })?.portLabel;
-                const portLabel = existingPortLabel || `Output ${manualOutputPorts.length + 1}`;
+                const portLabel = existingPortLabel || `Output ${outputPorts.length + 1}`;
 
                 // Check if a manual port with this label already exists
-                const existingPortWithLabel = manualOutputPorts.find(p => p.label === portLabel);
+                const existingPortWithLabel = outputPorts.find(p => p.label === portLabel);
 
                 if (!existingPortWithLabel) {
-                  // Create a new manual output port only if one with the same label doesn't exist
+                  // Create a new output port only if one with the same label doesn't exist
                   // Preserve internal connections from the edge's originalSources
-                  const newPort: ManualPort = {
-                    id: `manual-output-${uuidv4()}`,
+                  const newPort: Port = {
+                    id: `port-out-${uuidv4()}`,
                     direction: 'output',
                     label: portLabel,
                     internalConnections: edge.originalSources ? [...edge.originalSources] : undefined,
@@ -1059,7 +1165,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                     ...sourceNode,
                     data: {
                       ...sourceData,
-                      manualOutputPorts: [...manualOutputPorts, newPort],
+                      outputPorts: [...outputPorts, newPort],
                     },
                   } as FlowchartNode;
                 }
@@ -1068,21 +1174,21 @@ export const useFlowchartStore = create<FlowchartStore>()(
           }
 
           // Handle existing manual port label reset logic
-          if (edge.targetHandle?.startsWith('manual-input-')) {
+          if (edge.targetHandle?.startsWith('port-in-')) {
             const targetNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.target);
             if (targetNodeIndex !== -1) {
               const targetNode = sheet.nodes[targetNodeIndex];
               if (targetNode.type === 'subprocess') {
                 const targetData = targetNode.data as ProcessNodeData;
-                const manualInputPorts = targetData.manualInputPorts || [];
-                const portIndex = manualInputPorts.findIndex(p => p.id === edge.targetHandle);
+                const inputPorts = targetData.inputPorts || [];
+                const portIndex = inputPorts.findIndex(p => p.id === edge.targetHandle);
                 if (portIndex !== -1) {
                   // Reset to default label
                   const defaultLabel = `Input ${portIndex + 1}`;
-                  manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: defaultLabel };
+                  inputPorts[portIndex] = { ...inputPorts[portIndex], label: defaultLabel };
                   sheet.nodes[targetNodeIndex] = {
                     ...targetNode,
-                    data: { ...targetData, manualInputPorts: [...manualInputPorts] },
+                    data: { ...targetData, inputPorts: [...inputPorts] },
                   } as FlowchartNode;
                 }
               }
@@ -1090,21 +1196,21 @@ export const useFlowchartStore = create<FlowchartStore>()(
           }
 
           // Reset manual output port label if edge was connected from one
-          if (edge.sourceHandle?.startsWith('manual-output-')) {
+          if (edge.sourceHandle?.startsWith('port-out-')) {
             const sourceNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.source);
             if (sourceNodeIndex !== -1) {
               const sourceNode = sheet.nodes[sourceNodeIndex];
               if (sourceNode.type === 'subprocess') {
                 const sourceData = sourceNode.data as ProcessNodeData;
-                const manualOutputPorts = sourceData.manualOutputPorts || [];
-                const portIndex = manualOutputPorts.findIndex(p => p.id === edge.sourceHandle);
+                const outputPorts = sourceData.outputPorts || [];
+                const portIndex = outputPorts.findIndex(p => p.id === edge.sourceHandle);
                 if (portIndex !== -1) {
                   // Reset to default label
                   const defaultLabel = `Output ${portIndex + 1}`;
-                  manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: defaultLabel };
+                  outputPorts[portIndex] = { ...outputPorts[portIndex], label: defaultLabel };
                   sheet.nodes[sourceNodeIndex] = {
                     ...sourceNode,
-                    data: { ...sourceData, manualOutputPorts: [...manualOutputPorts] },
+                    data: { ...sourceData, outputPorts: [...outputPorts] },
                   } as FlowchartNode;
                 }
               }
@@ -1142,26 +1248,26 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
             // Check if this is an incoming edge to a subprocess (input port)
             // Skip if already connected to a manual port
-            if (edge.target && edge.originalTarget && !edge.targetHandle?.startsWith('manual-input-')) {
+            if (edge.target && edge.originalTarget && !edge.targetHandle?.startsWith('port-in-')) {
               const targetNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.target);
               if (targetNodeIndex !== -1) {
                 const targetNode = sheet.nodes[targetNodeIndex];
                 if (targetNode.type === 'subprocess') {
                   const targetData = targetNode.data as ProcessNodeData;
-                  const manualInputPorts = targetData.manualInputPorts || [];
+                  const inputPorts = targetData.inputPorts || [];
 
                   // Get label from edge data, or generate based on existing port count
                   const existingPortLabel = (edge.data as { portLabel?: string })?.portLabel;
-                  const portLabel = existingPortLabel || `Input ${manualInputPorts.length + 1}`;
+                  const portLabel = existingPortLabel || `Input ${inputPorts.length + 1}`;
 
                   // Check if a manual port with this label already exists
-                  const existingPortWithLabel = manualInputPorts.find(p => p.label === portLabel);
+                  const existingPortWithLabel = inputPorts.find(p => p.label === portLabel);
 
                   if (!existingPortWithLabel) {
-                    // Create a new manual input port only if one with the same label doesn't exist
+                    // Create a new input port only if one with the same label doesn't exist
                     // Preserve internal connections from the edge's originalTargets
-                    const newPort: ManualPort = {
-                      id: `manual-input-${uuidv4()}`,
+                    const newPort: Port = {
+                      id: `port-in-${uuidv4()}`,
                       direction: 'input',
                       label: portLabel,
                       internalConnections: edge.originalTargets ? [...edge.originalTargets] : undefined,
@@ -1171,7 +1277,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                       ...targetNode,
                       data: {
                         ...targetData,
-                        manualInputPorts: [...manualInputPorts, newPort],
+                        inputPorts: [...inputPorts, newPort],
                       },
                     } as FlowchartNode;
                   }
@@ -1181,26 +1287,26 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
             // Check if this is an outgoing edge from a subprocess (output port)
             // Skip if already connected to a manual port
-            if (edge.source && edge.originalSource && !edge.sourceHandle?.startsWith('manual-output-')) {
+            if (edge.source && edge.originalSource && !edge.sourceHandle?.startsWith('port-out-')) {
               const sourceNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.source);
               if (sourceNodeIndex !== -1) {
                 const sourceNode = sheet.nodes[sourceNodeIndex];
                 if (sourceNode.type === 'subprocess') {
                   const sourceData = sourceNode.data as ProcessNodeData;
-                  const manualOutputPorts = sourceData.manualOutputPorts || [];
+                  const outputPorts = sourceData.outputPorts || [];
 
                   // Get label from edge data, or generate based on existing port count
                   const existingPortLabel = (edge.data as { portLabel?: string })?.portLabel;
-                  const portLabel = existingPortLabel || `Output ${manualOutputPorts.length + 1}`;
+                  const portLabel = existingPortLabel || `Output ${outputPorts.length + 1}`;
 
                   // Check if a manual port with this label already exists
-                  const existingPortWithLabel = manualOutputPorts.find(p => p.label === portLabel);
+                  const existingPortWithLabel = outputPorts.find(p => p.label === portLabel);
 
                   if (!existingPortWithLabel) {
-                    // Create a new manual output port only if one with the same label doesn't exist
+                    // Create a new output port only if one with the same label doesn't exist
                     // Preserve internal connections from the edge's originalSources
-                    const newPort: ManualPort = {
-                      id: `manual-output-${uuidv4()}`,
+                    const newPort: Port = {
+                      id: `port-out-${uuidv4()}`,
                       direction: 'output',
                       label: portLabel,
                       internalConnections: edge.originalSources ? [...edge.originalSources] : undefined,
@@ -1210,7 +1316,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                       ...sourceNode,
                       data: {
                         ...sourceData,
-                        manualOutputPorts: [...manualOutputPorts, newPort],
+                        outputPorts: [...outputPorts, newPort],
                       },
                     } as FlowchartNode;
                   }
@@ -1219,20 +1325,20 @@ export const useFlowchartStore = create<FlowchartStore>()(
             }
 
             // Reset manual input port label if edge was connected to one
-            if (edge.targetHandle?.startsWith('manual-input-')) {
+            if (edge.targetHandle?.startsWith('port-in-')) {
               const targetNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.target);
               if (targetNodeIndex !== -1) {
                 const targetNode = sheet.nodes[targetNodeIndex];
                 if (targetNode.type === 'subprocess') {
                   const targetData = targetNode.data as ProcessNodeData;
-                  const manualInputPorts = targetData.manualInputPorts || [];
-                  const portIndex = manualInputPorts.findIndex(p => p.id === edge.targetHandle);
+                  const inputPorts = targetData.inputPorts || [];
+                  const portIndex = inputPorts.findIndex(p => p.id === edge.targetHandle);
                   if (portIndex !== -1) {
                     const defaultLabel = `Input ${portIndex + 1}`;
-                    manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: defaultLabel };
+                    inputPorts[portIndex] = { ...inputPorts[portIndex], label: defaultLabel };
                     sheet.nodes[targetNodeIndex] = {
                       ...targetNode,
-                      data: { ...targetData, manualInputPorts: [...manualInputPorts] },
+                      data: { ...targetData, inputPorts: [...inputPorts] },
                     } as FlowchartNode;
                   }
                 }
@@ -1240,20 +1346,20 @@ export const useFlowchartStore = create<FlowchartStore>()(
             }
 
             // Reset manual output port label if edge was connected from one
-            if (edge.sourceHandle?.startsWith('manual-output-')) {
+            if (edge.sourceHandle?.startsWith('port-out-')) {
               const sourceNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.source);
               if (sourceNodeIndex !== -1) {
                 const sourceNode = sheet.nodes[sourceNodeIndex];
                 if (sourceNode.type === 'subprocess') {
                   const sourceData = sourceNode.data as ProcessNodeData;
-                  const manualOutputPorts = sourceData.manualOutputPorts || [];
-                  const portIndex = manualOutputPorts.findIndex(p => p.id === edge.sourceHandle);
+                  const outputPorts = sourceData.outputPorts || [];
+                  const portIndex = outputPorts.findIndex(p => p.id === edge.sourceHandle);
                   if (portIndex !== -1) {
                     const defaultLabel = `Output ${portIndex + 1}`;
-                    manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: defaultLabel };
+                    outputPorts[portIndex] = { ...outputPorts[portIndex], label: defaultLabel };
                     sheet.nodes[sourceNodeIndex] = {
                       ...sourceNode,
-                      data: { ...sourceData, manualOutputPorts: [...manualOutputPorts] },
+                      data: { ...sourceData, outputPorts: [...outputPorts] },
                     } as FlowchartNode;
                   }
                 }
@@ -1325,12 +1431,14 @@ export const useFlowchartStore = create<FlowchartStore>()(
           if (isLegacyFormat(record)) {
             // Migrate to new sheet format
             const migratedSheets = migrateToSheetFormat(record as unknown as LegacyFlowchart);
+            // Also migrate port formats
+            const portMigratedSheets = migratedSheets.map(migrateSheetPorts);
 
             set((state) => {
               state.flowchartId = record.id;
               state.flowchartName = record.name;
-              state.sheets = migratedSheets;
-              state.activeSheetId = migratedSheets[0].id;
+              state.sheets = portMigratedSheets;
+              state.activeSheetId = portMigratedSheets[0].id;
               state.activeSubprocessId = null;
               state.subprocessNavigationStack = [];
               state.selectedNodeId = null;
@@ -1345,12 +1453,18 @@ export const useFlowchartStore = create<FlowchartStore>()(
             });
           } else {
             // New format (v2+)
-            const newRecord = record as unknown as { sheets: Sheet[]; activeSheetId: string };
+            const newRecord = record as unknown as { sheets: Sheet[]; activeSheetId: string; version?: number };
+
+            // Check if port migration is needed (version < 3)
+            const sheets = needsPortMigration(record as unknown as FlowchartRecord)
+              ? newRecord.sheets.map(migrateSheetPorts)
+              : newRecord.sheets;
+
             set((state) => {
               state.flowchartId = record.id;
               state.flowchartName = record.name;
-              state.sheets = newRecord.sheets;
-              state.activeSheetId = newRecord.activeSheetId || newRecord.sheets[0]?.id || DEFAULT_SHEET_ID;
+              state.sheets = sheets;
+              state.activeSheetId = newRecord.activeSheetId || sheets[0]?.id || DEFAULT_SHEET_ID;
               state.activeSubprocessId = null;
               state.subprocessNavigationStack = [];
               state.selectedNodeId = null;
@@ -1593,7 +1707,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
           // Use the first edge as the base, but track all internal connections
           const baseEdge = edges[0];
-          const portId = `input-${externalSourceId}`;
+          const portId = `port-in-${uuidv4()}`;
 
           mergedIncomingEdges.push({
             id: `edge-${externalSourceId}-${subprocessId}-input`,
@@ -1632,7 +1746,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
           // Use the first edge as the base, but track all internal connections
           const baseEdge = edges[0];
-          const portId = `output-${externalTargetId}`;
+          const portId = `port-out-${uuidv4()}`;
 
           mergedOutgoingEdges.push({
             id: `edge-${subprocessId}-${externalTargetId}-output`,
@@ -1689,8 +1803,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
         get().saveSnapshot('Ungroup subprocess');
 
         const childIds = new Set(subprocessNode.data.childNodeIds || []);
-        const manualInputPorts = (subprocessNode.data.manualInputPorts || []) as ManualPort[];
-        const manualOutputPorts = (subprocessNode.data.manualOutputPorts || []) as ManualPort[];
+        const inputPorts = (subprocessNode.data.inputPorts || []) as Port[];
+        const outputPorts = (subprocessNode.data.outputPorts || []) as Port[];
 
         // Restore edges - expand merged edges back to individual connections
         const restoredEdges: FlowchartEdge[] = [];
@@ -1771,7 +1885,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
         });
 
         // Handle manual input ports - create edges from external sources to internal targets
-        manualInputPorts.forEach(port => {
+        inputPorts.forEach(port => {
           if (!port.internalConnections || port.internalConnections.length === 0) {
             return;
           }
@@ -1803,7 +1917,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
         });
 
         // Handle manual output ports - create edges from internal sources to external targets
-        manualOutputPorts.forEach(port => {
+        outputPorts.forEach(port => {
           if (!port.internalConnections || port.internalConnections.length === 0) {
             return;
           }
@@ -2233,7 +2347,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
        * @returns The ID of the created port
        */
       addManualPort: (subprocessId: string, direction: 'input' | 'output', label?: string): string => {
-        const portId = `manual-${direction}-${uuidv4()}`;
+        const portId = direction === 'input' ? `port-in-${uuidv4()}` : `port-out-${uuidv4()}`;
         const defaultLabel = label || `${direction === 'input' ? 'Input' : 'Output'}`;
 
         set((state) => {
@@ -2248,12 +2362,12 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
           // Get existing ports and count for default labeling
           const existingPorts = direction === 'input'
-            ? (nodeData.manualInputPorts || [])
-            : (nodeData.manualOutputPorts || []);
+            ? (nodeData.inputPorts || [])
+            : (nodeData.outputPorts || []);
 
           const portLabel = label || `${defaultLabel} ${existingPorts.length + 1}`;
 
-          const newPort: ManualPort = {
+          const newPort: Port = {
             id: portId,
             direction,
             label: portLabel,
@@ -2264,7 +2378,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
               ...node,
               data: {
                 ...nodeData,
-                manualInputPorts: [...existingPorts, newPort],
+                inputPorts: [...existingPorts, newPort],
               },
             } as FlowchartNode;
           } else {
@@ -2272,7 +2386,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
               ...node,
               data: {
                 ...nodeData,
-                manualOutputPorts: [...existingPorts, newPort],
+                outputPorts: [...existingPorts, newPort],
               },
             } as FlowchartNode;
           }
@@ -2293,7 +2407,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
        * @param portId - The ID of the port to update
        * @param updates - Partial updates (label and/or position)
        */
-      updateManualPort: (subprocessId: string, portId: string, updates: Partial<Pick<ManualPort, 'label' | 'position'>>) => {
+      updateManualPort: (subprocessId: string, portId: string, updates: Partial<Pick<Port, 'label' | 'position'>>) => {
         set((state) => {
           const sheet = state.sheets.find(s => s.id === state.activeSheetId);
           if (!sheet) return;
@@ -2305,14 +2419,14 @@ export const useFlowchartStore = create<FlowchartStore>()(
           const nodeData = node.data as ProcessNodeData;
 
           // Check input ports
-          const inputPorts = nodeData.manualInputPorts || [];
+          const inputPorts = nodeData.inputPorts || [];
           const inputIndex = inputPorts.findIndex(p => p.id === portId);
 
           if (inputIndex !== -1) {
             inputPorts[inputIndex] = { ...inputPorts[inputIndex], ...updates };
             sheet.nodes[nodeIndex] = {
               ...node,
-              data: { ...nodeData, manualInputPorts: [...inputPorts] },
+              data: { ...nodeData, inputPorts: [...inputPorts] },
             } as FlowchartNode;
             sheet.updatedAt = new Date();
             state.nodeVersion += 1;
@@ -2323,14 +2437,14 @@ export const useFlowchartStore = create<FlowchartStore>()(
           }
 
           // Check output ports
-          const outputPorts = nodeData.manualOutputPorts || [];
+          const outputPorts = nodeData.outputPorts || [];
           const outputIndex = outputPorts.findIndex(p => p.id === portId);
 
           if (outputIndex !== -1) {
             outputPorts[outputIndex] = { ...outputPorts[outputIndex], ...updates };
             sheet.nodes[nodeIndex] = {
               ...node,
-              data: { ...nodeData, manualOutputPorts: [...outputPorts] },
+              data: { ...nodeData, outputPorts: [...outputPorts] },
             } as FlowchartNode;
             sheet.updatedAt = new Date();
             state.nodeVersion += 1;
@@ -2358,8 +2472,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
           const nodeData = node.data as ProcessNodeData;
 
           // Determine direction and remove from appropriate array
-          const inputPorts = nodeData.manualInputPorts || [];
-          const outputPorts = nodeData.manualOutputPorts || [];
+          const inputPorts = nodeData.inputPorts || [];
+          const outputPorts = nodeData.outputPorts || [];
 
           const isInput = inputPorts.some(p => p.id === portId);
           const isOutput = outputPorts.some(p => p.id === portId);
@@ -2369,7 +2483,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
               ...node,
               data: {
                 ...nodeData,
-                manualInputPorts: inputPorts.filter(p => p.id !== portId),
+                inputPorts: inputPorts.filter(p => p.id !== portId),
               },
             } as FlowchartNode;
           } else if (isOutput) {
@@ -2377,14 +2491,14 @@ export const useFlowchartStore = create<FlowchartStore>()(
               ...node,
               data: {
                 ...nodeData,
-                manualOutputPorts: outputPorts.filter(p => p.id !== portId),
+                outputPorts: outputPorts.filter(p => p.id !== portId),
               },
             } as FlowchartNode;
           } else {
             return; // Port not found
           }
 
-          // Remove any edges connected to this manual port
+          // Remove any edges connected to this port
           // For input ports: edges where targetHandle is the portId
           // For output ports: edges where sourceHandle is the portId
           sheet.edges = sheet.edges.filter(edge => {
@@ -2422,8 +2536,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
           const nodeData = node.data as ProcessNodeData;
 
           // Find the port and add the connection
-          const inputPorts = nodeData.manualInputPorts || [];
-          const outputPorts = nodeData.manualOutputPorts || [];
+          const inputPorts = nodeData.inputPorts || [];
+          const outputPorts = nodeData.outputPorts || [];
 
           const inputPortIndex = inputPorts.findIndex(p => p.id === portId);
           const outputPortIndex = outputPorts.findIndex(p => p.id === portId);
@@ -2447,7 +2561,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
               };
               sheet.nodes[nodeIndex] = {
                 ...node,
-                data: { ...nodeData, manualInputPorts: [...inputPorts] },
+                data: { ...nodeData, inputPorts: [...inputPorts] },
               } as FlowchartNode;
               sheet.updatedAt = new Date();
               state.nodeVersion += 1;
@@ -2469,7 +2583,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
               };
               sheet.nodes[nodeIndex] = {
                 ...node,
-                data: { ...nodeData, manualOutputPorts: [...outputPorts] },
+                data: { ...nodeData, outputPorts: [...outputPorts] },
               } as FlowchartNode;
               sheet.updatedAt = new Date();
               state.nodeVersion += 1;
@@ -2501,8 +2615,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
           const node = sheet.nodes[nodeIndex];
           const nodeData = node.data as ProcessNodeData;
 
-          const inputPorts = nodeData.manualInputPorts || [];
-          const outputPorts = nodeData.manualOutputPorts || [];
+          const inputPorts = nodeData.inputPorts || [];
+          const outputPorts = nodeData.outputPorts || [];
 
           const inputPortIndex = inputPorts.findIndex(p => p.id === portId);
           const outputPortIndex = outputPorts.findIndex(p => p.id === portId);
@@ -2521,7 +2635,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
             };
             sheet.nodes[nodeIndex] = {
               ...node,
-              data: { ...nodeData, manualInputPorts: [...inputPorts] },
+              data: { ...nodeData, inputPorts: [...inputPorts] },
             } as FlowchartNode;
             sheet.updatedAt = new Date();
             state.nodeVersion += 1;
@@ -2540,7 +2654,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
             };
             sheet.nodes[nodeIndex] = {
               ...node,
-              data: { ...nodeData, manualOutputPorts: [...outputPorts] },
+              data: { ...nodeData, outputPorts: [...outputPorts] },
             } as FlowchartNode;
             sheet.updatedAt = new Date();
             state.nodeVersion += 1;
@@ -2858,10 +2972,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
             const targetNode = state.clipboardNodes.find(n => n.id === edge.target);
 
             // Case: External node -> Subprocess input port
-            // Handles both "manual-input-xxx" and "input-xxx" formats
+            // Unified format: "port-in-xxx"
             if (targetNode?.type === 'subprocess' && edge.targetHandle) {
-              const isInputPort = edge.targetHandle.startsWith('manual-input-') ||
-                                  edge.targetHandle.startsWith('input-');
+              const isInputPort = edge.targetHandle.startsWith('port-in-');
               if (isInputPort) {
                 const portId = edge.targetHandle;
                 if (!subprocessExternalConnections.has(edge.target)) {
@@ -2871,10 +2984,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
               }
             }
             // Case: Subprocess output port -> External node
-            // Handles both "manual-output-xxx" and "output-xxx" formats
+            // Unified format: "port-out-xxx"
             if (sourceNode?.type === 'subprocess' && edge.sourceHandle) {
-              const isOutputPort = edge.sourceHandle.startsWith('manual-output-') ||
-                                   edge.sourceHandle.startsWith('output-');
+              const isOutputPort = edge.sourceHandle.startsWith('port-out-');
               if (isOutputPort) {
                 const portId = edge.sourceHandle;
                 if (!subprocessExternalConnections.has(edge.source)) {
@@ -2913,17 +3025,17 @@ export const useFlowchartStore = create<FlowchartStore>()(
               );
             }
 
-            // Handle manual ports for subprocess nodes
+            // Handle ports for subprocess nodes
             if (node.type === 'subprocess') {
               const originalSubprocessId = node.id;
               const externalConnections = subprocessExternalConnections.get(originalSubprocessId);
 
-              // Update manual input ports
-              if (newData.manualInputPorts) {
-                newData.manualInputPorts = newData.manualInputPorts.map((port: ManualPort, index: number) => {
+              // Update input ports - always generate new port IDs for pasted nodes
+              if (newData.inputPorts) {
+                newData.inputPorts = newData.inputPorts.map((port: Port, index: number) => {
                   const oldPortId = port.id;
-                  let newPortId = oldPortId;
-                  let newLabel = `Input ${index + 1}`; // Default label
+                  const newPortId = `port-in-${uuidv4()}`; // Always generate new ID
+                  let newLabel = port.label || `Input ${index + 1}`;
 
                   // Check if this port has an external connection that was also copied
                   const externalNodeId = externalConnections?.get(oldPortId);
@@ -2933,22 +3045,12 @@ export const useFlowchartStore = create<FlowchartStore>()(
                     const externalNode = state.clipboardNodes.find(n => n.id === externalNodeId);
                     if (externalNode) {
                       const externalNodeData = externalNode.data as ProcessNodeData;
-                      newLabel = externalNodeData.label || externalNodeData.name || `Input ${index + 1}`;
-
-                      // For auto-created ports (input-xxx), update the port ID to use new external node ID
-                      if (oldPortId.startsWith('input-')) {
-                        const newExternalNodeId = idMap.get(externalNodeId);
-                        if (newExternalNodeId) {
-                          newPortId = `input-${newExternalNodeId}`;
-                        }
-                      }
+                      newLabel = externalNodeData.label || `Input ${index + 1}`;
                     }
                   }
 
-                  // Track port ID change if it changed
-                  if (newPortId !== oldPortId) {
-                    portIdMap.set(oldPortId, newPortId);
-                  }
+                  // Track port ID change
+                  portIdMap.set(oldPortId, newPortId);
 
                   return {
                     ...port,
@@ -2965,12 +3067,12 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 });
               }
 
-              // Update manual output ports
-              if (newData.manualOutputPorts) {
-                newData.manualOutputPorts = newData.manualOutputPorts.map((port: ManualPort, index: number) => {
+              // Update output ports - always generate new port IDs for pasted nodes
+              if (newData.outputPorts) {
+                newData.outputPorts = newData.outputPorts.map((port: Port, index: number) => {
                   const oldPortId = port.id;
-                  let newPortId = oldPortId;
-                  let newLabel = `Output ${index + 1}`; // Default label
+                  const newPortId = `port-out-${uuidv4()}`; // Always generate new ID
+                  let newLabel = port.label || `Output ${index + 1}`;
 
                   // Check if this port has an external connection that was also copied
                   const externalNodeId = externalConnections?.get(oldPortId);
@@ -2980,22 +3082,12 @@ export const useFlowchartStore = create<FlowchartStore>()(
                     const externalNode = state.clipboardNodes.find(n => n.id === externalNodeId);
                     if (externalNode) {
                       const externalNodeData = externalNode.data as ProcessNodeData;
-                      newLabel = externalNodeData.label || externalNodeData.name || `Output ${index + 1}`;
-
-                      // For auto-created ports (output-xxx), update the port ID to use new external node ID
-                      if (oldPortId.startsWith('output-')) {
-                        const newExternalNodeId = idMap.get(externalNodeId);
-                        if (newExternalNodeId) {
-                          newPortId = `output-${newExternalNodeId}`;
-                        }
-                      }
+                      newLabel = externalNodeData.label || `Output ${index + 1}`;
                     }
                   }
 
-                  // Track port ID change if it changed
-                  if (newPortId !== oldPortId) {
-                    portIdMap.set(oldPortId, newPortId);
-                  }
+                  // Track port ID change
+                  portIdMap.set(oldPortId, newPortId);
 
                   return {
                     ...port,

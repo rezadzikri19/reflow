@@ -102,10 +102,11 @@ export interface BaseNodeData {
 // ============================================================================
 
 /**
- * Port information for subprocess nodes
+ * @deprecated Legacy port format. Use the unified `Port` type instead.
+ * Port information for subprocess nodes (legacy format)
  */
 export interface SubprocessPort {
-  /** Unique port ID (e.g., "input-node123", "output-node456-yes") */
+  /** Unique port ID (legacy format: "input-node123", "output-node456-yes") */
   id: string;
   /** The internal node ID this port connects to */
   internalNodeId: string;
@@ -116,11 +117,11 @@ export interface SubprocessPort {
 }
 
 /**
- * Manual port definition for subprocess nodes
- * These are explicitly defined ports that exist independently of edges
+ * Port definition for subprocess nodes
+ * Unified port type for both auto-created and manually added ports
  */
-export interface ManualPort {
-  /** Unique port ID (e.g., "manual-input-uuid", "manual-output-uuid") */
+export interface Port {
+  /** Unique port ID (format: "port-in-{uuid}" or "port-out-{uuid}") */
   id: string;
   /** Whether this is an input or output port */
   direction: 'input' | 'output';
@@ -128,9 +129,14 @@ export interface ManualPort {
   label: string;
   /** Optional stored position for the boundary port node in sheet view */
   position?: { x: number; y: number };
-  /** Internal connections for this manual port (nodes inside the subprocess connected to this port) */
+  /** Internal connections for this port (nodes inside the subprocess connected to this port) */
   internalConnections?: InternalNodeConnection[];
 }
+
+/**
+ * @deprecated Use `Port` instead. This alias is kept for backward compatibility.
+ */
+export type ManualPort = Port;
 
 /**
  * Data for boundary port nodes (virtual nodes in sheet view)
@@ -148,10 +154,8 @@ export interface BoundaryPortNodeData {
   internalHandleId?: string | null;
   /** All internal connections this port has (for multi-connection boundary ports) */
   allInternalConnections?: InternalNodeConnection[];
-  /** Whether this is a manually defined port (not derived from edges) */
-  isManual?: boolean;
-  /** The manual port ID (if this is a manual port) */
-  manualPortId?: string;
+  /** The port ID in the subprocess node's port array */
+  portId?: string;
   /** Whether the node is locked and cannot be moved */
   locked?: boolean;
   /** Index signature to satisfy Record<string, unknown> constraint */
@@ -198,9 +202,13 @@ export interface ProcessNodeData extends BaseNodeData {
   childNodeIds?: string[];
   /** Input/output ports for subprocess nodes (computed from edges) */
   ports?: SubprocessPort[];
-  /** Manually defined input ports (exist independently of edges) */
+  /** Input ports for subprocess (unified - includes both auto-created and manual) */
+  inputPorts?: Port[];
+  /** Output ports for subprocess (unified - includes both auto-created and manual) */
+  outputPorts?: Port[];
+  /** @deprecated Use inputPorts instead */
   manualInputPorts?: ManualPort[];
-  /** Manually defined output ports (exist independently of edges) */
+  /** @deprecated Use outputPorts instead */
   manualOutputPorts?: ManualPort[];
 }
 

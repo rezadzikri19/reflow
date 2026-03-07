@@ -16,13 +16,13 @@ export type { BoundaryPortNodeData } from '../../../types/index';
 // =============================================================================
 
 function BoundaryPortNode({ id, data, selected }: NodeProps) {
-  const { label, direction, isManual, locked } = data as BoundaryPortNodeData;
+  const { label, direction, locked } = data as BoundaryPortNodeData;
   const isInput = direction === 'input';
   // Note: Boundary port nodes are virtual nodes inside subprocesses
   // We still use the hook but don't apply muted styling (could be enabled later)
   useIsNodeMuted(id);
 
-  // Determine colors based on direction (same for manual and auto-created ports)
+  // Determine colors based on direction
   const getColors = () => {
     if (isInput) {
       // Green for input ports
@@ -60,7 +60,6 @@ function BoundaryPortNode({ id, data, selected }: NodeProps) {
         min-w-[100px] max-w-[140px]
         ${selected ? 'ring-2 ring-offset-1 ring-purple-400' : ''}
         cursor-move
-        ${isManual ? 'border-dashed' : ''}
         ${locked ? 'opacity-80' : ''}
       `}
       title={label}
