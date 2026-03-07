@@ -31,7 +31,7 @@ export const Layout: React.FC<LayoutProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`min-h-screen bg-gray-50 ${className}`}>
+    <div className={`h-screen bg-gray-50 overflow-hidden ${className}`}>
       {/* Header */}
       {header && (
         <header className="fixed top-0 right-0 left-0 z-40 h-16 bg-white border-b border-gray-200">
@@ -58,12 +58,12 @@ export const Layout: React.FC<LayoutProps> = ({
         {/* Main Content */}
         <main
           className={`
-            flex-1 min-h-[calc(100vh-4rem)]
+            flex-1 min-h-[calc(100vh-4rem)] overflow-hidden
             transition-all duration-300 ease-in-out
             ${sidebar ? (sidebarCollapsed ? 'ml-16' : 'ml-64') : ''}
           `.replace(/\s+/g, ' ').trim()}
         >
-          <div className="">{children}</div>
+          <div className="h-full overflow-hidden">{children}</div>
         </main>
       </div>
     </div>

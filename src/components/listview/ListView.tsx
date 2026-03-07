@@ -72,7 +72,7 @@ export const ListView: React.FC = () => {
   }, [isFilterCollapsed]);
 
   return (
-    <div className="h-full flex flex-col p-6">
+    <div className="h-full flex flex-col p-6 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
@@ -121,7 +121,7 @@ export const ListView: React.FC = () => {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 min-h-0">
         <NodeTable
           nodes={filteredNodes}
           connections={connections}

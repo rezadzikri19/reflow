@@ -410,7 +410,7 @@ function App() {
   return (
     <ReactFlowProvider>
       <Layout header={header}>
-        <div className="h-[calc(100vh-4rem)]">
+        <div className="h-full overflow-hidden">
           {renderView()}
         </div>
       </Layout>

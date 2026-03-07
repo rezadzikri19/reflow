@@ -451,7 +451,7 @@ export const NodeTable: React.FC<NodeTableProps> = ({
     <div className="h-full flex flex-col border border-gray-200 rounded-lg overflow-hidden">
       {/* Table container with both horizontal and vertical scroll */}
       <div className="flex-1 overflow-auto">
-        <table className="border-collapse" style={{ minWidth: '100%' }}>
+        <table className="border-collapse w-max">
           <thead className="bg-gray-50 sticky top-0 z-20">
             <tr>
               {/* Row number column header */}
