@@ -15,6 +15,8 @@ import {
   useFilterRequiresFTE,
   useFilterHasPainPoints,
   useFilterHasImprovement,
+  useFilterSheets,
+  useSheets,
   useHasActiveFilters,
 } from '../../stores/flowchartStore';
 import { useNodeFilter } from '../../hooks/useNodeFilter';
@@ -68,15 +70,6 @@ interface FilterChipProps {
   isSelected: boolean;
   color: TagColor;
   onClick: () => void;
-}
-
-interface FilterCategoryProps {
-  title: string;
-  options: string[];
-  selectedValues: string[];
-  onToggle: (value: string) => void;
-  getColor: (value: string) => TagColor;
-  emptyMessage?: string;
 }
 
 interface BooleanFilterProps {
@@ -150,49 +143,6 @@ const FilterChip: React.FC<FilterChipProps> = ({ label, isSelected, color, onCli
   </button>
 );
 
-const FilterCategory: React.FC<FilterCategoryProps> = ({
-  title,
-  options,
-  selectedValues,
-  onToggle,
-  getColor,
-  emptyMessage = 'None available',
-}) => {
-  if (options.length === 0) {
-    return (
-      <div className="mb-4">
-        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-          {title}
-        </h4>
-        <p className="text-xs text-gray-400 italic">{emptyMessage}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mb-4">
-      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-        {title}
-      </h4>
-      <div className="flex flex-wrap gap-1.5">
-        {options.map((option) => {
-          const isSelected = selectedValues.includes(option);
-          const color = getColor(option);
-          return (
-            <FilterChip
-              key={option}
-              label={option}
-              isSelected={isSelected}
-              color={color}
-              onClick={() => onToggle(option)}
-            />
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
 const BooleanFilter: React.FC<BooleanFilterProps> = ({
   title,
   value,
@@ -201,11 +151,11 @@ const BooleanFilter: React.FC<BooleanFilterProps> = ({
   falseLabel = 'No',
 }) => {
   const neutralColor: TagColor = {
-    bg: 'bg-gray-100',
-    text: 'text-gray-800',
-    solid: 'bg-gray-500',
-    hover: 'hover:bg-gray-200',
-    border: 'border-gray-500',
+    bg: 'bg-indigo-100',
+    text: 'text-indigo-800',
+    solid: 'bg-indigo-500',
+    hover: 'hover:bg-indigo-200',
+    border: 'border-indigo-500',
   };
 
   const trueColor: TagColor = {
@@ -302,6 +252,8 @@ export const AdvancedFilter: React.FC = () => {
   const filterRequiresFTE = useFilterRequiresFTE();
   const filterHasPainPoints = useFilterHasPainPoints();
   const filterHasImprovement = useFilterHasImprovement();
+  const filterSheets = useFilterSheets();
+  const sheets = useSheets();
   const hasActiveFilters = useHasActiveFilters();
 
   // Filter actions
@@ -317,6 +269,7 @@ export const AdvancedFilter: React.FC = () => {
   const setFilterRequiresFTE = useFlowchartStore((state) => state.setFilterRequiresFTE);
   const setFilterHasPainPoints = useFlowchartStore((state) => state.setFilterHasPainPoints);
   const setFilterHasImprovement = useFlowchartStore((state) => state.setFilterHasImprovement);
+  const setFilterSheets = useFlowchartStore((state) => state.setFilterSheets);
   const clearAllFilters = useFlowchartStore((state) => state.clearAllFilters);
 
   // Toggle handlers for array filters
@@ -369,6 +322,14 @@ export const AdvancedFilter: React.FC = () => {
     border: 'border-teal-500',
   });
 
+  const getSheetColor = (_sheet: string): TagColor => ({
+    bg: 'bg-violet-100',
+    text: 'text-violet-800',
+    solid: 'bg-violet-500',
+    hover: 'hover:bg-violet-200',
+    border: 'border-violet-500',
+  });
+
   // Count active filters
   const activeFilterCount =
     filterTags.length +
@@ -382,7 +343,8 @@ export const AdvancedFilter: React.FC = () => {
     (filterLocked !== null ? 1 : 0) +
     (filterRequiresFTE !== null ? 1 : 0) +
     (filterHasPainPoints !== null ? 1 : 0) +
-    (filterHasImprovement !== null ? 1 : 0);
+    (filterHasImprovement !== null ? 1 : 0) +
+    filterSheets.length;
 
   return (
     <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[320px] max-w-[380px] max-h-[80vh] overflow-y-auto">
@@ -454,6 +416,29 @@ export const AdvancedFilter: React.FC = () => {
             );
           })}
         </div>
+      </CollapsibleSection>
+
+      {/* Sheets */}
+      <CollapsibleSection title="Sheets" defaultOpen={true}>
+        {sheets.length === 0 ? (
+          <p className="text-xs text-gray-400 italic">No sheets available</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {sheets.map((sheet) => {
+              const isSelected = filterSheets.includes(sheet.id);
+              const color = getSheetColor(sheet.name);
+              return (
+                <FilterChip
+                  key={sheet.id}
+                  label={sheet.name}
+                  isSelected={isSelected}
+                  color={color}
+                  onClick={() => toggleArrayValue(filterSheets, sheet.id, setFilterSheets)}
+                />
+              );
+            })}
+          </div>
+        )}
       </CollapsibleSection>
 
       {/* Tags */}

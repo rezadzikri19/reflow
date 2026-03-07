@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { FilterOperator, FilterableField } from '../../types/filter';
 import { FIELD_TYPES } from '../../types/filter';
 import { useNodeFilter } from '../../hooks/useNodeFilter';
+import { useSheets } from '../../stores/flowchartStore';
 
 interface ValueInputProps {
   field: FilterableField;
@@ -48,6 +49,7 @@ const UNIT_TYPE_OPTIONS = [
 
 export const ValueInput: React.FC<ValueInputProps> = ({ field, operator, value, onChange }) => {
   const { filterOptions } = useNodeFilter();
+  const sheets = useSheets();
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -102,6 +104,9 @@ export const ValueInput: React.FC<ValueInputProps> = ({ field, operator, value, 
         break;
       case 'role':
         options = filterOptions.roles;
+        break;
+      case 'sheet':
+        options = sheets.map(s => s.name);
         break;
       default:
         options = [];

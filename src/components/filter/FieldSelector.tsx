@@ -9,7 +9,7 @@ interface FieldSelectorProps {
 
 // Group fields by category
 const FIELD_GROUPS = {
-  'Basic': ['label', 'description', 'nodeType'] as FilterableField[],
+  'Basic': ['label', 'description', 'nodeType', 'sheet'] as FilterableField[],
   'People & Resources': ['role', 'tags'] as FilterableField[],
   'Inputs & Outputs': ['documents', 'data'] as FilterableField[],
   'Timing': ['frequency', 'unitType'] as FilterableField[],

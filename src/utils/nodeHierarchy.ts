@@ -225,6 +225,8 @@ export function sortTreeNodes(
         return data.unitTimeMinutes || 0;
       case 'frequency':
         return data.frequency || '';
+      case 'sheet':
+        return (node as any).sheetName || '';
       default:
         return '';
     }

@@ -19,6 +19,7 @@ export interface NodeDataForFilter {
   frequency?: string;
   unitType?: string;
   requiresFTE?: boolean;
+  sheet?: string;
 }
 
 /**
@@ -56,6 +57,8 @@ const getFieldValue = (nodeData: NodeDataForFilter, field: string): unknown => {
       return nodeData.painPoints || '';
     case 'improvement':
       return nodeData.improvement || '';
+    case 'sheet':
+      return nodeData.sheet || '';
     default:
       return null;
   }
@@ -204,7 +207,10 @@ export function useRuleFilter(
     }
 
     return nodes.filter((node) => {
-      const nodeData = node.data as NodeDataForFilter;
+      const nodeData = {
+        ...(node.data as NodeDataForFilter),
+        sheet: (node as any).sheetName || '',
+      } as NodeDataForFilter;
       return evaluateGroup(nodeData, config.rootGroup);
     });
   }, [nodes, config]);

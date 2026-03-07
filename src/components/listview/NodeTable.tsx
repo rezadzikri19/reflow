@@ -57,6 +57,22 @@ const COLUMNS: ColumnDef[] = [
     width: '200px',
   },
   {
+    key: 'sheet',
+    label: 'Sheet',
+    defaultVisible: true,
+    accessor: (node) => {
+      const sheetName = (node as any).sheetName;
+      if (!sheetName) return '-';
+      return (
+        <span className="text-xs px-2 py-0.5 rounded bg-violet-100 text-violet-700">
+          {sheetName}
+        </span>
+      );
+    },
+    sortable: true,
+    width: '120px',
+  },
+  {
     key: 'nodeType',
     label: 'Type',
     defaultVisible: true,
@@ -460,8 +476,6 @@ export const NodeTable: React.FC<NodeTableProps> = ({
 
     // Cap visual depth at 4 levels to prevent excessive indentation
     const visualDepth = Math.min(depth, 4);
-    // Each level gets 16px of indentation
-    const indentPx = visualDepth * 16;
 
     // Render connector dots for depth levels
     const renderDepthIndicators = () => {
@@ -591,9 +605,6 @@ export const NodeTable: React.FC<NodeTableProps> = ({
                     {index + 1}
                   </td>
                   {visibleColumns.map((column) => {
-                    // Calculate left offset for sticky label column
-                    const labelLeftOffset = 80 + (depth * 16);
-
                     return (
                       <td
                         key={column.key}

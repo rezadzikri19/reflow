@@ -1,7 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
-  useNodes,
-  useEdges,
   useFlowchartStore,
   useFilterMode,
   useHasActiveFilters,
@@ -17,6 +15,8 @@ import {
   useFilterRequiresFTE,
   useFilterHasPainPoints,
   useFilterHasImprovement,
+  useFilterSheets,
+  useSheets,
 } from '../../stores/flowchartStore';
 import { useNodeConnections } from '../../hooks/useNodeConnections';
 import { useRuleFilter } from '../../hooks/useRuleFilter';
@@ -48,9 +48,26 @@ const FilterIcon = () => (
 // ============================================================================
 
 export const ListView: React.FC = () => {
-  const nodes = useNodes();
-  const edges = useEdges();
-  const connections = useNodeConnections(nodes, edges);
+  // Get all sheets and create a combined nodes array with sheet info
+  const sheets = useSheets();
+
+  // Combine all nodes from all sheets with sheet info
+  const nodes = useMemo(() => {
+    return sheets.flatMap(sheet =>
+      sheet.nodes.map(node => ({
+        ...node,
+        sheetId: sheet.id,
+        sheetName: sheet.name,
+      }))
+    );
+  }, [sheets]);
+
+  // For connections, we need all edges from all sheets
+  const allEdges = useMemo(() => {
+    return sheets.flatMap(sheet => sheet.edges);
+  }, [sheets]);
+
+  const connections = useNodeConnections(nodes, allEdges);
   const setSelectedNode = useFlowchartStore((state) => state.setSelectedNode);
 
   // Global filter mode state
@@ -108,6 +125,7 @@ export const ListView: React.FC = () => {
   const filterRequiresFTE = useFilterRequiresFTE();
   const filterHasPainPoints = useFilterHasPainPoints();
   const filterHasImprovement = useFilterHasImprovement();
+  const filterSheets = useFilterSheets();
 
   // Apply rule-based filter for advanced mode
   const advancedFilteredNodes = useRuleFilter(nodes, listFilterConfig);
@@ -247,6 +265,14 @@ export const ListView: React.FC = () => {
         }
       }
 
+      // Check sheet filter
+      if (filterSheets.length > 0) {
+        const nodeSheetId = (node as any).sheetId;
+        if (!nodeSheetId || !filterSheets.includes(nodeSheetId)) {
+          return false;
+        }
+      }
+
       return true;
     });
   }, [
@@ -264,6 +290,7 @@ export const ListView: React.FC = () => {
     filterRequiresFTE,
     filterHasPainPoints,
     filterHasImprovement,
+    filterSheets,
   ]);
 
   // Select filtered nodes based on mode

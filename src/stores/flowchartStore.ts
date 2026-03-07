@@ -93,6 +93,8 @@ export interface NodeFilterState {
   filterHasPainPoints: boolean | null;
   /** Filter by presence of improvement (null = any) */
   filterHasImprovement: boolean | null;
+  /** Selected sheet IDs for filtering */
+  filterSheets: string[];
   /** Whether the filter panel is visible */
   isFilterPanelOpen: boolean;
   /** Current filter mode: simple (chip-based) or advanced (rule-based) */
@@ -142,6 +144,7 @@ interface FlowchartState {
   filterRequiresFTE: boolean | null;
   filterHasPainPoints: boolean | null;
   filterHasImprovement: boolean | null;
+  filterSheets: string[];
   isFilterPanelOpen: boolean;
   filterMode: FilterMode;
 }
@@ -269,6 +272,7 @@ interface FlowchartActions {
   setFilterRequiresFTE: (requiresFTE: boolean | null) => void;
   setFilterHasPainPoints: (hasPainPoints: boolean | null) => void;
   setFilterHasImprovement: (hasImprovement: boolean | null) => void;
+  setFilterSheets: (sheets: string[]) => void;
   clearAllFilters: () => void;
   toggleFilterPanel: () => void;
   setFilterPanelOpen: (isOpen: boolean) => void;
@@ -319,6 +323,7 @@ const initialState: FlowchartState = {
   filterRequiresFTE: null,
   filterHasPainPoints: null,
   filterHasImprovement: null,
+  filterSheets: [],
   isFilterPanelOpen: false,
   filterMode: 'simple',
 };
@@ -2529,6 +2534,15 @@ export const useFlowchartStore = create<FlowchartStore>()(
       },
 
       /**
+       * Set filter sheets
+       */
+      setFilterSheets: (sheets: string[]) => {
+        set((state) => {
+          state.filterSheets = sheets;
+        });
+      },
+
+      /**
        * Set filter roles
        */
       setFilterRoles: (roles: string[]) => {
@@ -2644,6 +2658,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
           state.filterRequiresFTE = null;
           state.filterHasPainPoints = null;
           state.filterHasImprovement = null;
+          state.filterSheets = [];
         });
       },
 
@@ -2683,11 +2698,17 @@ export const useFlowchartStore = create<FlowchartStore>()(
       partialize: (state) => ({
         selectedNodeId: state.selectedNodeId,
         flowchartId: state.flowchartId,
-        flowchartName: state.flowchartName,
         showGrid: state.showGrid,
         showMinimap: state.showMinimap,
         defaultEdgeType: state.defaultEdgeType,
       }),
+      onRehydrateStorage: () => (state) => {
+        // After localStorage hydration, load the flowchart from IndexedDB
+        // This ensures the name and data come from the actual saved flowchart
+        if (state?.flowchartId) {
+          state.loadFlowchart(state.flowchartId);
+        }
+      },
     }
   )
 );
@@ -2737,6 +2758,7 @@ export const useFilterLocked = () => useFlowchartStore((state) => state.filterLo
 export const useFilterRequiresFTE = () => useFlowchartStore((state) => state.filterRequiresFTE);
 export const useFilterHasPainPoints = () => useFlowchartStore((state) => state.filterHasPainPoints);
 export const useFilterHasImprovement = () => useFlowchartStore((state) => state.filterHasImprovement);
+export const useFilterSheets = () => useFlowchartStore((state) => state.filterSheets);
 export const useIsFilterPanelOpen = () => useFlowchartStore((state) => state.isFilterPanelOpen);
 export const useFilterMode = () => useFlowchartStore((state) => state.filterMode);
 
@@ -2757,6 +2779,7 @@ export const useHasActiveFilters = () => {
   const filterRequiresFTE = useFlowchartStore((state) => state.filterRequiresFTE);
   const filterHasPainPoints = useFlowchartStore((state) => state.filterHasPainPoints);
   const filterHasImprovement = useFlowchartStore((state) => state.filterHasImprovement);
+  const filterSheets = useFlowchartStore((state) => state.filterSheets);
 
   // Simple filter check
   const hasSimpleFilters =
@@ -2771,7 +2794,8 @@ export const useHasActiveFilters = () => {
     filterLocked !== null ||
     filterRequiresFTE !== null ||
     filterHasPainPoints !== null ||
-    filterHasImprovement !== null;
+    filterHasImprovement !== null ||
+    filterSheets.length > 0;
 
   // For advanced mode, we need to check the flowchartFilterConfig
   // This will be handled separately in the FlowToolbar component

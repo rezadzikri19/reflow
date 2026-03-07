@@ -13,7 +13,8 @@ export type FilterableField =
   | 'hasPainPoints'
   | 'hasImprovement'
   | 'painPoints'
-  | 'improvement';
+  | 'improvement'
+  | 'sheet';
 
 export type FilterOperator =
   | 'contains'
@@ -67,6 +68,7 @@ export const FIELD_TYPES: Record<FilterableField, FieldType> = {
   hasImprovement: 'boolean',
   painPoints: 'text',
   improvement: 'text',
+  sheet: 'select',
 };
 
 // Operators available for each field type
@@ -94,6 +96,7 @@ export const FIELD_LABELS: Record<FilterableField, string> = {
   hasImprovement: 'Has Improvement',
   painPoints: 'Pain Points',
   improvement: 'Improvement',
+  sheet: 'Sheet',
 };
 
 // Operator labels for display
