@@ -1,6 +1,12 @@
 import React, { useMemo } from 'react';
-import type { FlowchartNode, ProcessNodeType } from '../../types';
+import { ChevronRight, ChevronDown } from 'lucide-react';
+import type { FlowchartNode, ProcessNodeType, ProcessNodeData } from '../../types';
 import type { NodeConnectionsMap } from '../../hooks/useNodeConnections';
+
+// Type guard to check if node has ProcessNodeData
+function hasProcessNodeData(node: FlowchartNode): node is FlowchartNode & { data: ProcessNodeData } {
+  return node.type !== 'boundaryPort';
+}
 
 // ============================================================================
 // Types
@@ -18,8 +24,11 @@ interface NodeTableProps {
   connections: NodeConnectionsMap;
   sort: SortState;
   nodeTypeFilter: ProcessNodeType | 'all';
+  expandedIds: Set<string>;
+  nodeDepths: Map<string, number>;
   onSortChange: (sort: SortState) => void;
   onRowClick: (nodeId: string) => void;
+  onToggleExpand: (nodeId: string) => void;
 }
 
 // ============================================================================
@@ -40,7 +49,10 @@ const COLUMNS: ColumnDef[] = [
     key: 'label',
     label: 'Label',
     defaultVisible: true,
-    accessor: (node) => node.data.label || '-',
+    accessor: (node) => {
+      const label = hasProcessNodeData(node) ? node.data.label : undefined;
+      return label || '-';
+    },
     sortable: true,
     width: '200px',
   },
@@ -48,25 +60,28 @@ const COLUMNS: ColumnDef[] = [
     key: 'nodeType',
     label: 'Type',
     defaultVisible: true,
-    accessor: (node) => (
-      <span
-        className={`text-xs px-2 py-0.5 rounded ${
-          node.data.nodeType === 'process'
-            ? 'bg-blue-100 text-blue-700'
-            : node.data.nodeType === 'subprocess'
-              ? 'bg-purple-100 text-purple-700'
-              : node.data.nodeType === 'decision'
-                ? 'bg-yellow-100 text-yellow-700'
-                : node.data.nodeType === 'start'
-                  ? 'bg-green-100 text-green-700'
-                  : node.data.nodeType === 'end'
-                    ? 'bg-red-100 text-red-700'
-                    : 'bg-gray-100 text-gray-700'
-        }`}
-      >
-        {node.data.nodeType}
-      </span>
-    ),
+    accessor: (node) => {
+      const nodeType = node.type;
+      return (
+        <span
+          className={`text-xs px-2 py-0.5 rounded ${
+            nodeType === 'process'
+              ? 'bg-blue-100 text-blue-700'
+              : nodeType === 'subprocess'
+                ? 'bg-purple-100 text-purple-700'
+                : nodeType === 'decision'
+                  ? 'bg-yellow-100 text-yellow-700'
+                  : nodeType === 'start'
+                    ? 'bg-green-100 text-green-700'
+                    : nodeType === 'end'
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-gray-100 text-gray-700'
+          }`}
+        >
+          {nodeType}
+        </span>
+      );
+    },
     sortable: true,
     width: '100px',
   },
@@ -75,7 +90,7 @@ const COLUMNS: ColumnDef[] = [
     label: 'Description',
     defaultVisible: true,
     accessor: (node) => {
-      const desc = node.data.description;
+      const desc = hasProcessNodeData(node) ? node.data.description : undefined;
       if (!desc) return '-';
       return <span title={desc}>{desc.length > 60 ? desc.slice(0, 60) + '...' : desc}</span>;
     },
@@ -87,7 +102,7 @@ const COLUMNS: ColumnDef[] = [
     label: 'Role',
     defaultVisible: true,
     accessor: (node) => {
-      const role = node.data.role;
+      const role = hasProcessNodeData(node) ? node.data.role : undefined;
       if (!role) return '-';
       return (
         <span className="text-xs px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">
@@ -103,7 +118,7 @@ const COLUMNS: ColumnDef[] = [
     label: 'Tags',
     defaultVisible: true,
     accessor: (node) => {
-      const tags = node.data.tags as string[] | undefined;
+      const tags = hasProcessNodeData(node) ? node.data.tags : undefined;
       if (!tags || tags.length === 0) return '-';
       return (
         <div className="flex flex-wrap gap-1">
@@ -129,7 +144,7 @@ const COLUMNS: ColumnDef[] = [
     label: 'Unit Time',
     defaultVisible: true,
     accessor: (node) => {
-      const time = node.data.unitTimeMinutes as number | undefined;
+      const time = hasProcessNodeData(node) ? node.data.unitTimeMinutes : undefined;
       if (time === undefined || time === null) return '-';
       return `${time} min`;
     },
@@ -140,7 +155,10 @@ const COLUMNS: ColumnDef[] = [
     key: 'frequency',
     label: 'Frequency',
     defaultVisible: true,
-    accessor: (node) => node.data.frequency || '-',
+    accessor: (node) => {
+      const freq = hasProcessNodeData(node) ? node.data.frequency : undefined;
+      return freq || '-';
+    },
     sortable: true,
     width: '100px',
   },
@@ -149,7 +167,7 @@ const COLUMNS: ColumnDef[] = [
     label: 'Requires FTE',
     defaultVisible: true,
     accessor: (node) => {
-      const requiresFTE = node.data.requiresFTE as boolean | undefined;
+      const requiresFTE = hasProcessNodeData(node) ? node.data.requiresFTE : undefined;
       if (requiresFTE) {
         return (
           <span className="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">
@@ -171,7 +189,7 @@ const COLUMNS: ColumnDef[] = [
     label: 'Pain Points',
     defaultVisible: true,
     accessor: (node) => {
-      const pain = node.data.painPoints as string | undefined;
+      const pain = hasProcessNodeData(node) ? node.data.painPoints : undefined;
       if (!pain) return '-';
       return <span title={pain}>{pain.length > 60 ? pain.slice(0, 60) + '...' : pain}</span>;
     },
@@ -183,7 +201,7 @@ const COLUMNS: ColumnDef[] = [
     label: 'Improvement',
     defaultVisible: true,
     accessor: (node) => {
-      const imp = node.data.improvement as string | undefined;
+      const imp = hasProcessNodeData(node) ? node.data.improvement : undefined;
       if (!imp) return '-';
       return <span title={imp}>{imp.length > 60 ? imp.slice(0, 60) + '...' : imp}</span>;
     },
@@ -195,7 +213,7 @@ const COLUMNS: ColumnDef[] = [
     label: 'Documents',
     defaultVisible: true,
     accessor: (node) => {
-      const docs = node.data.documents as string[] | undefined;
+      const docs = hasProcessNodeData(node) ? node.data.documents : undefined;
       if (!docs || docs.length === 0) return '-';
       return (
         <div className="flex flex-wrap gap-1">
@@ -221,7 +239,7 @@ const COLUMNS: ColumnDef[] = [
     label: 'Data',
     defaultVisible: true,
     accessor: (node) => {
-      const dataElements = node.data.data as string[] | undefined;
+      const dataElements = hasProcessNodeData(node) ? node.data.data : undefined;
       if (!dataElements || dataElements.length === 0) return '-';
       return (
         <div className="flex flex-wrap gap-1">
@@ -246,7 +264,10 @@ const COLUMNS: ColumnDef[] = [
     key: 'unitType',
     label: 'Unit Type',
     defaultVisible: true,
-    accessor: (node) => node.data.unitType || '-',
+    accessor: (node) => {
+      const unitType = hasProcessNodeData(node) ? node.data.unitType : undefined;
+      return unitType || '-';
+    },
     sortable: true,
     width: '100px',
   },
@@ -255,7 +276,7 @@ const COLUMNS: ColumnDef[] = [
     label: 'Default Qty',
     defaultVisible: true,
     accessor: (node) => {
-      const qty = node.data.defaultQuantity;
+      const qty = hasProcessNodeData(node) ? node.data.defaultQuantity : undefined;
       return qty !== undefined && qty !== null ? qty.toString() : '-';
     },
     sortable: true,
@@ -266,7 +287,7 @@ const COLUMNS: ColumnDef[] = [
     label: 'FTE/Unit',
     defaultVisible: true,
     accessor: (node) => {
-      const fte = node.data.ftePerUnit;
+      const fte = hasProcessNodeData(node) ? node.data.ftePerUnit : undefined;
       return fte !== undefined && fte !== null ? fte.toString() : '-';
     },
     sortable: true,
@@ -277,7 +298,7 @@ const COLUMNS: ColumnDef[] = [
     label: 'Parallel Cap.',
     defaultVisible: true,
     accessor: (node) => {
-      const cap = node.data.parallelCapacity;
+      const cap = hasProcessNodeData(node) ? node.data.parallelCapacity : undefined;
       return cap !== undefined && cap !== null ? cap.toString() : '-';
     },
     sortable: true,
@@ -288,7 +309,7 @@ const COLUMNS: ColumnDef[] = [
     label: 'Locked',
     defaultVisible: true,
     accessor: (node) => {
-      const locked = node.data.locked as boolean | undefined;
+      const locked = hasProcessNodeData(node) ? node.data.locked : undefined;
       if (locked) {
         return (
           <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">
@@ -348,8 +369,11 @@ export const NodeTable: React.FC<NodeTableProps> = ({
   connections,
   sort,
   nodeTypeFilter,
+  expandedIds,
+  nodeDepths,
   onSortChange,
   onRowClick,
+  onToggleExpand,
 }) => {
   // Filter visible columns
   const visibleColumns = COLUMNS.filter((col) => col.defaultVisible);
@@ -360,30 +384,9 @@ export const NodeTable: React.FC<NodeTableProps> = ({
     return nodes.filter((node) => node.data.nodeType === nodeTypeFilter);
   }, [nodes, nodeTypeFilter]);
 
-  // Sort nodes
-  const sortedNodes = useMemo(() => {
-    const sorted = [...filteredNodes];
-    const column = COLUMNS.find((c) => c.key === sort.column);
-    if (!column || !column.sortable) return sorted;
-
-    sorted.sort((a, b) => {
-      const aVal = column.accessor(a, connections);
-      const bVal = column.accessor(b, connections);
-
-      // Handle string comparison
-      const aStr = typeof aVal === 'string' ? aVal : String(aVal ?? '');
-      const bStr = typeof bVal === 'string' ? bVal : String(bVal ?? '');
-
-      const comparison = aStr.localeCompare(bStr, undefined, {
-        numeric: true,
-        sensitivity: 'base',
-      });
-
-      return sort.direction === 'asc' ? comparison : -comparison;
-    });
-
-    return sorted;
-  }, [filteredNodes, sort, connections]);
+  // Note: Sorting is now handled at the tree level in ListView.tsx
+  // The nodes prop is already sorted respecting the tree hierarchy
+  const sortedNodes = filteredNodes;
 
   // Handle sort toggle
   const handleSort = (columnKey: string) => {
@@ -447,6 +450,67 @@ export const NodeTable: React.FC<NodeTableProps> = ({
     );
   }
 
+  // Helper to render expand toggle
+  const renderExpandToggle = (node: FlowchartNode) => {
+    const depth = nodeDepths.get(node.id) || 0;
+    const isSubprocess = node.type === 'subprocess';
+    const childNodeIds = hasProcessNodeData(node) ? (node.data.childNodeIds || []) : [];
+    const hasChildren = childNodeIds.length > 0;
+    const isExpanded = expandedIds.has(node.id);
+
+    // Cap visual depth at 4 levels to prevent excessive indentation
+    const visualDepth = Math.min(depth, 4);
+    // Each level gets 16px of indentation
+    const indentPx = visualDepth * 16;
+
+    // Render connector dots for depth levels
+    const renderDepthIndicators = () => {
+      if (depth === 0) return null;
+      const indicators = [];
+      for (let i = 0; i < visualDepth; i++) {
+        indicators.push(
+          <span key={i} className="text-gray-300 text-xs">·</span>
+        );
+      }
+      return indicators;
+    };
+
+    if (!isSubprocess || !hasChildren) {
+      // Non-subprocess or empty subprocess - just show indentation with depth indicators
+      return (
+        <div
+          className="flex items-center h-6 gap-0.5 pl-1"
+          style={{ minWidth: '40px' }}
+        >
+          {renderDepthIndicators()}
+          <span className="text-gray-300 text-xs ml-auto mr-2">○</span>
+        </div>
+      );
+    }
+
+    // Expandable subprocess
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleExpand(node.id);
+        }}
+        className="flex items-center h-6 gap-0.5 pl-1 hover:bg-gray-200 rounded transition-colors"
+        style={{ minWidth: '40px' }}
+        title={isExpanded ? 'Collapse' : 'Expand'}
+      >
+        {renderDepthIndicators()}
+        <span className="ml-auto">
+          {isExpanded ? (
+            <ChevronDown className="w-4 h-4 text-gray-600" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-gray-600" />
+          )}
+        </span>
+      </button>
+    );
+  };
+
   return (
     <div className="h-full flex flex-col border border-gray-200 rounded-lg overflow-hidden">
       {/* Table container with both horizontal and vertical scroll */}
@@ -454,10 +518,17 @@ export const NodeTable: React.FC<NodeTableProps> = ({
         <table className="border-collapse w-max">
           <thead className="bg-gray-50 sticky top-0 z-20">
             <tr>
+              {/* Expand toggle column header */}
+              <th
+                className="px-1 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-30 border-b border-gray-200"
+                style={{ width: '40px', minWidth: '40px' }}
+              >
+                {/* Tree column */}
+              </th>
               {/* Row number column header */}
               <th
-                className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-30 border-b border-gray-200"
-                style={{ width: '50px', minWidth: '50px' }}
+                className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 z-20 border-b border-gray-200"
+                style={{ width: '40px', minWidth: '40px' }}
               >
                 #
               </th>
@@ -468,7 +539,7 @@ export const NodeTable: React.FC<NodeTableProps> = ({
                   className={`
                     px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap
                     ${column.sortable ? 'cursor-pointer hover:bg-gray-100 select-none' : ''}
-                    ${column.key === 'label' ? 'sticky left-[50px] bg-gray-50 z-20' : ''}
+                    ${column.key === 'label' ? 'sticky left-[80px] bg-gray-50 z-20' : ''}
                     border-b border-gray-200
                   `}
                   style={{ width: column.width, minWidth: column.width }}
@@ -482,34 +553,88 @@ export const NodeTable: React.FC<NodeTableProps> = ({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {sortedNodes.map((node, index) => (
-              <tr
-                key={node.id}
-                onClick={() => onRowClick(node.id)}
-                className="hover:bg-gray-50 cursor-pointer transition-colors"
-              >
-                {/* Row number cell */}
-                <td
-                  className="px-3 py-3 text-sm text-gray-500 text-center sticky left-0 bg-white z-10 border-b border-gray-200"
-                  style={{ width: '50px', minWidth: '50px' }}
+            {sortedNodes.map((node, index) => {
+              const depth = nodeDepths.get(node.id) || 0;
+              const isSubprocess = node.type === 'subprocess';
+              const childCount = hasProcessNodeData(node) ? (node.data.childNodeIds?.length || 0) : 0;
+
+              // Calculate visual styles based on depth
+              const depthBackgroundClass = depth === 0
+                ? 'bg-white'
+                : depth === 1
+                  ? 'bg-gray-50/30'
+                  : depth === 2
+                    ? 'bg-gray-50/50'
+                    : 'bg-gray-50/70';
+
+              return (
+                <tr
+                  key={node.id}
+                  onClick={() => onRowClick(node.id)}
+                  className={`
+                    hover:bg-blue-50 cursor-pointer transition-colors
+                    ${depthBackgroundClass}
+                  `}
                 >
-                  {index + 1}
-                </td>
-                {visibleColumns.map((column) => (
+                  {/* Expand toggle cell */}
                   <td
-                    key={column.key}
-                    className={`
-                      px-4 py-3 text-sm text-gray-900 whitespace-nowrap
-                      ${column.key === 'label' ? 'sticky left-[50px] bg-white z-10 font-medium' : ''}
-                      border-b border-gray-200
-                    `}
-                    style={{ width: column.width, minWidth: column.width }}
+                    className={`px-1 py-3 sticky left-0 ${depthBackgroundClass} z-10 border-b border-gray-200`}
+                    style={{ width: '40px', minWidth: '40px' }}
                   >
-                    {column.accessor(node, connections)}
+                    {renderExpandToggle(node)}
                   </td>
-                ))}
-              </tr>
-            ))}
+                  {/* Row number cell */}
+                  <td
+                    className={`px-3 py-3 text-sm text-gray-500 text-center ${depthBackgroundClass} z-10 border-b border-gray-200`}
+                    style={{ width: '40px', minWidth: '40px' }}
+                  >
+                    {index + 1}
+                  </td>
+                  {visibleColumns.map((column) => {
+                    // Calculate left offset for sticky label column
+                    const labelLeftOffset = 80 + (depth * 16);
+
+                    return (
+                      <td
+                        key={column.key}
+                        className={`
+                          px-4 py-3 text-sm text-gray-900 whitespace-nowrap
+                          ${column.key === 'label' ? `sticky left-[80px] ${depthBackgroundClass} z-10 font-medium` : ''}
+                          border-b border-gray-200
+                        `}
+                        style={{
+                          width: column.width,
+                          minWidth: column.width,
+                          // Add indentation to label column content
+                          ...(column.key === 'label' && depth > 0 ? {
+                            paddingLeft: `${8 + depth * 12}px`
+                          } : {})
+                        }}
+                      >
+                        {column.key === 'label' ? (
+                          <span className="flex items-center gap-2">
+                            {/* Show depth indicator prefix for nested nodes */}
+                            {depth > 0 && (
+                              <span className="text-gray-400 text-xs select-none">
+                                {'→'.repeat(Math.min(depth, 3))}
+                              </span>
+                            )}
+                            {column.accessor(node, connections)}
+                            {isSubprocess && childCount > 0 && (
+                              <span className="text-xs text-gray-400 font-normal">
+                                ({childCount} {childCount === 1 ? 'node' : 'nodes'})
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          column.accessor(node, connections)
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

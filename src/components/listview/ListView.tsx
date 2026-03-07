@@ -24,7 +24,14 @@ import { useFilterStore, useListFilterConfig } from '../../stores/filterStore';
 import { NodeTable, type SortState } from './NodeTable';
 import { RuleBasedFilter } from '../filter';
 import { AdvancedFilter } from '../flowchart/AdvancedFilter';
-import type { ProcessNodeType } from '../../types';
+import type { ProcessNodeType, FrequencyType, UnitType } from '../../types';
+import {
+  buildNodeTree,
+  flattenTreeWithDepth,
+  sortTreeNodes,
+  filterTreeWithAncestors,
+  getParentChain,
+} from '../../utils/nodeHierarchy';
 
 // ============================================================================
 // Icons
@@ -61,8 +68,24 @@ export const ListView: React.FC = () => {
     direction: 'asc',
   });
 
+  // Expand/collapse state for tree view
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
   // Node type filter (legacy - kept for compatibility, but we use 'all' since we filter with rules)
   const nodeTypeFilter: ProcessNodeType | 'all' = 'all';
+
+  // Toggle expand/collapse for a subprocess
+  const toggleExpand = useCallback((nodeId: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  }, []);
 
   // Get filter state from stores
   const isAdvancedFilterActive = useFilterStore((state) => state.isFilterActive);
@@ -108,8 +131,8 @@ export const ListView: React.FC = () => {
         locked?: boolean;
         painPoints?: string;
         improvement?: string;
-        frequency?: string;
-        unitType?: string;
+        frequency?: FrequencyType;
+        unitType?: UnitType;
         requiresFTE?: boolean;
       };
 
@@ -246,9 +269,65 @@ export const ListView: React.FC = () => {
   // Select filtered nodes based on mode
   const filteredNodes = filterMode === 'advanced' ? advancedFilteredNodes : simpleFilteredNodes;
 
-  // Check if filter is active based on mode
+  // Check if filter is active based on mode (must be declared before visibleNodeIds)
   const filterActive = filterMode === 'advanced' ? isAdvancedFilterActive() : hasSimpleFilters;
   const ruleCount = filterMode === 'advanced' ? countRules() : 0;
+
+  // Build tree structure from all nodes
+  const nodeTree = useMemo(() => {
+    return buildNodeTree(nodes);
+  }, [nodes]);
+
+  // When filtering, include ancestor chain for matching nodes
+  const visibleNodeIds = useMemo(() => {
+    if (!filterActive) return null;
+
+    const matchingIds = new Set(filteredNodes.map((n) => n.id));
+    return filterTreeWithAncestors(nodes, matchingIds);
+  }, [filterActive, filteredNodes, nodes]);
+
+  // Sort tree respecting hierarchy
+  const sortedTree = useMemo(() => {
+    return sortTreeNodes(nodeTree, sort.column, sort.direction);
+  }, [nodeTree, sort.column, sort.direction]);
+
+  // Auto-expand ancestors when filtering
+  const effectiveExpandedIds = useMemo(() => {
+    if (!visibleNodeIds) return expandedIds;
+
+    // When filtering, auto-expand all ancestors of matching nodes
+    const autoExpanded = new Set(expandedIds);
+    filteredNodes.forEach((node) => {
+      const ancestors = getParentChain(node.id, nodes);
+      ancestors.forEach((ancestor) => autoExpanded.add(ancestor.id));
+    });
+    return autoExpanded;
+  }, [expandedIds, visibleNodeIds, filteredNodes, nodes]);
+
+  // Flatten tree with depth info for display
+  const flattenedNodes = useMemo(() => {
+    return flattenTreeWithDepth(sortedTree, effectiveExpandedIds);
+  }, [sortedTree, effectiveExpandedIds]);
+
+  // Filter flattened nodes if we have a visibility filter
+  const displayNodes = useMemo(() => {
+    if (!visibleNodeIds) return flattenedNodes;
+    return flattenedNodes.filter((item) => visibleNodeIds.has(item.node.id));
+  }, [flattenedNodes, visibleNodeIds]);
+
+  // Create depth map for NodeTable
+  const nodeDepths = useMemo(() => {
+    const depths = new Map<string, number>();
+    displayNodes.forEach(({ node, depth }) => {
+      depths.set(node.id, depth);
+    });
+    return depths;
+  }, [displayNodes]);
+
+  // Get nodes array for display
+  const nodesForTable = useMemo(() => {
+    return displayNodes.map((item) => item.node);
+  }, [displayNodes]);
 
   // Handle row click - navigate to flowchart and select node
   const handleRowClick = useCallback(
@@ -381,12 +460,15 @@ export const ListView: React.FC = () => {
       {/* Table */}
       <div className="flex-1 min-h-0">
         <NodeTable
-          nodes={filteredNodes}
+          nodes={nodesForTable}
           connections={connections}
           sort={sort}
           nodeTypeFilter={nodeTypeFilter}
+          expandedIds={effectiveExpandedIds}
+          nodeDepths={nodeDepths}
           onSortChange={setSort}
           onRowClick={handleRowClick}
+          onToggleExpand={toggleExpand}
         />
       </div>
 
