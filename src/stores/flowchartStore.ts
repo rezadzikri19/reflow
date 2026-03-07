@@ -1093,11 +1093,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
           // Handle edge-based ports: convert to manual ports when edge is deleted
           // This preserves the port even when the external connection is removed
-          // BUT only for edge-based ports, not for connections to existing manual ports
 
           // Check if this is an incoming edge to a subprocess (input port)
-          // Skip if already connected to a manual port
-          if (edge.target && edge.originalTarget && !edge.targetHandle?.startsWith('port-in-')) {
+          if (edge.target && edge.originalTarget) {
             const targetNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.target);
             if (targetNodeIndex !== -1) {
               const targetNode = sheet.nodes[targetNodeIndex];
@@ -1105,20 +1103,30 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 const targetData = targetNode.data as ProcessNodeData;
                 const inputPorts = targetData.inputPorts || [];
 
-                // Get label from edge data, or generate based on existing port count
-                const existingPortLabel = (edge.data as { portLabel?: string })?.portLabel;
-                const portLabel = existingPortLabel || `Input ${inputPorts.length + 1}`;
+                // Check if this port already exists in the manual ports array
+                // If it does, this is an edge connected to an existing manual port - just reset label
+                // If it doesn't, this is an edge-based port - convert to manual port
+                const existingPortIndex = edge.targetHandle
+                  ? inputPorts.findIndex(p => p.id === edge.targetHandle)
+                  : -1;
 
-                // Check if a manual port with this label already exists
-                const existingPortWithLabel = inputPorts.find(p => p.label === portLabel);
-
-                if (!existingPortWithLabel) {
-                  // Create a new input port only if one with the same label doesn't exist
-                  // Preserve internal connections from the edge's originalTargets
+                if (existingPortIndex !== -1) {
+                  // Port already exists in manual ports - just reset the label to default
+                  const defaultLabel = `Input ${existingPortIndex + 1}`;
+                  inputPorts[existingPortIndex] = { ...inputPorts[existingPortIndex], label: defaultLabel };
+                  sheet.nodes[targetNodeIndex] = {
+                    ...targetNode,
+                    data: { ...targetData, inputPorts: [...inputPorts] },
+                  } as FlowchartNode;
+                } else {
+                  // This is an edge-based port - convert to manual port
+                  const portLabel = `Input ${inputPorts.length + 1}`;
+                  const edgeData = edge.data as { boundaryPortPosition?: { x: number; y: number } } | undefined;
                   const newPort: Port = {
                     id: `port-in-${uuidv4()}`,
                     direction: 'input',
                     label: portLabel,
+                    position: edgeData?.boundaryPortPosition,
                     internalConnections: edge.originalTargets ? [...edge.originalTargets] : undefined,
                   };
 
@@ -1135,8 +1143,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
           }
 
           // Check if this is an outgoing edge from a subprocess (output port)
-          // Skip if already connected to a manual port
-          if (edge.source && edge.originalSource && !edge.sourceHandle?.startsWith('port-out-')) {
+          if (edge.source && edge.originalSource) {
             const sourceNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.source);
             if (sourceNodeIndex !== -1) {
               const sourceNode = sheet.nodes[sourceNodeIndex];
@@ -1144,20 +1151,30 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 const sourceData = sourceNode.data as ProcessNodeData;
                 const outputPorts = sourceData.outputPorts || [];
 
-                // Get label from edge data, or generate based on existing port count
-                const existingPortLabel = (edge.data as { portLabel?: string })?.portLabel;
-                const portLabel = existingPortLabel || `Output ${outputPorts.length + 1}`;
+                // Check if this port already exists in the manual ports array
+                // If it does, this is an edge connected to an existing manual port - just reset label
+                // If it doesn't, this is an edge-based port - convert to manual port
+                const existingPortIndex = edge.sourceHandle
+                  ? outputPorts.findIndex(p => p.id === edge.sourceHandle)
+                  : -1;
 
-                // Check if a manual port with this label already exists
-                const existingPortWithLabel = outputPorts.find(p => p.label === portLabel);
-
-                if (!existingPortWithLabel) {
-                  // Create a new output port only if one with the same label doesn't exist
-                  // Preserve internal connections from the edge's originalSources
+                if (existingPortIndex !== -1) {
+                  // Port already exists in manual ports - just reset the label to default
+                  const defaultLabel = `Output ${existingPortIndex + 1}`;
+                  outputPorts[existingPortIndex] = { ...outputPorts[existingPortIndex], label: defaultLabel };
+                  sheet.nodes[sourceNodeIndex] = {
+                    ...sourceNode,
+                    data: { ...sourceData, outputPorts: [...outputPorts] },
+                  } as FlowchartNode;
+                } else {
+                  // This is an edge-based port - convert to manual port
+                  const portLabel = `Output ${outputPorts.length + 1}`;
+                  const edgeData = edge.data as { boundaryPortOutPosition?: { x: number; y: number } } | undefined;
                   const newPort: Port = {
                     id: `port-out-${uuidv4()}`,
                     direction: 'output',
                     label: portLabel,
+                    position: edgeData?.boundaryPortOutPosition,
                     internalConnections: edge.originalSources ? [...edge.originalSources] : undefined,
                   };
 
@@ -1244,11 +1261,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
             // Convert edge-based ports to manual ports when edge is deleted
             // This preserves the port even when the external connection is removed
-            // BUT only for edge-based ports, not for connections to existing manual ports
 
             // Check if this is an incoming edge to a subprocess (input port)
-            // Skip if already connected to a manual port
-            if (edge.target && edge.originalTarget && !edge.targetHandle?.startsWith('port-in-')) {
+            if (edge.target && edge.originalTarget) {
               const targetNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.target);
               if (targetNodeIndex !== -1) {
                 const targetNode = sheet.nodes[targetNodeIndex];
@@ -1256,20 +1271,28 @@ export const useFlowchartStore = create<FlowchartStore>()(
                   const targetData = targetNode.data as ProcessNodeData;
                   const inputPorts = targetData.inputPorts || [];
 
-                  // Get label from edge data, or generate based on existing port count
-                  const existingPortLabel = (edge.data as { portLabel?: string })?.portLabel;
-                  const portLabel = existingPortLabel || `Input ${inputPorts.length + 1}`;
+                  // Check if this port already exists in the manual ports array
+                  const existingPortIndex = edge.targetHandle
+                    ? inputPorts.findIndex(p => p.id === edge.targetHandle)
+                    : -1;
 
-                  // Check if a manual port with this label already exists
-                  const existingPortWithLabel = inputPorts.find(p => p.label === portLabel);
-
-                  if (!existingPortWithLabel) {
-                    // Create a new input port only if one with the same label doesn't exist
-                    // Preserve internal connections from the edge's originalTargets
+                  if (existingPortIndex !== -1) {
+                    // Port already exists - just reset the label to default
+                    const defaultLabel = `Input ${existingPortIndex + 1}`;
+                    inputPorts[existingPortIndex] = { ...inputPorts[existingPortIndex], label: defaultLabel };
+                    sheet.nodes[targetNodeIndex] = {
+                      ...targetNode,
+                      data: { ...targetData, inputPorts: [...inputPorts] },
+                    } as FlowchartNode;
+                  } else {
+                    // This is an edge-based port - convert to manual port
+                    const portLabel = `Input ${inputPorts.length + 1}`;
+                    const edgeData = edge.data as { boundaryPortPosition?: { x: number; y: number } } | undefined;
                     const newPort: Port = {
                       id: `port-in-${uuidv4()}`,
                       direction: 'input',
                       label: portLabel,
+                      position: edgeData?.boundaryPortPosition,
                       internalConnections: edge.originalTargets ? [...edge.originalTargets] : undefined,
                     };
 
@@ -1286,8 +1309,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
             }
 
             // Check if this is an outgoing edge from a subprocess (output port)
-            // Skip if already connected to a manual port
-            if (edge.source && edge.originalSource && !edge.sourceHandle?.startsWith('port-out-')) {
+            if (edge.source && edge.originalSource) {
               const sourceNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.source);
               if (sourceNodeIndex !== -1) {
                 const sourceNode = sheet.nodes[sourceNodeIndex];
@@ -1295,20 +1317,28 @@ export const useFlowchartStore = create<FlowchartStore>()(
                   const sourceData = sourceNode.data as ProcessNodeData;
                   const outputPorts = sourceData.outputPorts || [];
 
-                  // Get label from edge data, or generate based on existing port count
-                  const existingPortLabel = (edge.data as { portLabel?: string })?.portLabel;
-                  const portLabel = existingPortLabel || `Output ${outputPorts.length + 1}`;
+                  // Check if this port already exists in the manual ports array
+                  const existingPortIndex = edge.sourceHandle
+                    ? outputPorts.findIndex(p => p.id === edge.sourceHandle)
+                    : -1;
 
-                  // Check if a manual port with this label already exists
-                  const existingPortWithLabel = outputPorts.find(p => p.label === portLabel);
-
-                  if (!existingPortWithLabel) {
-                    // Create a new output port only if one with the same label doesn't exist
-                    // Preserve internal connections from the edge's originalSources
+                  if (existingPortIndex !== -1) {
+                    // Port already exists - just reset the label to default
+                    const defaultLabel = `Output ${existingPortIndex + 1}`;
+                    outputPorts[existingPortIndex] = { ...outputPorts[existingPortIndex], label: defaultLabel };
+                    sheet.nodes[sourceNodeIndex] = {
+                      ...sourceNode,
+                      data: { ...sourceData, outputPorts: [...outputPorts] },
+                    } as FlowchartNode;
+                  } else {
+                    // This is an edge-based port - convert to manual port
+                    const portLabel = `Output ${outputPorts.length + 1}`;
+                    const edgeData = edge.data as { boundaryPortOutPosition?: { x: number; y: number } } | undefined;
                     const newPort: Port = {
                       id: `port-out-${uuidv4()}`,
                       direction: 'output',
                       label: portLabel,
+                      position: edgeData?.boundaryPortOutPosition,
                       internalConnections: edge.originalSources ? [...edge.originalSources] : undefined,
                     };
 
