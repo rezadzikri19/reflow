@@ -21,7 +21,7 @@ import {
 import type { ProcessNodeData, UnitType } from '../../../types/index';
 import NodeRole from './NodeRole';
 import FlowOrderBadge from './FlowOrderBadge';
-import { useFlowOrder } from '../../../contexts/FlowOrderContext';
+import { useHierarchicalFlowOrder } from '../../../contexts/FlowOrderContext';
 import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
 import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
@@ -83,7 +83,7 @@ function ProcessNode({ id, data, selected }: NodeProps) {
 
   const UnitIcon = unitTypeIcons[unitType];
   const calculatedTime = unitTimeMinutes * defaultQuantity;
-  const flowOrder = useFlowOrder(id);
+  const flowOrder = useHierarchicalFlowOrder(id);
   const isMuted = useIsNodeMuted(id);
 
   return (

@@ -4,7 +4,7 @@ import { Layers, ExternalLink, ArrowLeft, ArrowRight } from 'lucide-react';
 import type { ProcessNodeData, Port } from '../../../types/index';
 import NodeTags from './NodeTags';
 import FlowOrderBadge from './FlowOrderBadge';
-import { useFlowOrder } from '../../../contexts/FlowOrderContext';
+import { useHierarchicalFlowOrder } from '../../../contexts/FlowOrderContext';
 import { useFlowchartStore } from '../../../stores/flowchartStore';
 import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
@@ -43,7 +43,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
   const openSubprocessSheet = useFlowchartStore((state) => state.openSubprocessSheet);
   const edges = useFlowchartStore((state) => state.edges);
   const nodeVersion = useFlowchartStore((state) => state.nodeVersion);
-  const flowOrder = useFlowOrder(id);
+  const flowOrder = useHierarchicalFlowOrder(id);
   const isMuted = useIsNodeMuted(id);
 
   // Get child count from childNodeIds array directly

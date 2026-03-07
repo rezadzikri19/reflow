@@ -3,7 +3,7 @@ import { Position, type NodeProps } from '@xyflow/react';
 import type { BaseNodeData, ProcessNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
 import NodeRole from './NodeRole';
-import { useFlowOrder } from '../../../contexts/FlowOrderContext';
+import { useHierarchicalFlowOrder } from '../../../contexts/FlowOrderContext';
 import { useNodes } from '../../../stores/flowchartStore';
 import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
@@ -27,7 +27,7 @@ function ReferenceNode({ id, data, selected }: NodeProps) {
   const role = referencedNode ? (referencedNode.data as ProcessNodeData).role : undefined;
 
   // Get the flow order of the referenced node (not this node)
-  const referencedFlowOrder = useFlowOrder(referencedNodeId || '');
+  const referencedFlowOrder = useHierarchicalFlowOrder(referencedNodeId || '');
   const isMuted = useIsNodeMuted(id);
 
   return (

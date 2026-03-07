@@ -20,6 +20,9 @@ import { ListView } from './components/listview';
 // Stores
 import { useFlowchartStore, useShowGrid, useShowMinimap } from './stores/flowchartStore';
 
+// Context
+import { FlowOrderProvider } from './contexts/FlowOrderContext';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -146,6 +149,8 @@ function App() {
   const [activeView, setActiveView] = useState<ViewType>('flowchart');
 
   const { flowchartName } = useFlowchartStore();
+  const nodes = useFlowchartStore((state) => state.nodes);
+  const edges = useFlowchartStore((state) => state.edges);
 
   // Listen for navigation events from ListView
   React.useEffect(() => {
@@ -183,11 +188,13 @@ function App() {
 
   return (
     <ReactFlowProvider>
-      <Layout header={header}>
-        <div className="h-full overflow-hidden">
-          {renderView()}
-        </div>
-      </Layout>
+      <FlowOrderProvider nodes={nodes} edges={edges}>
+        <Layout header={header}>
+          <div className="h-full overflow-hidden">
+            {renderView()}
+          </div>
+        </Layout>
+      </FlowOrderProvider>
     </ReactFlowProvider>
   );
 }

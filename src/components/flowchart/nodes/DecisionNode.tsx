@@ -5,7 +5,7 @@ import type { BaseNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
 import NodeRole from './NodeRole';
 import FlowOrderBadge from './FlowOrderBadge';
-import { useFlowOrder } from '../../../contexts/FlowOrderContext';
+import { useHierarchicalFlowOrder } from '../../../contexts/FlowOrderContext';
 import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
 import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
@@ -17,7 +17,7 @@ import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
  */
 function DecisionNode({ id, data, selected }: NodeProps) {
   const { label = 'Decision', tags, role, locked } = (data as BaseNodeData) || {};
-  const flowOrder = useFlowOrder(id);
+  const flowOrder = useHierarchicalFlowOrder(id);
   const isMuted = useIsNodeMuted(id);
 
   // Diamond dimensions

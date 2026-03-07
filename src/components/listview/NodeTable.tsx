@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import type { FlowchartNode, ProcessNodeType, ProcessNodeData } from '../../types';
 import type { NodeConnectionsMap } from '../../hooks/useNodeConnections';
+import { useHierarchicalFlowOrderMap } from '../../contexts/FlowOrderContext';
 
 // Type guard to check if node has ProcessNodeData
 function hasProcessNodeData(node: FlowchartNode): node is FlowchartNode & { data: ProcessNodeData } {
@@ -419,6 +420,9 @@ export const NodeTable: React.FC<NodeTableProps> = ({
   onToggleSelectAll,
   onToggleExpand,
 }) => {
+  // Get hierarchical flow order map from context (shared with Flowchart)
+  const flowOrderMap = useHierarchicalFlowOrderMap();
+
   // Create accessor context with hierarchy info
   const accessorContext: AccessorContext = useMemo(() => ({
     hierarchyMap,
@@ -617,7 +621,7 @@ export const NodeTable: React.FC<NodeTableProps> = ({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {sortedNodes.map((node, index) => {
+            {sortedNodes.map((node) => {
               const depth = nodeDepths.get(node.id) || 0;
               const isSubprocess = node.type === 'subprocess';
               const childCount = hasProcessNodeData(node) ? (node.data.childNodeIds?.length || 0) : 0;
@@ -664,12 +668,12 @@ export const NodeTable: React.FC<NodeTableProps> = ({
                   >
                     {renderExpandToggle(node)}
                   </td>
-                  {/* Row number cell */}
+                  {/* Row number cell - shows flow order from Flowchart */}
                   <td
                     className={`px-3 py-3 text-sm text-gray-500 text-center ${isSelected ? 'bg-blue-100' : depthBackgroundClass} border-b border-gray-200`}
                     style={{ width: '40px', minWidth: '40px' }}
                   >
-                    {index + 1}
+                    {flowOrderMap.get(node.id) || ''}
                   </td>
                   {visibleColumns.map((column) => {
                     return (
