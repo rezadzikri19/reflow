@@ -287,11 +287,36 @@ export interface FlowchartEdge {
 }
 
 // ============================================================================
+// Sheet Interface (Independent Diagrams within a Flowchart)
+// ============================================================================
+
+/**
+ * A single sheet within a flowchart workbook.
+ * Sheets contain independent diagrams that can be switched between like Excel tabs.
+ */
+export interface Sheet {
+  /** Unique identifier for the sheet */
+  id: string;
+  /** Display name of the sheet */
+  name: string;
+  /** Array of nodes in this sheet */
+  nodes: FlowchartNode[];
+  /** Array of edges connecting nodes in this sheet */
+  edges: FlowchartEdge[];
+  /** Creation timestamp */
+  createdAt: Date;
+  /** Last update timestamp */
+  updatedAt: Date;
+}
+
+// ============================================================================
 // Flowchart Interface
 // ============================================================================
 
 /**
- * Complete flowchart definition including nodes, edges, and metadata
+ * Complete flowchart definition including sheets and metadata.
+ * A flowchart contains multiple sheets (like Excel workbook tabs),
+ * where each sheet is an independent diagram.
  */
 export interface Flowchart {
   /** Unique identifier for the flowchart */
@@ -300,13 +325,26 @@ export interface Flowchart {
   name: string;
   /** Optional description of the flowchart */
   description?: string;
-  /** Array of nodes in the flowchart */
-  nodes: FlowchartNode[];
-  /** Array of edges connecting nodes */
-  edges: FlowchartEdge[];
+  /** Array of sheets in the flowchart (each sheet is an independent diagram) */
+  sheets: Sheet[];
+  /** ID of the currently active sheet */
+  activeSheetId: string;
   /** Creation timestamp */
   createdAt: Date;
   /** Last update timestamp */
+  updatedAt: Date;
+  /** Schema version for migration purposes */
+  version?: number;
+}
+
+// Legacy format for migration support
+export interface LegacyFlowchart {
+  id: string;
+  name: string;
+  description?: string;
+  nodes: FlowchartNode[];
+  edges: FlowchartEdge[];
+  createdAt: Date;
   updatedAt: Date;
 }
 

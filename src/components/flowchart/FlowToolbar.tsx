@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { useReactFlow, useStore } from '@xyflow/react';
 import { Button } from '../common/Button';
 import { Modal, ModalFooter, ModalBody } from '../common/Modal';
-import { useFlowchartStore, useHasActiveFilters, useIsFilterPanelOpen, useFilterMode } from '../../stores/flowchartStore';
+import { useFlowchartStore, useHasActiveFilters, useIsFilterPanelOpen, useFilterMode, useNodes, useEdges } from '../../stores/flowchartStore';
 import { useFlowchartFilterConfig, useSetFlowchartFilterConfig, useClearFlowchartFilter } from '../../stores/filterStore';
 import { getAllFlowcharts, deleteFlowchart } from '../../db/database';
 import type { FlowchartRecord } from '../../db/database';
@@ -221,8 +221,6 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
     flowchartName,
     flowchartId,
     isDirty,
-    nodes,
-    edges,
     saveFlowchart,
     newFlowchart,
     loadFlowchart,
@@ -232,6 +230,10 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
     ungroupSubprocess,
     createReferenceToNode,
   } = useFlowchartStore();
+
+  // Get nodes and edges from active sheet using hooks
+  const nodes = useNodes();
+  const edges = useEdges();
 
   // Update zoom level when canvas zoom changes
   const updateZoomLevel = useCallback(() => {

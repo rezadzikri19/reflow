@@ -115,11 +115,11 @@ function FlowCanvasInner({
   const deleteEdge = useFlowchartStore((state) => state.deleteEdge);
   const deleteEdges = useFlowchartStore((state) => state.deleteEdges);
   const markDirty = useFlowchartStore((state) => state.markDirty);
-  const activeSheetId = useFlowchartStore((state) => state.activeSheetId);
-  const sheetNavigationStack = useFlowchartStore((state) => state.sheetNavigationStack);
+  const activeSubprocessId = useFlowchartStore((state) => state.activeSubprocessId);
+  const subprocessNavigationStack = useFlowchartStore((state) => state.subprocessNavigationStack);
   const openSubprocessSheet = useFlowchartStore((state) => state.openSubprocessSheet);
-  const closeActiveSheet = useFlowchartStore((state) => state.closeActiveSheet);
-  const navigateToSheet = useFlowchartStore((state) => state.navigateToSheet);
+  const closeActiveSubprocess = useFlowchartStore((state) => state.closeActiveSubprocess);
+  const navigateToSubprocess = useFlowchartStore((state) => state.navigateToSubprocess);
   const groupNodesIntoSubprocess = useFlowchartStore((state) => state.groupNodesIntoSubprocess);
   const defaultEdgeType = useFlowchartStore((state) => state.defaultEdgeType);
   const addBoundaryPortEdge = useFlowchartStore((state) => state.addBoundaryPortEdge);
@@ -138,7 +138,7 @@ function FlowCanvasInner({
     boundaryPortPositionsRef.current.clear();
     virtualEdgeSelectionRef.current.clear();
     boundaryPortSelectionRef.current.clear();
-  }, [activeSheetId]);
+  }, [activeSubprocessId]);
 
   // Use custom node types if provided, otherwise use defaults
   const registeredNodeTypes = customNodeTypes || nodeTypes;
@@ -156,6 +156,9 @@ function FlowCanvasInner({
 
       // Handle boundary port node position and selection changes separately (they are virtual nodes)
       changes.forEach((change) => {
+        // Skip changes that don't have an id (e.g., NodeAddChange)
+        if (!('id' in change)) return;
+
         const isBoundaryPort = change.id.startsWith('boundary-input-') ||
                                 change.id.startsWith('boundary-output-') ||
                                 change.id.startsWith('boundary-manual-input-') ||
@@ -170,10 +173,10 @@ function FlowCanvasInner({
           const manualInputMatch = change.id.match(/^boundary-manual-input-(.+)$/);
           const manualOutputMatch = change.id.match(/^boundary-manual-output-(.+)$/);
 
-          if (manualInputMatch && activeSheetId) {
-            updateManualPort(activeSheetId, manualInputMatch[1], { position: change.position });
-          } else if (manualOutputMatch && activeSheetId) {
-            updateManualPort(activeSheetId, manualOutputMatch[1], { position: change.position });
+          if (manualInputMatch && activeSubprocessId) {
+            updateManualPort(activeSubprocessId, manualInputMatch[1], { position: change.position });
+          } else if (manualOutputMatch && activeSubprocessId) {
+            updateManualPort(activeSubprocessId, manualOutputMatch[1], { position: change.position });
           }
         }
 
@@ -194,6 +197,9 @@ function FlowCanvasInner({
 
       // Handle side effects for regular nodes
       changes.forEach((change) => {
+        // Skip changes that don't have an id (e.g., NodeAddChange)
+        if (!('id' in change)) return;
+
         const isBoundaryPort = change.id.startsWith('boundary-input-') ||
                                 change.id.startsWith('boundary-output-') ||
                                 change.id.startsWith('boundary-manual-input-') ||
@@ -217,7 +223,7 @@ function FlowCanvasInner({
         setBoundaryPortSelectionVersion(v => v + 1);
       }
     },
-    [nodes, readOnly, deleteNode, setSelectedNode, selectedNodeId, setNodes, markDirty, activeSheetId, updateManualPort, setBoundaryPortSelectionVersion]
+    [nodes, readOnly, deleteNode, setSelectedNode, selectedNodeId, setNodes, markDirty, activeSubprocessId, updateManualPort, setBoundaryPortSelectionVersion]
   );
 
   /**
@@ -253,7 +259,7 @@ function FlowCanvasInner({
             // Manual input edge deletion - find the edge and remove the connection
             const manualPortId = manualInputMatch[1];
             const connectionIndex = manualInputMatch[2] ? parseInt(manualInputMatch[2], 10) : 0;
-            const originalEdge = edges.find(e => e.target === activeSheetId && e.targetHandle === manualPortId);
+            const originalEdge = edges.find(e => e.target === activeSubprocessId && e.targetHandle === manualPortId);
             if (originalEdge && originalEdge.originalTargets) {
               const connection = originalEdge.originalTargets[connectionIndex];
               if (connection) {
@@ -266,7 +272,7 @@ function FlowCanvasInner({
             // Manual output edge deletion - find the edge and remove the connection
             const manualPortId = manualOutputMatch[1];
             const connectionIndex = manualOutputMatch[2] ? parseInt(manualOutputMatch[2], 10) : 0;
-            const originalEdge = edges.find(e => e.source === activeSheetId && e.sourceHandle === manualPortId);
+            const originalEdge = edges.find(e => e.source === activeSubprocessId && e.sourceHandle === manualPortId);
             if (originalEdge && originalEdge.originalSources) {
               const connection = originalEdge.originalSources[connectionIndex];
               if (connection) {
@@ -354,7 +360,7 @@ function FlowCanvasInner({
         setVirtualEdgeVersion(v => v + 1);
       }
     },
-    [edges, deleteEdge, setEdges, removeBoundaryPortConnection, setVirtualEdgeVersion, setSelectedEdgeId, activeSheetId, nodes, removeManualPortConnection]
+    [edges, deleteEdge, setEdges, removeBoundaryPortConnection, setVirtualEdgeVersion, setSelectedEdgeId, activeSubprocessId, nodes, removeManualPortConnection]
   );
 
   /**
@@ -427,10 +433,10 @@ function FlowCanvasInner({
         const manualMatch = sourceId.match(/^boundary-manual-input-(.+)$/);
         const edgeMatch = sourceId.match(/^boundary-input-(.+)$/);
 
-        if (manualMatch && activeSheetId) {
+        if (manualMatch && activeSubprocessId) {
           // Manual port: add internal connection to the manual port
           const manualPortId = manualMatch[1];
-          addManualPortConnection(activeSheetId, manualPortId, targetId, connection.targetHandle);
+          addManualPortConnection(activeSubprocessId, manualPortId, targetId, connection.targetHandle);
           return;
         } else if (edgeMatch) {
           // Edge-based port: use existing logic
@@ -450,10 +456,10 @@ function FlowCanvasInner({
         const manualMatch = targetId.match(/^boundary-manual-output-(.+)$/);
         const edgeMatch = targetId.match(/^boundary-output-(.+)$/);
 
-        if (manualMatch && activeSheetId) {
+        if (manualMatch && activeSubprocessId) {
           // Manual port: add connection to port's internal connections
           const manualPortId = manualMatch[1];
-          addManualPortConnection(activeSheetId, manualPortId, sourceId, connection.sourceHandle);
+          addManualPortConnection(activeSubprocessId, manualPortId, sourceId, connection.sourceHandle);
           return;
         } else if (edgeMatch) {
           // Edge-based port: use existing logic
@@ -477,7 +483,7 @@ function FlowCanvasInner({
         connection.targetHandle ?? undefined
       );
     },
-    [readOnly, nodes, edges, addEdge, addBoundaryPortEdge, activeSheetId, addManualPortConnection]
+    [readOnly, nodes, edges, addEdge, addBoundaryPortEdge, activeSubprocessId, addManualPortConnection]
   );
 
   /**
@@ -610,31 +616,31 @@ function FlowCanvasInner({
             const inputMatch = edgeId.match(/^boundary-edge-input-(.+?)(?:-(\d+))?$/);
             const outputMatch = edgeId.match(/^boundary-edge-output-(.+?)(?:-(\d+))?$/);
 
-            if (manualInputMatch && activeSheetId) {
+            if (manualInputMatch && activeSubprocessId) {
               // Manual input edge deletion - use removeManualPortConnection
               const manualPortId = manualInputMatch[1];
               const connectionIndex = manualInputMatch[2] ? parseInt(manualInputMatch[2], 10) : 0;
               // Get the internal connection from the subprocess node data
-              const subprocessNode = nodes.find(n => n.id === activeSheetId);
+              const subprocessNode = nodes.find(n => n.id === activeSubprocessId);
               const subprocessData = subprocessNode?.data as ProcessNodeData | undefined;
               const manualPort = (subprocessData?.manualInputPorts || []).find(p => p.id === manualPortId);
               const connections = manualPort?.internalConnections || [];
               const connection = connections[connectionIndex];
               if (connection) {
-                removeManualPortConnection(activeSheetId, manualPortId, connection.nodeId, connection.handleId);
+                removeManualPortConnection(activeSubprocessId, manualPortId, connection.nodeId, connection.handleId);
               }
-            } else if (manualOutputMatch && activeSheetId) {
+            } else if (manualOutputMatch && activeSubprocessId) {
               // Manual output edge deletion - use removeManualPortConnection
               const manualPortId = manualOutputMatch[1];
               const connectionIndex = manualOutputMatch[2] ? parseInt(manualOutputMatch[2], 10) : 0;
               // Get the internal connection from the subprocess node data
-              const subprocessNode = nodes.find(n => n.id === activeSheetId);
+              const subprocessNode = nodes.find(n => n.id === activeSubprocessId);
               const subprocessData = subprocessNode?.data as ProcessNodeData | undefined;
               const manualPort = (subprocessData?.manualOutputPorts || []).find(p => p.id === manualPortId);
               const connections = manualPort?.internalConnections || [];
               const connection = connections[connectionIndex];
               if (connection) {
-                removeManualPortConnection(activeSheetId, manualPortId, connection.nodeId, connection.handleId);
+                removeManualPortConnection(activeSubprocessId, manualPortId, connection.nodeId, connection.handleId);
               }
             } else if (inputMatch) {
               const originalEdgeId = inputMatch[1];
@@ -687,7 +693,7 @@ function FlowCanvasInner({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [readOnly, getNodes, getEdges, deleteNodes, deleteEdges, setSelectedNode, groupNodesIntoSubprocess, edges, removeBoundaryPortConnection, nodes, activeSheetId, removeManualPortConnection]);
+  }, [readOnly, getNodes, getEdges, deleteNodes, deleteEdges, setSelectedNode, groupNodesIntoSubprocess, edges, removeBoundaryPortConnection, nodes, activeSubprocessId, removeManualPortConnection]);
 
   // =============================================================================
   // Context Menu Handling
@@ -783,7 +789,7 @@ function FlowCanvasInner({
    * Shows top-level subprocesses in main view, or direct child subprocesses in sheet view
    */
   const sheets = useMemo((): SheetInfo[] => {
-    if (activeSheetId === null) {
+    if (activeSubprocessId === null) {
       // Main view: only top-level subprocesses (no parentId)
       return nodes
         .filter(n => n.type === 'subprocess' && !n.data.parentId)
@@ -793,16 +799,16 @@ function FlowCanvasInner({
           nodeCount: ((n.data.childNodeIds as string[] | undefined) || []).length,
         }));
     } else {
-      // Sheet view: only direct child subprocesses (parentId equals activeSheetId)
+      // Sheet view: only direct child subprocesses (parentId equals activeSubprocessId)
       return nodes
-        .filter(n => n.type === 'subprocess' && n.data.parentId === activeSheetId)
+        .filter(n => n.type === 'subprocess' && n.data.parentId === activeSubprocessId)
         .map(n => ({
           id: n.id,
           label: n.data.label || 'Subprocess',
           nodeCount: ((n.data.childNodeIds as string[] | undefined) || []).length,
         }));
     }
-  }, [nodes, activeSheetId]);
+  }, [nodes, activeSubprocessId]);
 
   /**
    * Create a map of subprocess IDs to their labels for breadcrumb navigation
@@ -822,11 +828,11 @@ function FlowCanvasInner({
    */
   const handleSheetSelect = useCallback((id: string | null) => {
     if (id === null) {
-      closeActiveSheet();
+      closeActiveSubprocess();
     } else {
       openSubprocessSheet(id);
     }
-  }, [openSubprocessSheet, closeActiveSheet]);
+  }, [openSubprocessSheet, closeActiveSubprocess]);
 
   // =============================================================================
   // Visible Nodes & Edges (Sheet-based)
@@ -838,20 +844,20 @@ function FlowCanvasInner({
    * Applies tracked selection state for multi-select support
    */
   const boundaryPortNodes = useMemo(() => {
-    if (!activeSheetId) return { inputs: [] as FlowchartNode[], outputs: [] as FlowchartNode[] };
+    if (!activeSubprocessId) return { inputs: [] as FlowchartNode[], outputs: [] as FlowchartNode[] };
 
     const inputPorts: FlowchartNode[] = [];
     const outputPorts: FlowchartNode[] = [];
 
     // Get the subprocess node data to access manual ports
-    const subprocessNode = nodes.find((n) => n.id === activeSheetId);
+    const subprocessNode = nodes.find((n) => n.id === activeSubprocessId);
     const subprocessData = subprocessNode?.data as ProcessNodeData | undefined;
 
     // Add edge-based ports (existing logic)
     edges.forEach((edge) => {
       // Incoming edge (external -> subprocess) - input port
       // One port per edge (edge represents unique external source)
-      if (edge.target === activeSheetId && (edge.originalTarget || edge.originalTargets)) {
+      if (edge.target === activeSubprocessId && (edge.originalTarget || edge.originalTargets)) {
         const externalNode = nodes.find((n) => n.id === edge.source);
         const portId = `boundary-input-${edge.id}`;
 
@@ -882,7 +888,7 @@ function FlowCanvasInner({
 
       // Outgoing edge (subprocess -> external) - output port
       // One port per edge (edge represents unique external target)
-      if (edge.source === activeSheetId && (edge.originalSource || edge.originalSources)) {
+      if (edge.source === activeSubprocessId && (edge.originalSource || edge.originalSources)) {
         const externalNode = nodes.find((n) => n.id === edge.target);
         const portId = `boundary-output-${edge.id}`;
 
@@ -965,7 +971,7 @@ function FlowCanvasInner({
     });
 
     return { inputs: inputPorts, outputs: outputPorts };
-  }, [activeSheetId, edges, nodes, edgeVersion, nodeVersion, boundaryPortSelectionVersion]);
+  }, [activeSubprocessId, edges, nodes, edgeVersion, nodeVersion, boundaryPortSelectionVersion]);
 
   /**
    * Filter nodes to show based on active sheet
@@ -973,7 +979,7 @@ function FlowCanvasInner({
    * - Sheet view (ID): show only children of that subprocess + boundary port nodes
    */
   const visibleNodes = useMemo((): FlowchartNode[] => {
-    if (activeSheetId === null) {
+    if (activeSubprocessId === null) {
       // Main view: show all nodes NOT inside a subprocess
       // Create new references to force React Flow re-render when nodeVersion changes
       return nodes
@@ -984,7 +990,7 @@ function FlowCanvasInner({
     // Sheet view: show only children of this subprocess
     // Create new references to force React Flow re-render when nodeVersion changes
     const internalNodes = nodes
-      .filter((node) => node.data.parentId === activeSheetId)
+      .filter((node) => node.data.parentId === activeSubprocessId)
       .map((node) => ({ ...node, data: { ...node.data }, draggable: !node.data.locked })) as FlowchartNode[];
 
     // Get boundary port nodes
@@ -1024,7 +1030,7 @@ function FlowCanvasInner({
     }
 
     return [...inputs, ...internalNodes, ...outputs] as FlowchartNode[];
-  }, [nodes, nodeVersion, activeSheetId, boundaryPortNodes]);
+  }, [nodes, nodeVersion, activeSubprocessId, boundaryPortNodes]);
 
   /**
    * Filter edges to show based on visible nodes
@@ -1039,7 +1045,7 @@ function FlowCanvasInner({
     });
 
     // Add virtual edges from boundary port nodes to ALL internal nodes they connect to
-    if (activeSheetId) {
+    if (activeSubprocessId) {
       // Add input edges: boundary-input-{edgeId} -> each internal target
       boundaryPortNodes.inputs.forEach((port) => {
         const portData = port.data as BoundaryPortNodeData;
@@ -1092,7 +1098,7 @@ function FlowCanvasInner({
               connectionIndex: index,
               isManual: portData.isManual,
               manualPortId: portData.manualPortId,
-              subprocessId: activeSheetId,
+              subprocessId: activeSubprocessId,
             },
           } as FlowchartEdge);
         });
@@ -1150,7 +1156,7 @@ function FlowCanvasInner({
               connectionIndex: index,
               isManual: portData.isManual,
               manualPortId: portData.manualPortId,
-              subprocessId: activeSheetId,
+              subprocessId: activeSubprocessId,
             },
           } as FlowchartEdge);
         });
@@ -1158,7 +1164,7 @@ function FlowCanvasInner({
     }
 
     return result;
-  }, [edges, edgeVersion, visibleNodes, activeSheetId, boundaryPortNodes, defaultEdgeType, readOnly, virtualEdgeVersion]);
+  }, [edges, edgeVersion, visibleNodes, activeSubprocessId, boundaryPortNodes, defaultEdgeType, readOnly, virtualEdgeVersion]);
 
   // =============================================================================
   // Edge Options
@@ -1265,14 +1271,14 @@ function FlowCanvasInner({
           <Panel position="top-right" className="!m-2">
             <div className="bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 text-xs text-gray-500 border border-gray-200 shadow-sm">
               {visibleNodes.length} node{visibleNodes.length !== 1 ? 's' : ''} | {visibleEdges.length} connection{visibleEdges.length !== 1 ? 's' : ''}
-              {activeSheetId && (
+              {activeSubprocessId && (
                 <span className="ml-2 text-purple-600">| Sheet view</span>
               )}
             </div>
           </Panel>
 
           {/* Input/Output Labels for sheet view */}
-          {activeSheetId && (visibleNodes.some(n => n.type === 'boundaryPort')) && (
+          {activeSubprocessId && (visibleNodes.some(n => n.type === 'boundaryPort')) && (
             <>
               {/* Input label header */}
               {visibleNodes.some(n => n.type === 'boundaryPort' && (n.data as BoundaryPortNodeData).direction === 'input') && (
@@ -1335,13 +1341,13 @@ function FlowCanvasInner({
 
       {/* Sheet Bar at bottom */}
       <SheetBar
-        activeSheetId={activeSheetId}
+        activeSubprocessId={activeSubprocessId}
         sheets={sheets}
         onSheetSelect={handleSheetSelect}
-        onSheetClose={closeActiveSheet}
-        sheetNavigationStack={sheetNavigationStack}
+        onSheetClose={closeActiveSubprocess}
+        subprocessNavigationStack={subprocessNavigationStack}
         subprocessLabels={subprocessLabels}
-        onNavigateToSheet={navigateToSheet}
+        onNavigateToSubprocess={navigateToSubprocess}
       />
     </div>
   );

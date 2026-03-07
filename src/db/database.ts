@@ -1,14 +1,26 @@
 import Dexie, { type EntityTable } from 'dexie';
+import type { Sheet } from '../types';
 
 // =============================================================================
 // Database Model Interfaces
 // =============================================================================
 
+/**
+ * Flowchart record stored in the database.
+ * Supports both legacy format (v1: nodes/edges) and new format (v2+: sheets).
+ */
 export interface FlowchartRecord {
   id: string;
   name: string;
-  nodes: unknown[];
-  edges: unknown[];
+  description?: string;
+  // Legacy format (v1) - kept for backward compatibility
+  nodes?: unknown[];
+  edges?: unknown[];
+  // New format (v2+)
+  sheets?: Sheet[];
+  activeSheetId?: string;
+  // Schema version for migration purposes
+  version?: number;
   createdAt: Date;
   updatedAt: Date;
 }

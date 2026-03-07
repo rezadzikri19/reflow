@@ -13,6 +13,8 @@ import type {
   InternalNodeConnection,
   FrequencyType,
   UnitType,
+  Sheet,
+  LegacyFlowchart,
 } from '../types';
 import {
   DEFAULT_PROCESS_NODE_DATA,
@@ -24,6 +26,35 @@ import {
   saveFlowchart as dbSaveFlowchart,
   loadFlowchart as dbLoadFlowchart,
 } from '../db/database';
+
+// =============================================================================
+// Migration Utilities
+// =============================================================================
+
+const CURRENT_SCHEMA_VERSION = 2;
+
+/**
+ * Migrate legacy flowchart format (v1: direct nodes/edges) to new sheet format (v2)
+ */
+function migrateToSheetFormat(legacy: LegacyFlowchart): Sheet[] {
+  const mainSheetId = uuidv4();
+  return [{
+    id: mainSheetId,
+    name: 'Main',
+    nodes: legacy.nodes,
+    edges: legacy.edges,
+    createdAt: legacy.createdAt,
+    updatedAt: legacy.updatedAt,
+  }];
+}
+
+/**
+ * Check if a record is in legacy format (v1) or new sheet format (v2+)
+ */
+function isLegacyFormat(record: FlowchartRecord): boolean {
+  // Legacy format has nodes/edges at root level
+  return 'nodes' in record && Array.isArray((record as unknown as LegacyFlowchart).nodes);
+}
 
 // =============================================================================
 // Node Filter Types
@@ -73,7 +104,17 @@ export interface NodeFilterState {
 // =============================================================================
 
 interface FlowchartState {
+  /** Array of sheets (independent diagrams within the flowchart) */
+  sheets: Sheet[];
+  /** ID of the currently active sheet (for switching between independent diagrams) */
+  activeSheetId: string;
+  /** Currently active subprocess ID (null = main flowchart view, ID = viewing that subprocess) */
+  activeSubprocessId: string | null;
+  /** Stack of parent subprocess IDs for breadcrumb navigation */
+  subprocessNavigationStack: string[];
+  /** Nodes from the active sheet (for backward compatibility - derived from sheets) */
   nodes: FlowchartNode[];
+  /** Edges from the active sheet (for backward compatibility - derived from sheets) */
   edges: FlowchartEdge[];
   selectedNodeId: string | null;
   selectedEdgeId: string | null;
@@ -82,10 +123,6 @@ interface FlowchartState {
   isDirty: boolean;
   showGrid: boolean;
   showMinimap: boolean;
-  /** Currently active sheet ID (null = main flowchart view, ID = viewing that subprocess) */
-  activeSheetId: string | null;
-  /** Stack of parent sheet IDs for breadcrumb navigation */
-  sheetNavigationStack: string[];
   /** Node version counter for forcing re-renders */
   nodeVersion: number;
   /** Edge version counter for forcing re-renders */
@@ -108,6 +145,28 @@ interface FlowchartState {
   isFilterPanelOpen: boolean;
   filterMode: FilterMode;
 }
+
+// =============================================================================
+// Computed Selectors (for backward compatibility)
+// =============================================================================
+
+/**
+ * Get nodes from the active sheet
+ * This selector provides backward compatibility for code that expects state.nodes
+ */
+export const getActiveNodes = (state: FlowchartState): FlowchartNode[] => {
+  const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+  return sheet?.nodes || [];
+};
+
+/**
+ * Get edges from the active sheet
+ * This selector provides backward compatibility for code that expects state.edges
+ */
+export const getActiveEdges = (state: FlowchartState): FlowchartEdge[] => {
+  const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+  return sheet?.edges || [];
+};
 
 interface FlowchartActions {
   addNode: (type: ProcessNodeType, position: { x: number; y: number }) => void;
@@ -134,11 +193,20 @@ interface FlowchartActions {
   // Subprocess grouping actions
   groupNodesIntoSubprocess: (nodeIds: string[], label?: string) => string | null;
   ungroupSubprocess: (subprocessId: string) => void;
-  // Sheet navigation actions
+  // Subprocess navigation actions (hierarchical drill-down)
   openSubprocessSheet: (subprocessId: string) => void;
-  closeActiveSheet: () => void;
-  navigateBackSheet: () => void;
-  navigateToSheet: (sheetId: string | null) => void;
+  closeActiveSubprocess: () => void;
+  navigateBackSubprocess: () => void;
+  navigateToSubprocess: (subprocessId: string | null) => void;
+  // Sheet management actions (independent diagrams within a flowchart)
+  createSheet: (name?: string) => string;
+  deleteSheet: (sheetId: string) => void;
+  renameSheet: (sheetId: string, name: string) => void;
+  setActiveSheet: (sheetId: string) => void;
+  duplicateSheet: (sheetId: string) => string;
+  getActiveSheet: () => Sheet | undefined;
+  getNodes: () => FlowchartNode[];
+  getEdges: () => FlowchartEdge[];
   // Boundary port connection actions
   updateBoundaryPortConnection: (
     originalEdgeId: string,
@@ -213,9 +281,22 @@ type FlowchartStore = FlowchartState & FlowchartActions;
 // Initial State
 // =============================================================================
 
+const DEFAULT_SHEET_ID = 'main-sheet';
+
 const initialState: FlowchartState = {
-  nodes: [],
-  edges: [],
+  sheets: [{
+    id: DEFAULT_SHEET_ID,
+    name: 'Main',
+    nodes: [],
+    edges: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }],
+  activeSheetId: DEFAULT_SHEET_ID,
+  activeSubprocessId: null,
+  subprocessNavigationStack: [],
+  nodes: [], // Derived from active sheet for backward compatibility
+  edges: [], // Derived from active sheet for backward compatibility
   selectedNodeId: null,
   selectedEdgeId: null,
   flowchartId: null,
@@ -223,8 +304,6 @@ const initialState: FlowchartState = {
   isDirty: false,
   showGrid: true,
   showMinimap: true,
-  activeSheetId: null,
-  sheetNavigationStack: [],
   nodeVersion: 0,
   edgeVersion: 0,
   defaultEdgeType: 'smoothstep',
@@ -245,6 +324,18 @@ const initialState: FlowchartState = {
 };
 
 // =============================================================================
+// Helper function to sync nodes/edges from active sheet
+// =============================================================================
+
+const syncNodesAndEdgesFromActiveSheet = (state: FlowchartState) => {
+  const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+  if (sheet) {
+    state.nodes = sheet.nodes;
+    state.edges = sheet.edges;
+  }
+};
+
+// =============================================================================
 // Store Definition
 // =============================================================================
 
@@ -253,32 +344,162 @@ export const useFlowchartStore = create<FlowchartStore>()(
     immer((set, get) => ({
       ...initialState,
 
+      // =============================================================================
+      // Sheet Helper Methods
+      // =============================================================================
+
+      getActiveSheet: (): Sheet | undefined => {
+        const state = get();
+        return state.sheets.find(s => s.id === state.activeSheetId);
+      },
+
+      getNodes: (): FlowchartNode[] => {
+        const state = get();
+        const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+        return sheet?.nodes || [];
+      },
+
+      getEdges: (): FlowchartEdge[] => {
+        const state = get();
+        const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+        return sheet?.edges || [];
+      },
+
+      // =============================================================================
+      // Sheet Management Actions
+      // =============================================================================
+
+      createSheet: (name?: string): string => {
+        const id = uuidv4();
+        const now = new Date();
+
+        set((state) => {
+          const sheetName = name || `Sheet ${state.sheets.length + 1}`;
+          state.sheets.push({
+            id,
+            name: sheetName,
+            nodes: [],
+            edges: [],
+            createdAt: now,
+            updatedAt: now,
+          });
+          state.activeSheetId = id;
+          state.activeSubprocessId = null;
+          state.subprocessNavigationStack = [];
+          state.selectedNodeId = null;
+          state.isDirty = true;
+          // Sync nodes/edges from the new active sheet (empty)
+          syncNodesAndEdgesFromActiveSheet(state);
+        });
+
+        return id;
+      },
+
+      deleteSheet: (sheetId: string) => {
+        set((state) => {
+          // Don't delete if it's the only sheet
+          if (state.sheets.length <= 1) return;
+
+          const sheetIndex = state.sheets.findIndex(s => s.id === sheetId);
+          if (sheetIndex === -1) return;
+
+          state.sheets.splice(sheetIndex, 1);
+
+          // If the deleted sheet was active, switch to the first sheet
+          if (state.activeSheetId === sheetId) {
+            state.activeSheetId = state.sheets[0].id;
+            state.activeSubprocessId = null;
+            state.subprocessNavigationStack = [];
+            state.selectedNodeId = null;
+            // Sync nodes/edges from the new active sheet
+            syncNodesAndEdgesFromActiveSheet(state);
+          }
+
+          state.isDirty = true;
+        });
+      },
+
+      renameSheet: (sheetId: string, name: string) => {
+        set((state) => {
+          const sheet = state.sheets.find(s => s.id === sheetId);
+          if (sheet) {
+            sheet.name = name;
+            sheet.updatedAt = new Date();
+            state.isDirty = true;
+          }
+        });
+      },
+
+      setActiveSheet: (sheetId: string) => {
+        set((state) => {
+          const sheet = state.sheets.find(s => s.id === sheetId);
+          if (sheet) {
+            state.activeSheetId = sheetId;
+            state.activeSubprocessId = null;
+            state.subprocessNavigationStack = [];
+            state.selectedNodeId = null;
+            // Sync nodes/edges from the new active sheet
+            syncNodesAndEdgesFromActiveSheet(state);
+          }
+        });
+      },
+
+      duplicateSheet: (sheetId: string): string => {
+        const state = get();
+        const sheet = state.sheets.find(s => s.id === sheetId);
+        if (!sheet) return '';
+
+        const newId = uuidv4();
+        const now = new Date();
+
+        set((state) => {
+          state.sheets.push({
+            id: newId,
+            name: `${sheet.name} (Copy)`,
+            nodes: JSON.parse(JSON.stringify(sheet.nodes)), // Deep clone
+            edges: JSON.parse(JSON.stringify(sheet.edges)), // Deep clone
+            createdAt: now,
+            updatedAt: now,
+          });
+          state.isDirty = true;
+        });
+
+        return newId;
+      },
+
+      // =============================================================================
+      // Node Actions (modified to work within active sheet)
+      // =============================================================================
+
       addNode: (type: ProcessNodeType, position: { x: number; y: number }) => {
         const id = uuidv4();
 
         set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
           const newNode = {
             id,
             type,
             position,
             data: {
               id,
-              label: `${type.charAt(0).toUpperCase() + type.slice(1)} ${state.nodes.length + 1}`,
+              label: `${type.charAt(0).toUpperCase() + type.slice(1)} ${sheet.nodes.length + 1}`,
               nodeType: type,
               ...DEFAULT_PROCESS_NODE_DATA,
               // Set parentId if we're inside a subprocess sheet
-              ...(state.activeSheetId ? { parentId: state.activeSheetId } : {}),
+              ...(state.activeSubprocessId ? { parentId: state.activeSubprocessId } : {}),
             } as ProcessNodeData,
           } as FlowchartNode;
 
-          state.nodes.push(newNode);
+          sheet.nodes.push(newNode);
 
           // If inside a subprocess sheet, also update the parent's childNodeIds
-          if (state.activeSheetId) {
-            const parentIndex = state.nodes.findIndex((n) => n.id === state.activeSheetId);
+          if (state.activeSubprocessId) {
+            const parentIndex = sheet.nodes.findIndex((n) => n.id === state.activeSubprocessId);
             if (parentIndex !== -1) {
-              const parentNode = state.nodes[parentIndex];
-              state.nodes[parentIndex] = {
+              const parentNode = sheet.nodes[parentIndex];
+              sheet.nodes[parentIndex] = {
                 ...parentNode,
                 data: {
                   ...parentNode.data,
@@ -288,15 +509,21 @@ export const useFlowchartStore = create<FlowchartStore>()(
             }
           }
 
+          sheet.updatedAt = new Date();
           state.isDirty = true;
+          syncNodesAndEdgesFromActiveSheet(state);
         });
       },
 
       createReferenceToNode: (referencedNodeId: string, position?: { x: number; y: number }): string | null => {
         const id = uuidv4();
 
+        const state = get();
+        const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+        if (!sheet) return null;
+
         // Find the referenced node to get its label
-        const referencedNode = get().nodes.find(n => n.id === referencedNodeId);
+        const referencedNode = sheet.nodes.find(n => n.id === referencedNodeId);
         if (!referencedNode) return null;
 
         const referencedLabel = (referencedNode.data as ProcessNodeData).label || 'Node';
@@ -309,6 +536,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
         };
 
         set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
           const newNode: FlowchartNode = {
             id,
             type: 'reference',
@@ -320,18 +550,18 @@ export const useFlowchartStore = create<FlowchartStore>()(
               referencedNodeId,
               ...DEFAULT_PROCESS_NODE_DATA,
               // Set parentId if we're inside a subprocess sheet
-              ...(state.activeSheetId ? { parentId: state.activeSheetId } : {}),
+              ...(state.activeSubprocessId ? { parentId: state.activeSubprocessId } : {}),
             } as ProcessNodeData,
           };
 
-          state.nodes.push(newNode as FlowchartNode);
+          sheet.nodes.push(newNode as FlowchartNode);
 
           // If inside a subprocess sheet, also update the parent's childNodeIds
-          if (state.activeSheetId) {
-            const parentIndex = state.nodes.findIndex((n) => n.id === state.activeSheetId);
+          if (state.activeSubprocessId) {
+            const parentIndex = sheet.nodes.findIndex((n) => n.id === state.activeSubprocessId);
             if (parentIndex !== -1) {
-              const parentNode = state.nodes[parentIndex];
-              state.nodes[parentIndex] = {
+              const parentNode = sheet.nodes[parentIndex];
+              sheet.nodes[parentIndex] = {
                 ...parentNode,
                 data: {
                   ...parentNode.data,
@@ -341,7 +571,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
             }
           }
 
+          sheet.updatedAt = new Date();
           state.isDirty = true;
+          syncNodesAndEdgesFromActiveSheet(state);
         });
 
         return id;
@@ -349,12 +581,16 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
       updateNode: (nodeId: string, data: Partial<ProcessNodeData>) => {
         set((state) => {
-          const nodeIndex = state.nodes.findIndex((n) => n.id === nodeId);
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const nodeIndex = sheet.nodes.findIndex((n) => n.id === nodeId);
           if (nodeIndex !== -1) {
-            state.nodes[nodeIndex].data = {
-              ...state.nodes[nodeIndex].data,
+            sheet.nodes[nodeIndex].data = {
+              ...sheet.nodes[nodeIndex].data,
               ...data,
             } as ProcessNodeData;
+            sheet.updatedAt = new Date();
             state.isDirty = true;
 
             // If the node's label changed, update connected manual port labels
@@ -362,19 +598,19 @@ export const useFlowchartStore = create<FlowchartStore>()(
               const newLabel = data.label;
 
               // Find all edges where this node is the source (connected to subprocess manual input ports)
-              state.edges.forEach((edge) => {
+              sheet.edges.forEach((edge) => {
                 if (edge.source === nodeId && edge.targetHandle?.startsWith('manual-input-')) {
                   // Find the target subprocess node and update the manual input port label
-                  const targetNodeIndex = state.nodes.findIndex((n) => n.id === edge.target);
+                  const targetNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.target);
                   if (targetNodeIndex !== -1) {
-                    const targetNode = state.nodes[targetNodeIndex];
+                    const targetNode = sheet.nodes[targetNodeIndex];
                     if (targetNode.type === 'subprocess') {
                       const targetData = targetNode.data as ProcessNodeData;
                       const manualInputPorts = targetData.manualInputPorts || [];
                       const portIndex = manualInputPorts.findIndex(p => p.id === edge.targetHandle);
                       if (portIndex !== -1) {
                         manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: newLabel };
-                        state.nodes[targetNodeIndex] = {
+                        sheet.nodes[targetNodeIndex] = {
                           ...targetNode,
                           data: { ...targetData, manualInputPorts: [...manualInputPorts] },
                         } as FlowchartNode;
@@ -386,16 +622,16 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 // Find all edges where this node is the target (connected from subprocess manual output ports)
                 if (edge.target === nodeId && edge.sourceHandle?.startsWith('manual-output-')) {
                   // Find the source subprocess node and update the manual output port label
-                  const sourceNodeIndex = state.nodes.findIndex((n) => n.id === edge.source);
+                  const sourceNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.source);
                   if (sourceNodeIndex !== -1) {
-                    const sourceNode = state.nodes[sourceNodeIndex];
+                    const sourceNode = sheet.nodes[sourceNodeIndex];
                     if (sourceNode.type === 'subprocess') {
                       const sourceData = sourceNode.data as ProcessNodeData;
                       const manualOutputPorts = sourceData.manualOutputPorts || [];
                       const portIndex = manualOutputPorts.findIndex(p => p.id === edge.sourceHandle);
                       if (portIndex !== -1) {
                         manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: newLabel };
-                        state.nodes[sourceNodeIndex] = {
+                        sheet.nodes[sourceNodeIndex] = {
                           ...sourceNode,
                           data: { ...sourceData, manualOutputPorts: [...manualOutputPorts] },
                         } as FlowchartNode;
@@ -411,11 +647,11 @@ export const useFlowchartStore = create<FlowchartStore>()(
               const newRole = data.role;
 
               // Find all reference nodes that reference this node
-              state.nodes.forEach((node, index) => {
+              sheet.nodes.forEach((node, index) => {
                 if (node.type === 'reference') {
                   const refData = node.data as { referencedNodeId?: string; role?: string };
                   if (refData.referencedNodeId === nodeId) {
-                    state.nodes[index] = {
+                    sheet.nodes[index] = {
                       ...node,
                       data: { ...refData, role: newRole },
                     } as FlowchartNode;
@@ -424,24 +660,28 @@ export const useFlowchartStore = create<FlowchartStore>()(
               });
             }
           }
+          syncNodesAndEdgesFromActiveSheet(state);
         });
       },
 
       deleteNode: (nodeId: string) => {
         set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
           // Find the node being deleted to check if it has a parent
-          const nodeToDelete = state.nodes.find((n) => n.id === nodeId);
+          const nodeToDelete = sheet.nodes.find((n) => n.id === nodeId);
           const parentId = nodeToDelete?.data?.parentId;
 
           // Remove the node
-          state.nodes = state.nodes.filter((n) => n.id !== nodeId);
+          sheet.nodes = sheet.nodes.filter((n) => n.id !== nodeId);
 
           // If node was inside a subprocess, remove from parent's childNodeIds
           if (parentId) {
-            const parentIndex = state.nodes.findIndex((n) => n.id === parentId);
+            const parentIndex = sheet.nodes.findIndex((n) => n.id === parentId);
             if (parentIndex !== -1) {
-              const parentNode = state.nodes[parentIndex];
-              state.nodes[parentIndex] = {
+              const parentNode = sheet.nodes[parentIndex];
+              sheet.nodes[parentIndex] = {
                 ...parentNode,
                 data: {
                   ...parentNode.data,
@@ -452,7 +692,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
           }
 
           // Remove all edges connected to this node
-          state.edges = state.edges.filter(
+          sheet.edges = sheet.edges.filter(
             (e) => e.source !== nodeId && e.target !== nodeId
           );
 
@@ -461,7 +701,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
             state.selectedNodeId = null;
           }
 
+          sheet.updatedAt = new Date();
           state.isDirty = true;
+          syncNodesAndEdgesFromActiveSheet(state);
         });
       },
 
@@ -469,11 +711,14 @@ export const useFlowchartStore = create<FlowchartStore>()(
         if (nodeIds.length === 0) return;
 
         set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
           const idsSet = new Set(nodeIds);
 
           // Find all nodes being deleted and group by parent
           const nodesByParent = new Map<string, string[]>();
-          state.nodes.forEach((n) => {
+          sheet.nodes.forEach((n) => {
             if (idsSet.has(n.id) && n.data?.parentId) {
               const parentId = n.data.parentId as string;
               const parentList = nodesByParent.get(parentId) || [];
@@ -483,15 +728,15 @@ export const useFlowchartStore = create<FlowchartStore>()(
           });
 
           // Remove the nodes
-          state.nodes = state.nodes.filter((n) => !idsSet.has(n.id));
+          sheet.nodes = sheet.nodes.filter((n) => !idsSet.has(n.id));
 
           // Update each parent's childNodeIds
           nodesByParent.forEach((removedIds, parentId) => {
-            const parentIndex = state.nodes.findIndex((n) => n.id === parentId);
+            const parentIndex = sheet.nodes.findIndex((n) => n.id === parentId);
             if (parentIndex !== -1) {
-              const parentNode = state.nodes[parentIndex];
+              const parentNode = sheet.nodes[parentIndex];
               const removedSet = new Set(removedIds);
-              state.nodes[parentIndex] = {
+              sheet.nodes[parentIndex] = {
                 ...parentNode,
                 data: {
                   ...parentNode.data,
@@ -504,7 +749,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
           });
 
           // Remove all edges connected to any of the deleted nodes
-          state.edges = state.edges.filter(
+          sheet.edges = sheet.edges.filter(
             (e) => !idsSet.has(e.source) && !idsSet.has(e.target)
           );
 
@@ -513,7 +758,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
             state.selectedNodeId = null;
           }
 
+          sheet.updatedAt = new Date();
           state.isDirty = true;
+          syncNodesAndEdgesFromActiveSheet(state);
         });
       },
 
@@ -550,8 +797,11 @@ export const useFlowchartStore = create<FlowchartStore>()(
           // Use queueMicrotask to allow React to re-render before adding the edge
           queueMicrotask(() => {
             set((state) => {
+              const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+              if (!sheet) return;
+
               // Check if edge already exists
-              const edgeExists = state.edges.some(
+              const edgeExists = sheet.edges.some(
                 (e) => e.source === source && e.target === target &&
                        (e.sourceHandle || null) === normalizedSourceHandle &&
                        (e.targetHandle || null) === normalizedTargetHandle
@@ -568,21 +818,22 @@ export const useFlowchartStore = create<FlowchartStore>()(
                   connectionDirection: 'output', // Default direction for hybrid handles
                 };
 
-                state.edges.push(newEdge);
+                sheet.edges.push(newEdge);
+                sheet.updatedAt = new Date();
                 state.edgeVersion += 1;
                 state.isDirty = true;
 
                 // Update manual port labels when connecting external nodes
                 if (normalizedTargetHandle && normalizedTargetHandle.startsWith('manual-input-')) {
-                  const targetNode = state.nodes.find(n => n.id === target);
+                  const targetNode = sheet.nodes.find(n => n.id === target);
                   if (targetNode && targetNode.type === 'subprocess') {
-                    const sourceNode = state.nodes.find(n => n.id === source);
+                    const sourceNode = sheet.nodes.find(n => n.id === source);
                     const sourceLabel = (sourceNode?.data as ProcessNodeData)?.label || 'Unknown';
                     const manualInputPorts = (targetNode.data as ProcessNodeData).manualInputPorts || [];
                     const portIndex = manualInputPorts.findIndex(p => p.id === normalizedTargetHandle);
                     if (portIndex !== -1) {
                       manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: sourceLabel };
-                      state.nodes = state.nodes.map(n =>
+                      sheet.nodes = sheet.nodes.map(n =>
                         n.id === target
                           ? { ...n, data: { ...n.data, manualInputPorts: [...manualInputPorts] } } as FlowchartNode
                           : n
@@ -592,15 +843,15 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 }
 
                 if (normalizedSourceHandle && normalizedSourceHandle.startsWith('manual-output-')) {
-                  const sourceNode = state.nodes.find(n => n.id === source);
+                  const sourceNode = sheet.nodes.find(n => n.id === source);
                   if (sourceNode && sourceNode.type === 'subprocess') {
-                    const targetNode = state.nodes.find(n => n.id === target);
+                    const targetNode = sheet.nodes.find(n => n.id === target);
                     const targetLabel = (targetNode?.data as ProcessNodeData)?.label || 'Unknown';
                     const manualOutputPorts = (sourceNode.data as ProcessNodeData).manualOutputPorts || [];
                     const portIndex = manualOutputPorts.findIndex(p => p.id === normalizedSourceHandle);
                     if (portIndex !== -1) {
                       manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: targetLabel };
-                      state.nodes = state.nodes.map(n =>
+                      sheet.nodes = sheet.nodes.map(n =>
                         n.id === source
                           ? { ...n, data: { ...n.data, manualOutputPorts: [...manualOutputPorts] } } as FlowchartNode
                           : n
@@ -608,14 +859,18 @@ export const useFlowchartStore = create<FlowchartStore>()(
                     }
                   }
                 }
+                syncNodesAndEdgesFromActiveSheet(state);
               }
             });
           });
         } else {
           // Non-manual port connections: add edge immediately
           set((state) => {
+            const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+            if (!sheet) return;
+
             // Check if edge already exists
-            const edgeExists = state.edges.some(
+            const edgeExists = sheet.edges.some(
               (e) => e.source === source && e.target === target &&
                      (e.sourceHandle || null) === normalizedSourceHandle &&
                      (e.targetHandle || null) === normalizedTargetHandle
@@ -632,9 +887,11 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 connectionDirection: 'output', // Default direction for hybrid handles
               };
 
-              state.edges.push(newEdge);
+              sheet.edges.push(newEdge);
+              sheet.updatedAt = new Date();
               state.edgeVersion += 1;
               state.isDirty = true;
+              syncNodesAndEdgesFromActiveSheet(state);
             }
           });
         }
@@ -642,21 +899,29 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
       updateEdge: (edgeId: string, data: Record<string, unknown>) => {
         set((state) => {
-          const edgeIndex = state.edges.findIndex((e) => e.id === edgeId);
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const edgeIndex = sheet.edges.findIndex((e) => e.id === edgeId);
           if (edgeIndex !== -1) {
-            state.edges[edgeIndex] = {
-              ...state.edges[edgeIndex],
+            sheet.edges[edgeIndex] = {
+              ...sheet.edges[edgeIndex],
               ...data,
             } as FlowchartEdge;
+            sheet.updatedAt = new Date();
             state.isDirty = true;
+            syncNodesAndEdgesFromActiveSheet(state);
           }
         });
       },
 
       deleteEdge: (edgeId: string) => {
         set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
           // Find the edge before deleting to check if it's connected to manual ports
-          const edge = state.edges.find((e) => e.id === edgeId);
+          const edge = sheet.edges.find((e) => e.id === edgeId);
           if (!edge) return;
 
           // Handle edge-based ports: convert to manual ports when edge is deleted
@@ -666,9 +931,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
           // Check if this is an incoming edge to a subprocess (input port)
           // Skip if already connected to a manual port
           if (edge.target && edge.originalTarget && !edge.targetHandle?.startsWith('manual-input-')) {
-            const targetNodeIndex = state.nodes.findIndex((n) => n.id === edge.target);
+            const targetNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.target);
             if (targetNodeIndex !== -1) {
-              const targetNode = state.nodes[targetNodeIndex];
+              const targetNode = sheet.nodes[targetNodeIndex];
               if (targetNode.type === 'subprocess') {
                 const targetData = targetNode.data as ProcessNodeData;
                 const manualInputPorts = targetData.manualInputPorts || [];
@@ -690,7 +955,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                     internalConnections: edge.originalTargets ? [...edge.originalTargets] : undefined,
                   };
 
-                  state.nodes[targetNodeIndex] = {
+                  sheet.nodes[targetNodeIndex] = {
                     ...targetNode,
                     data: {
                       ...targetData,
@@ -705,9 +970,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
           // Check if this is an outgoing edge from a subprocess (output port)
           // Skip if already connected to a manual port
           if (edge.source && edge.originalSource && !edge.sourceHandle?.startsWith('manual-output-')) {
-            const sourceNodeIndex = state.nodes.findIndex((n) => n.id === edge.source);
+            const sourceNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.source);
             if (sourceNodeIndex !== -1) {
-              const sourceNode = state.nodes[sourceNodeIndex];
+              const sourceNode = sheet.nodes[sourceNodeIndex];
               if (sourceNode.type === 'subprocess') {
                 const sourceData = sourceNode.data as ProcessNodeData;
                 const manualOutputPorts = sourceData.manualOutputPorts || [];
@@ -729,7 +994,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                     internalConnections: edge.originalSources ? [...edge.originalSources] : undefined,
                   };
 
-                  state.nodes[sourceNodeIndex] = {
+                  sheet.nodes[sourceNodeIndex] = {
                     ...sourceNode,
                     data: {
                       ...sourceData,
@@ -743,9 +1008,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
           // Handle existing manual port label reset logic
           if (edge.targetHandle?.startsWith('manual-input-')) {
-            const targetNodeIndex = state.nodes.findIndex((n) => n.id === edge.target);
+            const targetNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.target);
             if (targetNodeIndex !== -1) {
-              const targetNode = state.nodes[targetNodeIndex];
+              const targetNode = sheet.nodes[targetNodeIndex];
               if (targetNode.type === 'subprocess') {
                 const targetData = targetNode.data as ProcessNodeData;
                 const manualInputPorts = targetData.manualInputPorts || [];
@@ -754,7 +1019,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                   // Reset to default label
                   const defaultLabel = `Input ${portIndex + 1}`;
                   manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: defaultLabel };
-                  state.nodes[targetNodeIndex] = {
+                  sheet.nodes[targetNodeIndex] = {
                     ...targetNode,
                     data: { ...targetData, manualInputPorts: [...manualInputPorts] },
                   } as FlowchartNode;
@@ -765,9 +1030,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
           // Reset manual output port label if edge was connected from one
           if (edge.sourceHandle?.startsWith('manual-output-')) {
-            const sourceNodeIndex = state.nodes.findIndex((n) => n.id === edge.source);
+            const sourceNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.source);
             if (sourceNodeIndex !== -1) {
-              const sourceNode = state.nodes[sourceNodeIndex];
+              const sourceNode = sheet.nodes[sourceNodeIndex];
               if (sourceNode.type === 'subprocess') {
                 const sourceData = sourceNode.data as ProcessNodeData;
                 const manualOutputPorts = sourceData.manualOutputPorts || [];
@@ -776,7 +1041,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                   // Reset to default label
                   const defaultLabel = `Output ${portIndex + 1}`;
                   manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: defaultLabel };
-                  state.nodes[sourceNodeIndex] = {
+                  sheet.nodes[sourceNodeIndex] = {
                     ...sourceNode,
                     data: { ...sourceData, manualOutputPorts: [...manualOutputPorts] },
                   } as FlowchartNode;
@@ -785,10 +1050,12 @@ export const useFlowchartStore = create<FlowchartStore>()(
             }
           }
 
-          state.edges = state.edges.filter((e) => e.id !== edgeId);
+          sheet.edges = sheet.edges.filter((e) => e.id !== edgeId);
+          sheet.updatedAt = new Date();
           state.edgeVersion += 1;
           state.nodeVersion += 1;
           state.isDirty = true;
+          syncNodesAndEdgesFromActiveSheet(state);
         });
       },
 
@@ -796,10 +1063,13 @@ export const useFlowchartStore = create<FlowchartStore>()(
         if (edgeIds.length === 0) return;
 
         set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
           const idsSet = new Set(edgeIds);
 
           // Process each edge
-          state.edges.forEach((edge) => {
+          sheet.edges.forEach((edge) => {
             if (!idsSet.has(edge.id)) return;
 
             // Convert edge-based ports to manual ports when edge is deleted
@@ -809,9 +1079,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
             // Check if this is an incoming edge to a subprocess (input port)
             // Skip if already connected to a manual port
             if (edge.target && edge.originalTarget && !edge.targetHandle?.startsWith('manual-input-')) {
-              const targetNodeIndex = state.nodes.findIndex((n) => n.id === edge.target);
+              const targetNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.target);
               if (targetNodeIndex !== -1) {
-                const targetNode = state.nodes[targetNodeIndex];
+                const targetNode = sheet.nodes[targetNodeIndex];
                 if (targetNode.type === 'subprocess') {
                   const targetData = targetNode.data as ProcessNodeData;
                   const manualInputPorts = targetData.manualInputPorts || [];
@@ -833,7 +1103,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                       internalConnections: edge.originalTargets ? [...edge.originalTargets] : undefined,
                     };
 
-                    state.nodes[targetNodeIndex] = {
+                    sheet.nodes[targetNodeIndex] = {
                       ...targetNode,
                       data: {
                         ...targetData,
@@ -848,9 +1118,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
             // Check if this is an outgoing edge from a subprocess (output port)
             // Skip if already connected to a manual port
             if (edge.source && edge.originalSource && !edge.sourceHandle?.startsWith('manual-output-')) {
-              const sourceNodeIndex = state.nodes.findIndex((n) => n.id === edge.source);
+              const sourceNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.source);
               if (sourceNodeIndex !== -1) {
-                const sourceNode = state.nodes[sourceNodeIndex];
+                const sourceNode = sheet.nodes[sourceNodeIndex];
                 if (sourceNode.type === 'subprocess') {
                   const sourceData = sourceNode.data as ProcessNodeData;
                   const manualOutputPorts = sourceData.manualOutputPorts || [];
@@ -872,7 +1142,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                       internalConnections: edge.originalSources ? [...edge.originalSources] : undefined,
                     };
 
-                    state.nodes[sourceNodeIndex] = {
+                    sheet.nodes[sourceNodeIndex] = {
                       ...sourceNode,
                       data: {
                         ...sourceData,
@@ -886,9 +1156,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
             // Reset manual input port label if edge was connected to one
             if (edge.targetHandle?.startsWith('manual-input-')) {
-              const targetNodeIndex = state.nodes.findIndex((n) => n.id === edge.target);
+              const targetNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.target);
               if (targetNodeIndex !== -1) {
-                const targetNode = state.nodes[targetNodeIndex];
+                const targetNode = sheet.nodes[targetNodeIndex];
                 if (targetNode.type === 'subprocess') {
                   const targetData = targetNode.data as ProcessNodeData;
                   const manualInputPorts = targetData.manualInputPorts || [];
@@ -896,7 +1166,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                   if (portIndex !== -1) {
                     const defaultLabel = `Input ${portIndex + 1}`;
                     manualInputPorts[portIndex] = { ...manualInputPorts[portIndex], label: defaultLabel };
-                    state.nodes[targetNodeIndex] = {
+                    sheet.nodes[targetNodeIndex] = {
                       ...targetNode,
                       data: { ...targetData, manualInputPorts: [...manualInputPorts] },
                     } as FlowchartNode;
@@ -907,9 +1177,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
             // Reset manual output port label if edge was connected from one
             if (edge.sourceHandle?.startsWith('manual-output-')) {
-              const sourceNodeIndex = state.nodes.findIndex((n) => n.id === edge.source);
+              const sourceNodeIndex = sheet.nodes.findIndex((n) => n.id === edge.source);
               if (sourceNodeIndex !== -1) {
-                const sourceNode = state.nodes[sourceNodeIndex];
+                const sourceNode = sheet.nodes[sourceNodeIndex];
                 if (sourceNode.type === 'subprocess') {
                   const sourceData = sourceNode.data as ProcessNodeData;
                   const manualOutputPorts = sourceData.manualOutputPorts || [];
@@ -917,7 +1187,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                   if (portIndex !== -1) {
                     const defaultLabel = `Output ${portIndex + 1}`;
                     manualOutputPorts[portIndex] = { ...manualOutputPorts[portIndex], label: defaultLabel };
-                    state.nodes[sourceNodeIndex] = {
+                    sheet.nodes[sourceNodeIndex] = {
                       ...sourceNode,
                       data: { ...sourceData, manualOutputPorts: [...manualOutputPorts] },
                     } as FlowchartNode;
@@ -927,26 +1197,38 @@ export const useFlowchartStore = create<FlowchartStore>()(
             }
           });
 
-          state.edges = state.edges.filter((e) => !idsSet.has(e.id));
+          sheet.edges = sheet.edges.filter((e) => !idsSet.has(e.id));
+          sheet.updatedAt = new Date();
           state.edgeVersion += 1;
           state.nodeVersion += 1;
           state.isDirty = true;
+          syncNodesAndEdgesFromActiveSheet(state);
         });
       },
 
       setNodes: (nodes: FlowchartNode[]) => {
         set((state) => {
-          state.nodes = nodes;
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+          sheet.nodes = nodes;
+          sheet.updatedAt = new Date();
           state.nodeVersion += 1;
           state.isDirty = true;
+          // Sync state.nodes for backward compatibility
+          syncNodesAndEdgesFromActiveSheet(state);
         });
       },
 
       setEdges: (edges: FlowchartEdge[]) => {
         set((state) => {
-          state.edges = edges;
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+          sheet.edges = edges;
+          sheet.updatedAt = new Date();
           state.edgeVersion += 1;
           state.isDirty = true;
+          // Sync state.edges for backward compatibility
+          syncNodesAndEdgesFromActiveSheet(state);
         });
       },
 
@@ -956,11 +1238,12 @@ export const useFlowchartStore = create<FlowchartStore>()(
         const flowchartRecord: FlowchartRecord = {
           id: state.flowchartId || uuidv4(),
           name: state.flowchartName,
-          nodes: state.nodes,
-          edges: state.edges,
+          sheets: state.sheets,
+          activeSheetId: state.activeSheetId,
           createdAt: new Date(),
           updatedAt: new Date(),
-        };
+          version: CURRENT_SCHEMA_VERSION,
+        } as unknown as FlowchartRecord;
 
         await dbSaveFlowchart(flowchartRecord);
 
@@ -974,14 +1257,37 @@ export const useFlowchartStore = create<FlowchartStore>()(
         const record = await dbLoadFlowchart(id);
 
         if (record) {
-          set((state) => {
-            state.flowchartId = record.id;
-            state.flowchartName = record.name;
-            state.nodes = record.nodes as FlowchartNode[];
-            state.edges = record.edges as FlowchartEdge[];
-            state.selectedNodeId = null;
-            state.isDirty = false;
-          });
+          // Check if this is a legacy format (v1) that needs migration
+          if (isLegacyFormat(record)) {
+            // Migrate to new sheet format
+            const migratedSheets = migrateToSheetFormat(record as unknown as LegacyFlowchart);
+
+            set((state) => {
+              state.flowchartId = record.id;
+              state.flowchartName = record.name;
+              state.sheets = migratedSheets;
+              state.activeSheetId = migratedSheets[0].id;
+              state.activeSubprocessId = null;
+              state.subprocessNavigationStack = [];
+              state.selectedNodeId = null;
+              state.isDirty = true; // Mark dirty so user saves in new format
+              syncNodesAndEdgesFromActiveSheet(state);
+            });
+          } else {
+            // New format (v2+)
+            const newRecord = record as unknown as { sheets: Sheet[]; activeSheetId: string };
+            set((state) => {
+              state.flowchartId = record.id;
+              state.flowchartName = record.name;
+              state.sheets = newRecord.sheets;
+              state.activeSheetId = newRecord.activeSheetId || newRecord.sheets[0]?.id || DEFAULT_SHEET_ID;
+              state.activeSubprocessId = null;
+              state.subprocessNavigationStack = [];
+              state.selectedNodeId = null;
+              state.isDirty = false;
+              syncNodesAndEdgesFromActiveSheet(state);
+            });
+          }
           return true;
         }
 
@@ -989,13 +1295,27 @@ export const useFlowchartStore = create<FlowchartStore>()(
       },
 
       newFlowchart: (name?: string) => {
+        const mainSheetId = uuidv4();
+        const now = new Date();
+
         set((state) => {
-          state.nodes = [];
-          state.edges = [];
+          state.sheets = [{
+            id: mainSheetId,
+            name: 'Main',
+            nodes: [],
+            edges: [],
+            createdAt: now,
+            updatedAt: now,
+          }];
+          state.activeSheetId = mainSheetId;
+          state.activeSubprocessId = null;
+          state.subprocessNavigationStack = [];
           state.selectedNodeId = null;
           state.flowchartId = null;
           state.flowchartName = name || 'Untitled Flowchart';
           state.isDirty = false;
+          // Sync nodes/edges from the new empty sheet
+          syncNodesAndEdgesFromActiveSheet(state);
         });
       },
 
@@ -1035,6 +1355,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
        */
       groupNodesIntoSubprocess: (nodeIds: string[], label?: string) => {
         const state = get();
+        const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+        if (!sheet) return null;
 
         // Validation: Need at least 2 nodes
         if (nodeIds.length < 2) {
@@ -1043,7 +1365,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
         }
 
         // Get the nodes to group
-        const nodesToGroup = state.nodes.filter(n => nodeIds.includes(n.id));
+        const nodesToGroup = sheet.nodes.filter(n => nodeIds.includes(n.id));
 
         // Validation: All nodes must exist
         if (nodesToGroup.length !== nodeIds.length) {
@@ -1103,7 +1425,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
         };
 
         // Update child nodes with parentId and convert to relative positions
-        const updatedNodes = state.nodes.map(node => {
+        const updatedNodes = sheet.nodes.map(node => {
           if (nodeIds.includes(node.id)) {
             return {
               ...node,
@@ -1131,7 +1453,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 ...parentData,
                 childNodeIds: [...(parentData.childNodeIds || []), subprocessId],
               },
-            };
+            } as FlowchartNode;
           }
         }
 
@@ -1142,7 +1464,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
         const outgoingEdges: FlowchartEdge[] = []; // child -> external
         const externalEdges: FlowchartEdge[] = [];
 
-        state.edges.forEach(edge => {
+        sheet.edges.forEach(edge => {
           const sourceIsChild = nodeIds.includes(edge.source);
           const targetIsChild = nodeIds.includes(edge.target);
 
@@ -1251,9 +1573,13 @@ export const useFlowchartStore = create<FlowchartStore>()(
         ];
 
         set((state) => {
-          state.nodes = [...updatedNodes, subprocessNode];
-          state.edges = updatedEdges;
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+          sheet.nodes = [...updatedNodes, subprocessNode];
+          sheet.edges = updatedEdges;
+          sheet.updatedAt = new Date();
           state.isDirty = true;
+          syncNodesAndEdgesFromActiveSheet(state);
         });
 
         return subprocessId;
@@ -1265,8 +1591,10 @@ export const useFlowchartStore = create<FlowchartStore>()(
        */
       ungroupSubprocess: (subprocessId: string) => {
         const state = get();
+        const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+        if (!sheet) return;
 
-        const subprocessNode = state.nodes.find(n => n.id === subprocessId);
+        const subprocessNode = sheet.nodes.find(n => n.id === subprocessId);
         if (!subprocessNode || subprocessNode.type !== 'subprocess') {
           console.warn('Cannot ungroup: Subprocess not found');
           return;
@@ -1280,7 +1608,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
         const restoredEdges: FlowchartEdge[] = [];
         const processedEdgeIds = new Set<string>();
 
-        state.edges.forEach(edge => {
+        sheet.edges.forEach(edge => {
           // Internal edges (between children) - keep them, just remove subprocessId marker
           if (edge.subprocessId === subprocessId) {
             const { subprocessId: _, ...restEdge } = edge;
@@ -1361,7 +1689,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
           }
 
           // Find external edges connected to this manual port
-          const externalEdges = state.edges.filter(
+          const externalEdges = sheet.edges.filter(
             edge => edge.target === subprocessId && edge.targetHandle === port.id
           );
 
@@ -1393,7 +1721,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
           }
 
           // Find external edges connected from this manual port
-          const externalEdges = state.edges.filter(
+          const externalEdges = sheet.edges.filter(
             edge => edge.source === subprocessId && edge.sourceHandle === port.id
           );
 
@@ -1422,23 +1750,26 @@ export const useFlowchartStore = create<FlowchartStore>()(
         const subprocessParentId = subprocessNode.data.parentId;
 
         set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
           // If this is a nested subprocess, remove it from parent's childNodeIds
           if (subprocessParentId) {
-            const parentIndex = state.nodes.findIndex(n => n.id === subprocessParentId);
+            const parentIndex = sheet.nodes.findIndex(n => n.id === subprocessParentId);
             if (parentIndex !== -1) {
-              const parentData = state.nodes[parentIndex].data as ProcessNodeData;
-              state.nodes[parentIndex] = {
-                ...state.nodes[parentIndex],
+              const parentData = sheet.nodes[parentIndex].data as ProcessNodeData;
+              sheet.nodes[parentIndex] = {
+                ...sheet.nodes[parentIndex],
                 data: {
                   ...parentData,
                   childNodeIds: (parentData.childNodeIds || []).filter(id => id !== subprocessId),
                 },
-              };
+              } as FlowchartNode;
             }
           }
 
           // Update child nodes: inherit parent's parentId and convert back to absolute positions
-          state.nodes = state.nodes
+          sheet.nodes = sheet.nodes
             .filter(n => n.id !== subprocessId) // Remove subprocess node
             .map(node => {
               if (childIds.has(node.id)) {
@@ -1458,14 +1789,20 @@ export const useFlowchartStore = create<FlowchartStore>()(
               return node;
             });
 
-          state.edges = restoredEdges;
+          sheet.edges = restoredEdges;
+          sheet.updatedAt = new Date();
           // Close sheet if viewing this subprocess
-          if (state.activeSheetId === subprocessId) {
-            state.activeSheetId = null;
+          if (state.activeSubprocessId === subprocessId) {
+            state.activeSubprocessId = null;
           }
           state.isDirty = true;
+          syncNodesAndEdgesFromActiveSheet(state);
         });
       },
+
+      // =============================================================================
+      // Subprocess Navigation Actions
+      // =============================================================================
 
       /**
        * Open a subprocess in a sheet view
@@ -1473,69 +1810,72 @@ export const useFlowchartStore = create<FlowchartStore>()(
        */
       openSubprocessSheet: (subprocessId: string) => {
         set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
           // Verify the subprocess exists
-          const subprocessNode = state.nodes.find(n => n.id === subprocessId && n.type === 'subprocess');
+          const subprocessNode = sheet.nodes.find(n => n.id === subprocessId && n.type === 'subprocess');
           if (subprocessNode) {
-            // Push current sheet to navigation stack before switching
-            if (state.activeSheetId) {
-              state.sheetNavigationStack.push(state.activeSheetId);
+            // Push current subprocess to navigation stack before switching
+            if (state.activeSubprocessId) {
+              state.subprocessNavigationStack.push(state.activeSubprocessId);
             }
-            state.activeSheetId = subprocessId;
-            state.selectedNodeId = null; // Clear selection when switching sheets
+            state.activeSubprocessId = subprocessId;
+            state.selectedNodeId = null; // Clear selection when switching
           }
         });
       },
 
       /**
-       * Close the currently active sheet and return to main view
+       * Close the currently active subprocess and return to main view
        */
-      closeActiveSheet: () => {
+      closeActiveSubprocess: () => {
         set((state) => {
-          state.activeSheetId = null;
-          state.sheetNavigationStack = []; // Clear navigation stack
-          state.selectedNodeId = null; // Clear selection when closing sheet
+          state.activeSubprocessId = null;
+          state.subprocessNavigationStack = []; // Clear navigation stack
+          state.selectedNodeId = null; // Clear selection when closing
         });
       },
 
       /**
-       * Navigate back to the previous sheet in the navigation stack
+       * Navigate back to the previous subprocess in the navigation stack
        */
-      navigateBackSheet: () => {
+      navigateBackSubprocess: () => {
         set((state) => {
-          if (state.sheetNavigationStack.length > 0) {
-            state.activeSheetId = state.sheetNavigationStack.pop()!;
+          if (state.subprocessNavigationStack.length > 0) {
+            state.activeSubprocessId = state.subprocessNavigationStack.pop()!;
           } else {
-            state.activeSheetId = null;
+            state.activeSubprocessId = null;
           }
           state.selectedNodeId = null;
         });
       },
 
       /**
-       * Navigate to a specific sheet in the navigation history (for breadcrumb navigation)
-       * @param sheetId - The sheet ID to navigate to, or null for main view
+       * Navigate to a specific subprocess in the navigation history (for breadcrumb navigation)
+       * @param subprocessId - The subprocess ID to navigate to, or null for main view
        */
-      navigateToSheet: (sheetId: string | null) => {
+      navigateToSubprocess: (subprocessId: string | null) => {
         set((state) => {
-          if (sheetId === null) {
+          if (subprocessId === null) {
             // Navigate to main view - clear entire stack
-            state.sheetNavigationStack = [];
-            state.activeSheetId = null;
+            state.subprocessNavigationStack = [];
+            state.activeSubprocessId = null;
           } else {
             // Find the target in the stack and navigate to it
-            const targetIndex = state.sheetNavigationStack.indexOf(sheetId);
+            const targetIndex = state.subprocessNavigationStack.indexOf(subprocessId);
             if (targetIndex !== -1) {
-              // Pop everything after the target (inclusive) and set activeSheetId
-              state.sheetNavigationStack = state.sheetNavigationStack.slice(0, targetIndex);
-              state.activeSheetId = sheetId;
-            } else if (state.activeSheetId === sheetId) {
-              // Already on this sheet - do nothing
+              // Pop everything after the target (inclusive) and set activeSubprocessId
+              state.subprocessNavigationStack = state.subprocessNavigationStack.slice(0, targetIndex);
+              state.activeSubprocessId = subprocessId;
+            } else if (state.activeSubprocessId === subprocessId) {
+              // Already on this subprocess - do nothing
             } else {
               // Not in stack and not current - just navigate directly
-              if (state.activeSheetId) {
-                state.sheetNavigationStack.push(state.activeSheetId);
+              if (state.activeSubprocessId) {
+                state.subprocessNavigationStack.push(state.activeSubprocessId);
               }
-              state.activeSheetId = sheetId;
+              state.activeSubprocessId = subprocessId;
             }
           }
           state.selectedNodeId = null;
@@ -1553,7 +1893,10 @@ export const useFlowchartStore = create<FlowchartStore>()(
         newHandleId?: string | null
       ) => {
         set((state) => {
-          const edge = state.edges.find((e) => e.id === originalEdgeId);
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const edge = sheet.edges.find((e) => e.id === originalEdgeId);
           if (!edge) return;
 
           if (direction === 'input') {
@@ -1565,6 +1908,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
             edge.originalSource = newInternalNodeId;
             edge.originalSourceHandle = newHandleId || null;
           }
+          sheet.updatedAt = new Date();
           state.isDirty = true;
         });
       },
@@ -1581,7 +1925,10 @@ export const useFlowchartStore = create<FlowchartStore>()(
         newHandleId?: string | null
       ) => {
         set((state) => {
-          const originalEdge = state.edges.find((e) => e.id === originalEdgeId);
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const originalEdge = sheet.edges.find((e) => e.id === originalEdgeId);
           if (!originalEdge) return;
 
           const subprocessId = originalEdge.target; // for input
@@ -1590,7 +1937,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
           if (direction === 'input') {
             // For input ports: check if an edge already exists with the same external source
             // and the same subprocess as target
-            const existingEdge = state.edges.find((e) =>
+            const existingEdge = sheet.edges.find((e) =>
               e.source === originalEdge.source &&
               e.target === subprocessId &&
               (e.sourceHandle || null) === (originalEdge.sourceHandle || null) &&
@@ -1625,12 +1972,12 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 originalTargets: [{ nodeId: newInternalNodeId, handleId: normalizedHandle }],
                 type: state.defaultEdgeType,
               };
-              state.edges.push(newEdge);
+              sheet.edges.push(newEdge);
             }
           } else {
             // For output ports: check if an edge already exists with the subprocess as source
             // and the same external target
-            const existingEdge = state.edges.find((e) =>
+            const existingEdge = sheet.edges.find((e) =>
               e.source === originalEdge.source &&
               e.target === originalEdge.target &&
               (e.targetHandle || null) === (originalEdge.targetHandle || null) &&
@@ -1665,9 +2012,10 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 originalSources: [{ nodeId: newInternalNodeId, handleId: normalizedHandle }],
                 type: state.defaultEdgeType,
               };
-              state.edges.push(newEdge);
+              sheet.edges.push(newEdge);
             }
           }
+          sheet.updatedAt = new Date();
           state.isDirty = true;
         });
       },
@@ -1684,10 +2032,13 @@ export const useFlowchartStore = create<FlowchartStore>()(
         handleId?: string | null
       ) => {
         set((state) => {
-          const edgeIndex = state.edges.findIndex((e) => e.id === originalEdgeId);
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const edgeIndex = sheet.edges.findIndex((e) => e.id === originalEdgeId);
           if (edgeIndex === -1) return;
 
-          const edge = state.edges[edgeIndex];
+          const edge = sheet.edges[edgeIndex];
           const normalizedHandle = handleId || null;
 
           if (direction === 'input' && edge.originalTargets) {
@@ -1699,7 +2050,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
             // If no connections remain, delete the entire edge
             if (edge.originalTargets.length === 0) {
-              state.edges.splice(edgeIndex, 1);
+              sheet.edges.splice(edgeIndex, 1);
             } else {
               // Update the primary connection (first in array) for backward compatibility
               edge.originalTarget = edge.originalTargets[0].nodeId;
@@ -1708,6 +2059,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
             // Only mark dirty if something actually changed
             if (edge.originalTargets.length !== originalLength) {
+              sheet.updatedAt = new Date();
               state.isDirty = true;
             }
           } else if (direction === 'output' && edge.originalSources) {
@@ -1719,7 +2071,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
             // If no connections remain, delete the entire edge
             if (edge.originalSources.length === 0) {
-              state.edges.splice(edgeIndex, 1);
+              sheet.edges.splice(edgeIndex, 1);
             } else {
               // Update the primary connection (first in array) for backward compatibility
               edge.originalSource = edge.originalSources[0].nodeId;
@@ -1728,6 +2080,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
             // Only mark dirty if something actually changed
             if (edge.originalSources.length !== originalLength) {
+              sheet.updatedAt = new Date();
               state.isDirty = true;
             }
           }
@@ -1750,7 +2103,10 @@ export const useFlowchartStore = create<FlowchartStore>()(
         label?: string
       ) => {
         set((state) => {
-          const edge = state.edges.find((e) => e.id === originalEdgeId);
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const edge = sheet.edges.find((e) => e.id === originalEdgeId);
           if (!edge) return;
 
           if (direction === 'input' && edge.originalTargets && edge.originalTargets[connectionIndex]) {
@@ -1761,6 +2117,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
             if (label !== undefined) {
               connection.label = label;
             }
+            sheet.updatedAt = new Date();
             state.isDirty = true;
           } else if (direction === 'output' && edge.originalSources && edge.originalSources[connectionIndex]) {
             const connection = edge.originalSources[connectionIndex];
@@ -1770,6 +2127,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
             if (label !== undefined) {
               connection.label = label;
             }
+            sheet.updatedAt = new Date();
             state.isDirty = true;
           }
         });
@@ -1791,10 +2149,13 @@ export const useFlowchartStore = create<FlowchartStore>()(
         const defaultLabel = label || `${direction === 'input' ? 'Input' : 'Output'}`;
 
         set((state) => {
-          const nodeIndex = state.nodes.findIndex((n) => n.id === subprocessId && n.type === 'subprocess');
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const nodeIndex = sheet.nodes.findIndex((n) => n.id === subprocessId && n.type === 'subprocess');
           if (nodeIndex === -1) return;
 
-          const node = state.nodes[nodeIndex];
+          const node = sheet.nodes[nodeIndex];
           const nodeData = node.data as ProcessNodeData;
 
           // Get existing ports and count for default labeling
@@ -1811,7 +2172,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
           };
 
           if (direction === 'input') {
-            state.nodes[nodeIndex] = {
+            sheet.nodes[nodeIndex] = {
               ...node,
               data: {
                 ...nodeData,
@@ -1819,7 +2180,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
               },
             } as FlowchartNode;
           } else {
-            state.nodes[nodeIndex] = {
+            sheet.nodes[nodeIndex] = {
               ...node,
               data: {
                 ...nodeData,
@@ -1828,6 +2189,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
             } as FlowchartNode;
           }
 
+          sheet.updatedAt = new Date();
           state.nodeVersion += 1;
           state.edgeVersion += 1; // Trigger edge recalculation since port positions change
           state.isDirty = true;
@@ -1844,10 +2206,13 @@ export const useFlowchartStore = create<FlowchartStore>()(
        */
       updateManualPort: (subprocessId: string, portId: string, updates: Partial<Pick<ManualPort, 'label' | 'position'>>) => {
         set((state) => {
-          const nodeIndex = state.nodes.findIndex((n) => n.id === subprocessId && n.type === 'subprocess');
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const nodeIndex = sheet.nodes.findIndex((n) => n.id === subprocessId && n.type === 'subprocess');
           if (nodeIndex === -1) return;
 
-          const node = state.nodes[nodeIndex];
+          const node = sheet.nodes[nodeIndex];
           const nodeData = node.data as ProcessNodeData;
 
           // Check input ports
@@ -1856,10 +2221,11 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
           if (inputIndex !== -1) {
             inputPorts[inputIndex] = { ...inputPorts[inputIndex], ...updates };
-            state.nodes[nodeIndex] = {
+            sheet.nodes[nodeIndex] = {
               ...node,
               data: { ...nodeData, manualInputPorts: [...inputPorts] },
             } as FlowchartNode;
+            sheet.updatedAt = new Date();
             state.nodeVersion += 1;
             state.edgeVersion += 1; // Trigger edge recalculation for port position changes
             state.isDirty = true;
@@ -1872,10 +2238,11 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
           if (outputIndex !== -1) {
             outputPorts[outputIndex] = { ...outputPorts[outputIndex], ...updates };
-            state.nodes[nodeIndex] = {
+            sheet.nodes[nodeIndex] = {
               ...node,
               data: { ...nodeData, manualOutputPorts: [...outputPorts] },
             } as FlowchartNode;
+            sheet.updatedAt = new Date();
             state.nodeVersion += 1;
             state.edgeVersion += 1; // Trigger edge recalculation for port position changes
             state.isDirty = true;
@@ -1890,10 +2257,13 @@ export const useFlowchartStore = create<FlowchartStore>()(
        */
       deleteManualPort: (subprocessId: string, portId: string) => {
         set((state) => {
-          const nodeIndex = state.nodes.findIndex((n) => n.id === subprocessId && n.type === 'subprocess');
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const nodeIndex = sheet.nodes.findIndex((n) => n.id === subprocessId && n.type === 'subprocess');
           if (nodeIndex === -1) return;
 
-          const node = state.nodes[nodeIndex];
+          const node = sheet.nodes[nodeIndex];
           const nodeData = node.data as ProcessNodeData;
 
           // Determine direction and remove from appropriate array
@@ -1904,7 +2274,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
           const isOutput = outputPorts.some(p => p.id === portId);
 
           if (isInput) {
-            state.nodes[nodeIndex] = {
+            sheet.nodes[nodeIndex] = {
               ...node,
               data: {
                 ...nodeData,
@@ -1912,7 +2282,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
               },
             } as FlowchartNode;
           } else if (isOutput) {
-            state.nodes[nodeIndex] = {
+            sheet.nodes[nodeIndex] = {
               ...node,
               data: {
                 ...nodeData,
@@ -1926,12 +2296,13 @@ export const useFlowchartStore = create<FlowchartStore>()(
           // Remove any edges connected to this manual port
           // For input ports: edges where targetHandle is the portId
           // For output ports: edges where sourceHandle is the portId
-          state.edges = state.edges.filter(edge => {
+          sheet.edges = sheet.edges.filter(edge => {
             const targetMatches = edge.target === subprocessId && edge.targetHandle === portId;
             const sourceMatches = edge.source === subprocessId && edge.sourceHandle === portId;
             return !targetMatches && !sourceMatches;
           });
 
+          sheet.updatedAt = new Date();
           state.nodeVersion += 1;
           state.edgeVersion += 1;
           state.isDirty = true;
@@ -1949,10 +2320,13 @@ export const useFlowchartStore = create<FlowchartStore>()(
         handleId?: string | null
       ) => {
         set((state) => {
-          const nodeIndex = state.nodes.findIndex((n) => n.id === subprocessId && n.type === 'subprocess');
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const nodeIndex = sheet.nodes.findIndex((n) => n.id === subprocessId && n.type === 'subprocess');
           if (nodeIndex === -1) return;
 
-          const node = state.nodes[nodeIndex];
+          const node = sheet.nodes[nodeIndex];
           const nodeData = node.data as ProcessNodeData;
 
           // Find the port and add the connection
@@ -1979,10 +2353,11 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 ...port,
                 internalConnections: [...existingConnections, newConnection],
               };
-              state.nodes[nodeIndex] = {
+              sheet.nodes[nodeIndex] = {
                 ...node,
                 data: { ...nodeData, manualInputPorts: [...inputPorts] },
               } as FlowchartNode;
+              sheet.updatedAt = new Date();
               state.nodeVersion += 1;
               state.edgeVersion += 1; // Trigger edge recalculation for virtual edges
               state.isDirty = true;
@@ -1999,10 +2374,11 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 ...port,
                 internalConnections: [...existingConnections, newConnection],
               };
-              state.nodes[nodeIndex] = {
+              sheet.nodes[nodeIndex] = {
                 ...node,
                 data: { ...nodeData, manualOutputPorts: [...outputPorts] },
               } as FlowchartNode;
+              sheet.updatedAt = new Date();
               state.nodeVersion += 1;
               state.edgeVersion += 1; // Trigger edge recalculation for virtual edges
               state.isDirty = true;
@@ -2022,10 +2398,13 @@ export const useFlowchartStore = create<FlowchartStore>()(
         handleId?: string | null
       ) => {
         set((state) => {
-          const nodeIndex = state.nodes.findIndex((n) => n.id === subprocessId && n.type === 'subprocess');
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const nodeIndex = sheet.nodes.findIndex((n) => n.id === subprocessId && n.type === 'subprocess');
           if (nodeIndex === -1) return;
 
-          const node = state.nodes[nodeIndex];
+          const node = sheet.nodes[nodeIndex];
           const nodeData = node.data as ProcessNodeData;
 
           const inputPorts = nodeData.manualInputPorts || [];
@@ -2046,10 +2425,11 @@ export const useFlowchartStore = create<FlowchartStore>()(
               ...port,
               internalConnections: filteredConnections,
             };
-            state.nodes[nodeIndex] = {
+            sheet.nodes[nodeIndex] = {
               ...node,
               data: { ...nodeData, manualInputPorts: [...inputPorts] },
             } as FlowchartNode;
+            sheet.updatedAt = new Date();
             state.nodeVersion += 1;
             state.edgeVersion += 1; // Trigger edge recalculation for virtual edges
             state.isDirty = true;
@@ -2063,10 +2443,11 @@ export const useFlowchartStore = create<FlowchartStore>()(
               ...port,
               internalConnections: filteredConnections,
             };
-            state.nodes[nodeIndex] = {
+            sheet.nodes[nodeIndex] = {
               ...node,
               data: { ...nodeData, manualOutputPorts: [...outputPorts] },
             } as FlowchartNode;
+            sheet.updatedAt = new Date();
             state.nodeVersion += 1;
             state.edgeVersion += 1; // Trigger edge recalculation for virtual edges
             state.isDirty = true;
@@ -2079,18 +2460,22 @@ export const useFlowchartStore = create<FlowchartStore>()(
        */
       lockNodes: (nodeIds: string[]) => {
         set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
           nodeIds.forEach((nodeId) => {
-            const nodeIndex = state.nodes.findIndex((n) => n.id === nodeId);
+            const nodeIndex = sheet.nodes.findIndex((n) => n.id === nodeId);
             if (nodeIndex !== -1) {
-              state.nodes[nodeIndex] = {
-                ...state.nodes[nodeIndex],
+              sheet.nodes[nodeIndex] = {
+                ...sheet.nodes[nodeIndex],
                 data: {
-                  ...state.nodes[nodeIndex].data,
+                  ...sheet.nodes[nodeIndex].data,
                   locked: true,
                 },
               } as FlowchartNode;
             }
           });
+          sheet.updatedAt = new Date();
           state.isDirty = true;
           state.nodeVersion += 1;
         });
@@ -2101,18 +2486,22 @@ export const useFlowchartStore = create<FlowchartStore>()(
        */
       unlockNodes: (nodeIds: string[]) => {
         set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
           nodeIds.forEach((nodeId) => {
-            const nodeIndex = state.nodes.findIndex((n) => n.id === nodeId);
+            const nodeIndex = sheet.nodes.findIndex((n) => n.id === nodeId);
             if (nodeIndex !== -1) {
-              state.nodes[nodeIndex] = {
-                ...state.nodes[nodeIndex],
+              sheet.nodes[nodeIndex] = {
+                ...sheet.nodes[nodeIndex],
                 data: {
-                  ...state.nodes[nodeIndex].data,
+                  ...sheet.nodes[nodeIndex].data,
                   locked: false,
                 },
               } as FlowchartNode;
             }
           });
+          sheet.updatedAt = new Date();
           state.isDirty = true;
           state.nodeVersion += 1;
         });
@@ -2299,8 +2688,18 @@ export const useFlowchartStore = create<FlowchartStore>()(
 // Selector Hooks
 // =============================================================================
 
-export const useNodes = () => useFlowchartStore((state) => state.nodes);
-export const useEdges = () => useFlowchartStore((state) => state.edges);
+export const useNodes = () => useFlowchartStore((state) => {
+  const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+  return sheet?.nodes || [];
+});
+export const useEdges = () => useFlowchartStore((state) => {
+  const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+  return sheet?.edges || [];
+});
+export const useSheets = () => useFlowchartStore((state) => state.sheets);
+export const useActiveSheetId = () => useFlowchartStore((state) => state.activeSheetId);
+export const useActiveSubprocessId = () => useFlowchartStore((state) => state.activeSubprocessId);
+export const useSubprocessNavigationStack = () => useFlowchartStore((state) => state.subprocessNavigationStack);
 export const useSelectedNodeId = () => useFlowchartStore((state) => state.selectedNodeId);
 export const useFlowchartId = () => useFlowchartStore((state) => state.flowchartId);
 export const useFlowchartName = () => useFlowchartStore((state) => state.flowchartName);
@@ -2309,11 +2708,12 @@ export const useShowGrid = () => useFlowchartStore((state) => state.showGrid);
 export const useShowMinimap = () => useFlowchartStore((state) => state.showMinimap);
 
 export const useSelectedNode = () => {
-  const nodes = useFlowchartStore((state) => state.nodes);
-  const selectedNodeId = useFlowchartStore((state) => state.selectedNodeId);
+  const state = useFlowchartStore();
+  const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+  const selectedNodeId = state.selectedNodeId;
 
-  if (!selectedNodeId) return null;
-  return nodes.find((n) => n.id === selectedNodeId) || null;
+  if (!selectedNodeId || !sheet) return null;
+  return sheet.nodes.find((n) => n.id === selectedNodeId) || null;
 };
 
 // Filter selector hooks
