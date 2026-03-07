@@ -1,6 +1,8 @@
 import React from 'react';
 import { useFilterStore } from '../../stores/filterStore';
-import FilterGroup from './FilterGroup';
+import type { FilterConfiguration, FilterGroup as FilterGroupType, FilterRule, LogicalOperator } from '../../types/filter';
+import { createFilterGroup, createFilterRule } from '../../types/filter';
+import FilterGroupComponent from './FilterGroup';
 
 // Icons
 const FilterIcon = () => (
@@ -27,39 +29,161 @@ const ChevronRightIcon = () => (
   </svg>
 );
 
+// Helper function to count rules recursively
+const countRulesInGroup = (group: FilterGroupType): number => {
+  let count = 0;
+  for (const item of group.rules) {
+    if ('field' in item) {
+      count += 1;
+    } else {
+      count += countRulesInGroup(item);
+    }
+  }
+  return count;
+};
+
+// Helper function to find and modify group recursively
+const findGroup = (group: FilterGroupType, groupId: string): FilterGroupType | null => {
+  if (group.id === groupId) return group;
+  for (const item of group.rules) {
+    if ('logicalOperator' in item) {
+      const found = findGroup(item, groupId);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
+// Helper function to remove rule/group recursively
+const removeById = (group: FilterGroupType, id: string): boolean => {
+  const index = group.rules.findIndex((item) => item.id === id);
+  if (index !== -1) {
+    group.rules.splice(index, 1);
+    return true;
+  }
+  for (const item of group.rules) {
+    if ('logicalOperator' in item) {
+      if (removeById(item, id)) return true;
+    }
+  }
+  return false;
+};
+
+// Helper function to update rule recursively
+const updateRuleById = (group: FilterGroupType, ruleId: string, updates: Partial<FilterRule>): boolean => {
+  for (const item of group.rules) {
+    if ('field' in item && item.id === ruleId) {
+      Object.assign(item, updates);
+      return true;
+    }
+    if ('logicalOperator' in item) {
+      if (updateRuleById(item, ruleId, updates)) return true;
+    }
+  }
+  return false;
+};
+
 interface RuleBasedFilterProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  /** External config (for flowchart view) - if provided, uses this instead of store */
+  config?: FilterConfiguration | null;
+  /** Callback when config changes (for flowchart view) */
+  onConfigChange?: (config: FilterConfiguration | null) => void;
+  /** Callback to clear filter (for flowchart view) */
+  onClear?: () => void;
 }
 
 export const RuleBasedFilter: React.FC<RuleBasedFilterProps> = ({
   isCollapsed = false,
   onToggleCollapse,
+  config: externalConfig,
+  onConfigChange,
+  onClear,
 }) => {
-  const {
-    listFilterConfig,
-    initializeFilter,
-    addRuleToGroup,
-    addGroupToGroup,
-    updateRule,
-    updateGroupOperator,
-    removeRuleOrGroup,
-    clearListFilter,
-    countRules,
-    isFilterActive,
-  } = useFilterStore();
+  // Get store values for list view (used when externalConfig is not provided)
+  const storeActions = useFilterStore();
+  const listFilterConfig = storeActions.listFilterConfig;
 
-  const ruleCount = countRules();
-  const hasActiveFilter = isFilterActive();
+  // Determine if we're using external config (flowchart) or store (list view)
+  const useExternalConfig = externalConfig !== undefined || onConfigChange !== undefined;
+  const config = useExternalConfig ? externalConfig : listFilterConfig;
+
+  // Helper to update config
+  const updateConfig = React.useCallback((newConfig: FilterConfiguration | null) => {
+    if (useExternalConfig && onConfigChange) {
+      onConfigChange(newConfig);
+    } else {
+      storeActions.setListFilterConfig(newConfig);
+    }
+  }, [useExternalConfig, onConfigChange, storeActions]);
 
   // Initialize filter on first render if needed
   React.useEffect(() => {
-    if (!listFilterConfig) {
-      initializeFilter();
+    if (!config) {
+      updateConfig({
+        rootGroup: createFilterGroup('AND'),
+      });
     }
-  }, [listFilterConfig, initializeFilter]);
+  }, [config, updateConfig]);
 
-  if (!listFilterConfig) {
+  // Actions that work with either external or store config
+  const handleAddRuleToGroup = React.useCallback((groupId: string, rule?: FilterRule) => {
+    if (!config) return;
+    const newConfig = { ...config, rootGroup: JSON.parse(JSON.stringify(config.rootGroup)) };
+    const group = findGroup(newConfig.rootGroup, groupId);
+    if (group) {
+      group.rules.push(rule || createFilterRule());
+    }
+    updateConfig(newConfig);
+  }, [config, updateConfig]);
+
+  const handleAddGroupToGroup = React.useCallback((groupId: string, logicalOperator: LogicalOperator = 'AND') => {
+    if (!config) return;
+    const newConfig = { ...config, rootGroup: JSON.parse(JSON.stringify(config.rootGroup)) };
+    const group = findGroup(newConfig.rootGroup, groupId);
+    if (group) {
+      group.rules.push(createFilterGroup(logicalOperator));
+    }
+    updateConfig(newConfig);
+  }, [config, updateConfig]);
+
+  const handleRemoveRuleOrGroup = React.useCallback((id: string) => {
+    if (!config) return;
+    const newConfig = { ...config, rootGroup: JSON.parse(JSON.stringify(config.rootGroup)) };
+    removeById(newConfig.rootGroup, id);
+    updateConfig(newConfig);
+  }, [config, updateConfig]);
+
+  const handleUpdateRule = React.useCallback((ruleId: string, updates: Partial<FilterRule>) => {
+    if (!config) return;
+    const newConfig = { ...config, rootGroup: JSON.parse(JSON.stringify(config.rootGroup)) };
+    updateRuleById(newConfig.rootGroup, ruleId, updates);
+    updateConfig(newConfig);
+  }, [config, updateConfig]);
+
+  const handleUpdateGroupOperator = React.useCallback((groupId: string, operator: LogicalOperator) => {
+    if (!config) return;
+    const newConfig = { ...config, rootGroup: JSON.parse(JSON.stringify(config.rootGroup)) };
+    const group = findGroup(newConfig.rootGroup, groupId);
+    if (group) {
+      group.logicalOperator = operator;
+    }
+    updateConfig(newConfig);
+  }, [config, updateConfig]);
+
+  const handleClear = React.useCallback(() => {
+    if (useExternalConfig && onClear) {
+      onClear();
+    } else {
+      storeActions.clearListFilter();
+    }
+  }, [useExternalConfig, onClear, storeActions]);
+
+  const ruleCount = config ? countRulesInGroup(config.rootGroup) : 0;
+  const hasActiveFilter = config !== null && ruleCount > 0;
+
+  if (!config) {
     return null;
   }
 
@@ -105,7 +229,7 @@ export const RuleBasedFilter: React.FC<RuleBasedFilterProps> = ({
 
         {hasActiveFilter && (
           <button
-            onClick={clearListFilter}
+            onClick={handleClear}
             className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
           >
             <XIcon />
@@ -116,13 +240,13 @@ export const RuleBasedFilter: React.FC<RuleBasedFilterProps> = ({
 
       {/* Filter content */}
       <div className="p-3 max-h-[400px] overflow-y-auto">
-        <FilterGroup
-          group={listFilterConfig.rootGroup}
-          onUpdateGroupOperator={updateGroupOperator}
-          onAddRule={addRuleToGroup}
-          onAddGroup={addGroupToGroup}
-          onUpdateRule={updateRule}
-          onDeleteRuleOrGroup={removeRuleOrGroup}
+        <FilterGroupComponent
+          group={config.rootGroup}
+          onUpdateGroupOperator={handleUpdateGroupOperator}
+          onAddRule={handleAddRuleToGroup}
+          onAddGroup={handleAddGroupToGroup}
+          onUpdateRule={handleUpdateRule}
+          onDeleteRuleOrGroup={handleRemoveRuleOrGroup}
         />
       </div>
 

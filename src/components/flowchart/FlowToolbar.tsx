@@ -2,11 +2,13 @@ import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { useReactFlow, useStore } from '@xyflow/react';
 import { Button } from '../common/Button';
 import { Modal, ModalFooter, ModalBody } from '../common/Modal';
-import { useFlowchartStore, useHasActiveFilters, useIsFilterPanelOpen } from '../../stores/flowchartStore';
+import { useFlowchartStore, useHasActiveFilters, useIsFilterPanelOpen, useFilterMode } from '../../stores/flowchartStore';
+import { useFlowchartFilterConfig, useSetFlowchartFilterConfig, useClearFlowchartFilter } from '../../stores/filterStore';
 import { getAllFlowcharts, deleteFlowchart } from '../../db/database';
 import type { FlowchartRecord } from '../../db/database';
 import type { FlowchartNode, FlowchartEdge } from '../../types';
 import AdvancedFilter from './AdvancedFilter';
+import { RuleBasedFilter } from '../filter/RuleBasedFilter';
 
 // =============================================================================
 // Types
@@ -187,8 +189,33 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
   const filterPanelRef = useRef<HTMLDivElement>(null);
 
   const isFilterPanelOpen = useIsFilterPanelOpen();
-  const hasActiveFilters = useHasActiveFilters();
+  const hasSimpleFilters = useHasActiveFilters();
   const setFilterPanelOpen = useFlowchartStore((state) => state.setFilterPanelOpen);
+  const filterMode = useFilterMode();
+  const setFilterMode = useFlowchartStore((state) => state.setFilterMode);
+  const flowchartFilterConfig = useFlowchartFilterConfig();
+  const setFlowchartFilterConfig = useSetFlowchartFilterConfig();
+  const clearFlowchartFilter = useClearFlowchartFilter();
+
+  // Check if advanced filter has active rules
+  const hasAdvancedFilters = useMemo(() => {
+    if (!flowchartFilterConfig) return false;
+    const countRulesInGroup = (group: typeof flowchartFilterConfig.rootGroup): number => {
+      let count = 0;
+      for (const rule of group.rules) {
+        if ('field' in rule) {
+          count += 1;
+        } else {
+          count += countRulesInGroup(rule);
+        }
+      }
+      return count;
+    };
+    return countRulesInGroup(flowchartFilterConfig.rootGroup) > 0;
+  }, [flowchartFilterConfig]);
+
+  // Combined active filter state based on mode
+  const hasActiveFilters = filterMode === 'advanced' ? hasAdvancedFilters : hasSimpleFilters;
 
   const {
     flowchartName,
@@ -675,7 +702,40 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
                 ref={filterPanelRef}
                 className="absolute right-0 mt-2 z-20"
               >
-                <AdvancedFilter />
+                {/* Filter Mode Toggle */}
+                <div className="bg-white rounded-lg shadow-lg border border-gray-200 mb-2 p-1 flex gap-1">
+                  <button
+                    onClick={() => setFilterMode('simple')}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      filterMode === 'simple'
+                        ? 'bg-primary-100 text-primary-700'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    Simple
+                  </button>
+                  <button
+                    onClick={() => setFilterMode('advanced')}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      filterMode === 'advanced'
+                        ? 'bg-primary-100 text-primary-700'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    Advanced
+                  </button>
+                </div>
+
+                {/* Filter Panel */}
+                {filterMode === 'simple' ? (
+                  <AdvancedFilter />
+                ) : (
+                  <RuleBasedFilter
+                    config={flowchartFilterConfig}
+                    onConfigChange={setFlowchartFilterConfig}
+                    onClear={clearFlowchartFilter}
+                  />
+                )}
               </div>
             </>
           )}

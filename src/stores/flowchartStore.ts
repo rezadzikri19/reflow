@@ -30,6 +30,11 @@ import {
 // =============================================================================
 
 /**
+ * Filter mode type for toggling between simple and advanced filter
+ */
+export type FilterMode = 'simple' | 'advanced';
+
+/**
  * Filter state for node filtering functionality
  */
 export interface NodeFilterState {
@@ -59,6 +64,8 @@ export interface NodeFilterState {
   filterHasImprovement: boolean | null;
   /** Whether the filter panel is visible */
   isFilterPanelOpen: boolean;
+  /** Current filter mode: simple (chip-based) or advanced (rule-based) */
+  filterMode: FilterMode;
 }
 
 // =============================================================================
@@ -99,6 +106,7 @@ interface FlowchartState {
   filterHasPainPoints: boolean | null;
   filterHasImprovement: boolean | null;
   isFilterPanelOpen: boolean;
+  filterMode: FilterMode;
 }
 
 interface FlowchartActions {
@@ -196,6 +204,7 @@ interface FlowchartActions {
   clearAllFilters: () => void;
   toggleFilterPanel: () => void;
   setFilterPanelOpen: (isOpen: boolean) => void;
+  setFilterMode: (mode: FilterMode) => void;
 }
 
 type FlowchartStore = FlowchartState & FlowchartActions;
@@ -232,6 +241,7 @@ const initialState: FlowchartState = {
   filterHasPainPoints: null,
   filterHasImprovement: null,
   isFilterPanelOpen: false,
+  filterMode: 'simple',
 };
 
 // =============================================================================
@@ -2258,6 +2268,15 @@ export const useFlowchartStore = create<FlowchartStore>()(
         });
       },
 
+      /**
+       * Set filter mode (simple or advanced)
+       */
+      setFilterMode: (mode: FilterMode) => {
+        set((state) => {
+          state.filterMode = mode;
+        });
+      },
+
       reset: () => {
         set(initialState);
       },
@@ -2311,11 +2330,13 @@ export const useFilterRequiresFTE = () => useFlowchartStore((state) => state.fil
 export const useFilterHasPainPoints = () => useFlowchartStore((state) => state.filterHasPainPoints);
 export const useFilterHasImprovement = () => useFlowchartStore((state) => state.filterHasImprovement);
 export const useIsFilterPanelOpen = () => useFlowchartStore((state) => state.isFilterPanelOpen);
+export const useFilterMode = () => useFlowchartStore((state) => state.filterMode);
 
 /**
  * Check if any filters are active
  */
 export const useHasActiveFilters = () => {
+  const filterMode = useFlowchartStore((state) => state.filterMode);
   const filterTags = useFlowchartStore((state) => state.filterTags);
   const filterRoles = useFlowchartStore((state) => state.filterRoles);
   const filterDocuments = useFlowchartStore((state) => state.filterDocuments);
@@ -2329,7 +2350,8 @@ export const useHasActiveFilters = () => {
   const filterHasPainPoints = useFlowchartStore((state) => state.filterHasPainPoints);
   const filterHasImprovement = useFlowchartStore((state) => state.filterHasImprovement);
 
-  return (
+  // Simple filter check
+  const hasSimpleFilters =
     filterTags.length > 0 ||
     filterRoles.length > 0 ||
     filterDocuments.length > 0 ||
@@ -2341,8 +2363,18 @@ export const useHasActiveFilters = () => {
     filterLocked !== null ||
     filterRequiresFTE !== null ||
     filterHasPainPoints !== null ||
-    filterHasImprovement !== null
-  );
+    filterHasImprovement !== null;
+
+  // For advanced mode, we need to check the flowchartFilterConfig
+  // This will be handled separately in the FlowToolbar component
+  // since we can't use the filterStore here (would cause circular dependency)
+  if (filterMode === 'advanced') {
+    // Return false here - the actual check will be done in the component
+    // by combining this with the advanced filter check
+    return false;
+  }
+
+  return hasSimpleFilters;
 };
 
 // Expose store to window for debugging (only in development)

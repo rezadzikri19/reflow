@@ -13,8 +13,12 @@ import {
   useFilterRequiresFTE,
   useFilterHasPainPoints,
   useFilterHasImprovement,
+  useFilterMode,
 } from '../stores/flowchartStore';
+import { useFlowchartFilterConfig } from '../stores/filterStore';
+import { evaluateGroup } from './useRuleFilter';
 import type { FlowchartNode, ProcessNodeType, FrequencyType, UnitType } from '../types';
+import type { NodeDataForFilter as RuleNodeDataForFilter } from './useRuleFilter';
 
 // =============================================================================
 // Types
@@ -115,8 +119,24 @@ export function useIsNodeMuted(nodeId: string): boolean {
   const filterHasImprovement = useFilterHasImprovement();
   const nodes = useNodes();
 
+  // Advanced filter state
+  const filterMode = useFilterMode();
+  const flowchartFilterConfig = useFlowchartFilterConfig();
+
   return useMemo(() => {
-    // Check if any filters are active
+    // Find the node
+    const node = nodes.find((n) => n.id === nodeId);
+    if (!node) {
+      return false;
+    }
+
+    // Use advanced filter if mode is 'advanced' and config exists
+    if (filterMode === 'advanced' && flowchartFilterConfig && flowchartFilterConfig.rootGroup.rules.length > 0) {
+      const nodeData = node.data as RuleNodeDataForFilter;
+      return !evaluateGroup(nodeData, flowchartFilterConfig.rootGroup);
+    }
+
+    // Use simple filter (existing logic)
     const hasActiveFilters =
       filterTags.length > 0 ||
       filterRoles.length > 0 ||
@@ -132,12 +152,6 @@ export function useIsNodeMuted(nodeId: string): boolean {
       filterHasImprovement !== null;
 
     if (!hasActiveFilters) {
-      return false;
-    }
-
-    // Find the node
-    const node = nodes.find((n) => n.id === nodeId);
-    if (!node) {
       return false;
     }
 
@@ -158,6 +172,8 @@ export function useIsNodeMuted(nodeId: string): boolean {
   }, [
     nodeId,
     nodes,
+    filterMode,
+    flowchartFilterConfig,
     filterTags,
     filterRoles,
     filterDocuments,

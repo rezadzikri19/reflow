@@ -5,7 +5,7 @@ import type { FilterConfiguration, FilterRule, FilterGroup } from '../types/filt
 /**
  * Node data interface for filtering
  */
-interface NodeDataForFilter {
+export interface NodeDataForFilter {
   label: string;
   description?: string;
   nodeType: string;

@@ -10,10 +10,13 @@ import { createFilterRule, createFilterGroup, OPERATORS_BY_TYPE, FIELD_TYPES } f
 
 interface FilterState {
   listFilterConfig: FilterConfiguration | null;
+  flowchartFilterConfig: FilterConfiguration | null;
 
   // Actions
   setListFilterConfig: (config: FilterConfiguration | null) => void;
+  setFlowchartFilterConfig: (config: FilterConfiguration | null) => void;
   clearListFilter: () => void;
+  clearFlowchartFilter: () => void;
   initializeFilter: () => void;
   addRuleToGroup: (groupId: string, rule?: FilterRule) => void;
   addGroupToGroup: (groupId: string, logicalOperator?: LogicalOperator) => void;
@@ -91,6 +94,7 @@ const countRulesInGroup = (group: FilterGroup): number => {
 export const useFilterStore = create<FilterState>()(
   immer((set, get) => ({
     listFilterConfig: null,
+    flowchartFilterConfig: null,
 
     setListFilterConfig: (config) => {
       set((state) => {
@@ -98,9 +102,21 @@ export const useFilterStore = create<FilterState>()(
       });
     },
 
+    setFlowchartFilterConfig: (config) => {
+      set((state) => {
+        state.flowchartFilterConfig = config;
+      });
+    },
+
     clearListFilter: () => {
       set((state) => {
         state.listFilterConfig = null;
+      });
+    },
+
+    clearFlowchartFilter: () => {
+      set((state) => {
+        state.flowchartFilterConfig = null;
       });
     },
 
@@ -183,14 +199,23 @@ export const useFilterStore = create<FilterState>()(
 
 // Selector hooks for better performance
 export const useListFilterConfig = () => useFilterStore((state) => state.listFilterConfig);
-export const useFilterActions = () =>
-  useFilterStore((state) => ({
-    setListFilterConfig: state.setListFilterConfig,
-    clearListFilter: state.clearListFilter,
-    initializeFilter: state.initializeFilter,
-    addRuleToGroup: state.addRuleToGroup,
-    addGroupToGroup: state.addGroupToGroup,
-    removeRuleOrGroup: state.removeRuleOrGroup,
-    updateRule: state.updateRule,
-    updateGroupOperator: state.updateGroupOperator,
-  }));
+export const useFlowchartFilterConfig = () => useFilterStore((state) => state.flowchartFilterConfig);
+
+// Individual action hooks to avoid object reference issues
+export const useSetListFilterConfig = () => useFilterStore((state) => state.setListFilterConfig);
+export const useSetFlowchartFilterConfig = () => useFilterStore((state) => state.setFlowchartFilterConfig);
+export const useClearListFilter = () => useFilterStore((state) => state.clearListFilter);
+export const useClearFlowchartFilter = () => useFilterStore((state) => state.clearFlowchartFilter);
+
+export const useFilterActions = () => useFilterStore((state) => ({
+  setListFilterConfig: state.setListFilterConfig,
+  setFlowchartFilterConfig: state.setFlowchartFilterConfig,
+  clearListFilter: state.clearListFilter,
+  clearFlowchartFilter: state.clearFlowchartFilter,
+  initializeFilter: state.initializeFilter,
+  addRuleToGroup: state.addRuleToGroup,
+  addGroupToGroup: state.addGroupToGroup,
+  removeRuleOrGroup: state.removeRuleOrGroup,
+  updateRule: state.updateRule,
+  updateGroupOperator: state.updateGroupOperator,
+}));
