@@ -129,6 +129,8 @@ export interface Port {
   label: string;
   /** Optional stored position for the boundary port node in sheet view */
   position?: { x: number; y: number };
+  /** Whether the port is locked and cannot be moved */
+  locked?: boolean;
   /** Internal connections for this port (nodes inside the subprocess connected to this port) */
   internalConnections?: InternalNodeConnection[];
 }
@@ -255,6 +257,17 @@ export interface InternalNodeConnection {
 }
 
 /**
+ * Data stored on edges for boundary port positioning
+ */
+export interface EdgeData {
+  /** Position of the input boundary port in subprocess sheet view */
+  boundaryPortPosition?: { x: number; y: number };
+  /** Position of the output boundary port in subprocess sheet view */
+  boundaryPortOutPosition?: { x: number; y: number };
+  [key: string]: unknown;
+}
+
+/**
  * Custom flowchart edge extending React Flow's Edge type
  */
 export interface FlowchartEdge {
@@ -268,7 +281,7 @@ export interface FlowchartEdge {
   hidden?: boolean;
   deletable?: boolean;
   selectable?: boolean;
-  data?: Record<string, unknown>;
+  data?: EdgeData;
   selected?: boolean;
   markerStart?: EdgeMarkerType;
   markerEnd?: EdgeMarkerType;

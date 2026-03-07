@@ -126,6 +126,7 @@ function FlowCanvasInner({
   const removeBoundaryPortConnection = useFlowchartStore((state) => state.removeBoundaryPortConnection);
   const setSelectedEdgeId = useFlowchartStore((state) => state.setSelectedEdgeId);
   const updateManualPort = useFlowchartStore((state) => state.updateManualPort);
+  const updateEdge = useFlowchartStore((state) => state.updateEdge);
   const addManualPortConnection = useFlowchartStore((state) => state.addManualPortConnection);
   const removeManualPortConnection = useFlowchartStore((state) => state.removeManualPortConnection);
   const copySelectedNodes = useFlowchartStore((state) => state.copySelectedNodes);
@@ -173,14 +174,46 @@ function FlowCanvasInner({
           boundaryPortPositionsRef.current.set(change.id, change.position);
           markDirty();
 
-          // If this is a port, also update its position in the store
+          // Extract the ID from the port node ID
           const inputMatch = change.id.match(/^boundary-in-(.+)$/);
           const outputMatch = change.id.match(/^boundary-out-(.+)$/);
 
           if (inputMatch && activeSubprocessId) {
-            updateManualPort(activeSubprocessId, inputMatch[1], { position: change.position });
+            const extractedId = inputMatch[1];
+            // Check if this is an edge-based port (ID matches an actual edge)
+            const isEdgeBased = edges.some(e => e.id === extractedId);
+
+            if (isEdgeBased) {
+              // Edge-based port: save position to edge data (merge with existing data)
+              const edge = edges.find(e => e.id === extractedId);
+              updateEdge(extractedId, {
+                data: {
+                  ...edge?.data,
+                  boundaryPortPosition: change.position,
+                },
+              });
+            } else {
+              // Manual port: save position to manual port data
+              updateManualPort(activeSubprocessId, extractedId, { position: change.position });
+            }
           } else if (outputMatch && activeSubprocessId) {
-            updateManualPort(activeSubprocessId, outputMatch[1], { position: change.position });
+            const extractedId = outputMatch[1];
+            // Check if this is an edge-based port (ID matches an actual edge)
+            const isEdgeBased = edges.some(e => e.id === extractedId);
+
+            if (isEdgeBased) {
+              // Edge-based port: save position to edge data (merge with existing data)
+              const edge = edges.find(e => e.id === extractedId);
+              updateEdge(extractedId, {
+                data: {
+                  ...edge?.data,
+                  boundaryPortOutPosition: change.position,
+                },
+              });
+            } else {
+              // Manual port: save position to manual port data
+              updateManualPort(activeSubprocessId, extractedId, { position: change.position });
+            }
           }
         }
 
@@ -720,6 +753,48 @@ function FlowCanvasInner({
   }, []);
 
   /**
+   * Lock boundary ports by updating their port definitions
+   */
+  const handleLockBoundaryPorts = useCallback((portNodeIds: string[]) => {
+    if (!activeSubprocessId) return;
+
+    portNodeIds.forEach(portNodeId => {
+      // Extract port ID from node ID (boundary-in-{portId} or boundary-out-{portId})
+      const inputMatch = portNodeId.match(/^boundary-in-(.+)$/);
+      const outputMatch = portNodeId.match(/^boundary-out-(.+)$/);
+
+      if (inputMatch) {
+        const portId = inputMatch[1];
+        updateManualPort(activeSubprocessId, portId, { locked: true });
+      } else if (outputMatch) {
+        const portId = outputMatch[1];
+        updateManualPort(activeSubprocessId, portId, { locked: true });
+      }
+    });
+  }, [activeSubprocessId, updateManualPort]);
+
+  /**
+   * Unlock boundary ports by updating their port definitions
+   */
+  const handleUnlockBoundaryPorts = useCallback((portNodeIds: string[]) => {
+    if (!activeSubprocessId) return;
+
+    portNodeIds.forEach(portNodeId => {
+      // Extract port ID from node ID (boundary-in-{portId} or boundary-out-{portId})
+      const inputMatch = portNodeId.match(/^boundary-in-(.+)$/);
+      const outputMatch = portNodeId.match(/^boundary-out-(.+)$/);
+
+      if (inputMatch) {
+        const portId = inputMatch[1];
+        updateManualPort(activeSubprocessId, portId, { locked: false });
+      } else if (outputMatch) {
+        const portId = outputMatch[1];
+        updateManualPort(activeSubprocessId, portId, { locked: false });
+      }
+    });
+  }, [activeSubprocessId, updateManualPort]);
+
+  /**
    * Get context menu validation state
    */
   const getContextMenuState = useCallback(() => {
@@ -864,7 +939,7 @@ function FlowCanvasInner({
         inputPorts.push({
           id: portId,
           type: 'boundaryPort',
-          position: { x: 0, y: 0 }, // Will be positioned later
+          position: edge.data?.boundaryPortPosition || { x: 0, y: 0 }, // Use stored position from edge data
           measured: { width: 120, height: 32 }, // Provide measured dimensions
           // Apply tracked selection state for multi-select support
           selected: boundaryPortSelectionRef.current.has(portId),
@@ -877,6 +952,7 @@ function FlowCanvasInner({
             // Store all internal connections for this port
             allInternalConnections: internalTargets,
             portId: edge.targetHandle || `port-in-${edge.id}`,
+            locked: false, // Edge-based ports are not lockable (auto-generated)
           } as BoundaryPortNodeData,
         });
       }
@@ -895,7 +971,7 @@ function FlowCanvasInner({
         outputPorts.push({
           id: portId,
           type: 'boundaryPort',
-          position: { x: 0, y: 0 }, // Will be positioned later
+          position: edge.data?.boundaryPortOutPosition || { x: 0, y: 0 }, // Use stored position from edge data
           measured: { width: 120, height: 32 }, // Provide measured dimensions
           // Apply tracked selection state for multi-select support
           selected: boundaryPortSelectionRef.current.has(portId),
@@ -908,6 +984,7 @@ function FlowCanvasInner({
             // Store all internal connections for this port
             allInternalConnections: internalSources,
             portId: edge.sourceHandle || `port-out-${edge.id}`,
+            locked: false, // Edge-based ports are not lockable (auto-generated)
           } as BoundaryPortNodeData,
         });
       }
@@ -934,6 +1011,7 @@ function FlowCanvasInner({
           internalHandleId: connections[0]?.handleId || null,
           allInternalConnections: connections,
           portId: port.id,
+          locked: port.locked || false,
         } as BoundaryPortNodeData,
       });
     });
@@ -959,6 +1037,7 @@ function FlowCanvasInner({
           internalHandleId: connections[0]?.handleId || null,
           allInternalConnections: connections,
           portId: port.id,
+          locked: port.locked || false,
         } as BoundaryPortNodeData,
       });
     });
@@ -989,40 +1068,35 @@ function FlowCanvasInner({
     // Get boundary port nodes
     const { inputs, outputs } = boundaryPortNodes;
 
-    // Calculate default positions for boundary port nodes based on internal nodes
-    // But use stored custom positions if available (for free movement)
-    if (internalNodes.length > 0) {
-      const minX = Math.min(...internalNodes.map(n => n.position.x));
-      const maxX = Math.max(...internalNodes.map(n => n.position.x + (n.measured?.width || 180)));
-      const yPositions = internalNodes.map(n => n.position.y);
-      const avgY = yPositions.reduce((a, b) => a + b, 0) / yPositions.length;
+    // Apply draggable property to boundary port nodes based on their locked state
+    const inputPortsWithDraggable = inputs.map((port) => ({
+      ...port,
+      data: { ...port.data },
+      draggable: !port.data.locked,
+    })) as FlowchartNode[];
+    const outputPortsWithDraggable = outputs.map((port) => ({
+      ...port,
+      data: { ...port.data },
+      draggable: !port.data.locked,
+    })) as FlowchartNode[];
 
-      // Position input ports on the left side, distributed vertically
-      // Use stored position if available, otherwise use calculated default
-      const inputStartY = avgY - ((inputs.length - 1) * 50) / 2;
-      inputs.forEach((port, index) => {
-        const storedPosition = boundaryPortPositionsRef.current.get(port.id);
-        if (storedPosition) {
-          port.position = storedPosition;
-        } else {
-          port.position = { x: minX - 180, y: inputStartY + index * 50 };
-        }
-      });
+    // Use stored custom positions for boundary port nodes (from user dragging)
+    // No auto-layout - ports use their stored position from port data
+    inputPortsWithDraggable.forEach((port) => {
+      const storedPosition = boundaryPortPositionsRef.current.get(port.id);
+      if (storedPosition) {
+        port.position = storedPosition;
+      }
+    });
 
-      // Position output ports on the right side, distributed vertically
-      // Use stored position if available, otherwise use calculated default
-      const outputStartY = avgY - ((outputs.length - 1) * 50) / 2;
-      outputs.forEach((port, index) => {
-        const storedPosition = boundaryPortPositionsRef.current.get(port.id);
-        if (storedPosition) {
-          port.position = storedPosition;
-        } else {
-          port.position = { x: maxX + 60, y: outputStartY + index * 50 };
-        }
-      });
-    }
+    outputPortsWithDraggable.forEach((port) => {
+      const storedPosition = boundaryPortPositionsRef.current.get(port.id);
+      if (storedPosition) {
+        port.position = storedPosition;
+      }
+    });
 
-    return [...inputs, ...internalNodes, ...outputs] as FlowchartNode[];
+    return [...inputPortsWithDraggable, ...internalNodes, ...outputPortsWithDraggable] as FlowchartNode[];
   }, [nodes, nodeVersion, activeSubprocessId, boundaryPortNodes]);
 
   /**
@@ -1326,6 +1400,8 @@ function FlowCanvasInner({
           hasLockedNodes={contextMenuState.hasLockedNodes}
           hasUnlockedNodes={contextMenuState.hasUnlockedNodes}
           hasClipboardContent={contextMenuState.hasClipboardContent}
+          onLockBoundaryPorts={handleLockBoundaryPorts}
+          onUnlockBoundaryPorts={handleUnlockBoundaryPorts}
         />
       </div>
 

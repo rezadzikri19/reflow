@@ -38,6 +38,10 @@ interface ContextMenuProps {
   hasUnlockedNodes?: boolean;
   /** Whether there is content in the clipboard */
   hasClipboardContent?: boolean;
+  /** Callback to lock boundary ports */
+  onLockBoundaryPorts?: (portIds: string[]) => void;
+  /** Callback to unlock boundary ports */
+  onUnlockBoundaryPorts?: (portIds: string[]) => void;
 }
 
 // =============================================================================
@@ -57,6 +61,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   hasLockedNodes,
   hasUnlockedNodes,
   hasClipboardContent,
+  onLockBoundaryPorts,
+  onUnlockBoundaryPorts,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const groupNodesIntoSubprocess = useFlowchartStore((state) => state.groupNodesIntoSubprocess);
@@ -153,15 +159,51 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
 
   const handleLockNodes = useCallback(() => {
     if (selectedNodeIds.length === 0) return;
-    lockNodes(selectedNodeIds);
+
+    // Separate boundary ports from regular nodes
+    const boundaryPortIds = selectedNodeIds.filter(id =>
+      id.startsWith('boundary-in-') || id.startsWith('boundary-out-')
+    );
+    const regularNodeIds = selectedNodeIds.filter(id =>
+      !id.startsWith('boundary-in-') && !id.startsWith('boundary-out-')
+    );
+
+    // Lock regular nodes
+    if (regularNodeIds.length > 0) {
+      lockNodes(regularNodeIds);
+    }
+
+    // Lock boundary ports via callback
+    if (boundaryPortIds.length > 0 && onLockBoundaryPorts) {
+      onLockBoundaryPorts(boundaryPortIds);
+    }
+
     onClose();
-  }, [selectedNodeIds, lockNodes, onClose]);
+  }, [selectedNodeIds, lockNodes, onClose, onLockBoundaryPorts]);
 
   const handleUnlockNodes = useCallback(() => {
     if (selectedNodeIds.length === 0) return;
-    unlockNodes(selectedNodeIds);
+
+    // Separate boundary ports from regular nodes
+    const boundaryPortIds = selectedNodeIds.filter(id =>
+      id.startsWith('boundary-in-') || id.startsWith('boundary-out-')
+    );
+    const regularNodeIds = selectedNodeIds.filter(id =>
+      !id.startsWith('boundary-in-') && !id.startsWith('boundary-out-')
+    );
+
+    // Unlock regular nodes
+    if (regularNodeIds.length > 0) {
+      unlockNodes(regularNodeIds);
+    }
+
+    // Unlock boundary ports via callback
+    if (boundaryPortIds.length > 0 && onUnlockBoundaryPorts) {
+      onUnlockBoundaryPorts(boundaryPortIds);
+    }
+
     onClose();
-  }, [selectedNodeIds, unlockNodes, onClose]);
+  }, [selectedNodeIds, unlockNodes, onClose, onUnlockBoundaryPorts]);
 
   const handleCopy = useCallback(() => {
     if (selectedNodeIds.length === 0) return;

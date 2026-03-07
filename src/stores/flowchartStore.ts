@@ -369,7 +369,7 @@ interface FlowchartActions {
   ) => void;
   // Manual port actions for subprocess nodes
   addManualPort: (subprocessId: string, direction: 'input' | 'output', label?: string) => string;
-  updateManualPort: (subprocessId: string, portId: string, updates: Partial<Pick<Port, 'label' | 'position'>>) => void;
+  updateManualPort: (subprocessId: string, portId: string, updates: Partial<Pick<Port, 'label' | 'position' | 'locked'>>) => void;
   deleteManualPort: (subprocessId: string, portId: string) => void;
   // Manual port internal connection actions
   addManualPortConnection: (
@@ -2367,10 +2367,47 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
           const portLabel = label || `${defaultLabel} ${existingPorts.length + 1}`;
 
+          // Calculate initial position based on existing internal nodes or existing ports
+          const childNodeIds = new Set(nodeData.childNodeIds || []);
+          const childNodes = sheet.nodes.filter(n => childNodeIds.has(n.id));
+
+          let initialPosition = { x: 0, y: 0 };
+
+          if (childNodes.length > 0) {
+            // Has internal nodes - position based on them
+            const xPositions = childNodes.map(n => n.position.x);
+            const yPositions = childNodes.map(n => n.position.y);
+            const avgY = yPositions.reduce((a, b) => a + b, 0) / yPositions.length;
+
+            if (direction === 'input') {
+              const minX = Math.min(...xPositions);
+              initialPosition = { x: minX - 180, y: avgY };
+            } else {
+              const maxX = Math.max(...xPositions.map((x, i) => x + (childNodes[i].measured?.width || 180)));
+              initialPosition = { x: maxX + 60, y: avgY };
+            }
+          } else {
+            // No internal nodes - use default canvas positions with vertical distribution
+            const existingPortsInDirection = existingPorts.length;
+            const verticalSpacing = 80;
+            const centerY = 200; // Default center Y position
+
+            if (direction === 'input') {
+              // Position input ports on the left side
+              const startY = centerY - ((existingPortsInDirection) * verticalSpacing) / 2;
+              initialPosition = { x: 50, y: startY + existingPortsInDirection * verticalSpacing };
+            } else {
+              // Position output ports on the right side
+              const startY = centerY - ((existingPortsInDirection) * verticalSpacing) / 2;
+              initialPosition = { x: 500, y: startY + existingPortsInDirection * verticalSpacing };
+            }
+          }
+
           const newPort: Port = {
             id: portId,
             direction,
             label: portLabel,
+            position: initialPosition,
           };
 
           if (direction === 'input') {
@@ -2407,7 +2444,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
        * @param portId - The ID of the port to update
        * @param updates - Partial updates (label and/or position)
        */
-      updateManualPort: (subprocessId: string, portId: string, updates: Partial<Pick<Port, 'label' | 'position'>>) => {
+      updateManualPort: (subprocessId: string, portId: string, updates: Partial<Pick<Port, 'label' | 'position' | 'locked'>>) => {
         set((state) => {
           const sheet = state.sheets.find(s => s.id === state.activeSheetId);
           if (!sheet) return;
