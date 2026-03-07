@@ -703,7 +703,7 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
                 className="absolute right-0 mt-2 z-20"
               >
                 {/* Filter Mode Toggle */}
-                <div className="bg-white rounded-lg shadow-lg border border-gray-200 mb-2 p-1 flex gap-1">
+                <div className="bg-white rounded-lg shadow-lg border border-gray-200 mb-0 p-1 flex gap-1">
                   <button
                     onClick={() => setFilterMode('simple')}
                     className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
