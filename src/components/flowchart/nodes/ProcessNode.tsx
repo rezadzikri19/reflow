@@ -204,7 +204,10 @@ function ProcessNode({ id, data, selected }: NodeProps) {
                   <User className="w-3.5 h-3.5" />
                   Role
                 </div>
-                <div className="text-sm text-gray-700">{role}</div>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium rounded-full bg-purple-100 text-purple-800">
+                  <User className="w-3.5 h-3.5" />
+                  {role}
+                </span>
               </div>
             )}
 
