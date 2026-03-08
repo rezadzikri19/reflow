@@ -18,6 +18,7 @@ import {
   useFilterSheets,
   useSheets,
   useHighlightedNodeIds,
+  useFlowchartName,
 } from '../../stores/flowchartStore';
 import { useNodeConnections } from '../../hooks/useNodeConnections';
 import { useRuleFilter } from '../../hooks/useRuleFilter';
@@ -93,6 +94,7 @@ const XMLIcon = () => (
 export const ListView: React.FC = () => {
   // Get all sheets and create a combined nodes array with sheet info
   const sheets = useSheets();
+  const flowchartName = useFlowchartName();
 
   // Combine all nodes from all sheets with sheet info
   const nodes = useMemo(() => {
@@ -493,7 +495,15 @@ export const ListView: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-800">Node List</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-gray-800">Node List</h2>
+            {flowchartName && (
+              <span className="text-sm text-gray-400">•</span>
+            )}
+            {flowchartName && (
+              <span className="text-sm font-medium text-gray-600">{flowchartName}</span>
+            )}
+          </div>
           <p className="text-sm text-gray-500 mt-1">
             {filterActive ? (
               <>
