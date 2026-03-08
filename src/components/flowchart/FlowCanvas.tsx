@@ -1071,14 +1071,23 @@ function FlowCanvasInner({
    * Filter nodes to show based on active sheet
    * - Main view (null): show all nodes NOT inside a subprocess
    * - Sheet view (ID): show only children of that subprocess + boundary port nodes
+   * Nodes are sorted by zIndex to ensure proper layering
    */
   const visibleNodes = useMemo((): FlowchartNode[] => {
+    // Helper to sort nodes by zIndex (ascending - lower zIndex renders first)
+    const sortByZIndex = (a: FlowchartNode, b: FlowchartNode) => {
+      const aZ = (a.data as { zIndex?: number }).zIndex ?? 0;
+      const bZ = (b.data as { zIndex?: number }).zIndex ?? 0;
+      return aZ - bZ;
+    };
+
     if (activeSubprocessId === null) {
       // Main view: show all nodes NOT inside a subprocess
       // Create new references to force React Flow re-render when nodeVersion changes
       return nodes
         .filter((node) => !node.data.parentId)
-        .map((node) => ({ ...node, data: { ...node.data }, draggable: !node.data.locked })) as FlowchartNode[];
+        .map((node) => ({ ...node, data: { ...node.data }, draggable: !node.data.locked }))
+        .sort(sortByZIndex) as FlowchartNode[];
     }
 
     // Sheet view: show only children of this subprocess
@@ -1118,7 +1127,9 @@ function FlowCanvasInner({
       }
     });
 
-    return [...inputPortsWithDraggable, ...internalNodes, ...outputPortsWithDraggable] as FlowchartNode[];
+    // Combine and sort all nodes by zIndex
+    return [...inputPortsWithDraggable, ...internalNodes, ...outputPortsWithDraggable]
+      .sort(sortByZIndex) as FlowchartNode[];
   }, [nodes, nodeVersion, activeSubprocessId, boundaryPortNodes]);
 
   /**

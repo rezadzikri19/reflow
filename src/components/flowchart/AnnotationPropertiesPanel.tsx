@@ -9,7 +9,7 @@ import React, { useState, useCallback } from 'react';
 import { useFlowchartStore } from '../../stores/flowchartStore';
 import type { AnnotationNodeData, AnnotationType, TextAlignment, TextVerticalAlignment } from '../../types';
 import { Button } from '../common/Button';
-import { Lock, Unlock, Trash2, BringToFront, SendToBack, AlignLeft, AlignCenter, AlignRight, Bold, Italic } from 'lucide-react';
+import { Lock, Unlock, Trash2, BringToFront, SendToBack, AlignLeft, AlignCenter, AlignRight, Bold, Italic, ChevronUp, ChevronDown, Layers } from 'lucide-react';
 
 // ============================================================================
 // Types
@@ -185,6 +185,16 @@ export const AnnotationPropertiesPanel: React.FC<AnnotationPropertiesPanelProps>
   const handleBringToFront = useCallback(() => {
     updateAnnotationNode(nodeId, { zIndex: 100 });
   }, [nodeId, updateAnnotationNode]);
+
+  // Handle bring forward (one layer up)
+  const handleBringForward = useCallback(() => {
+    updateAnnotationNode(nodeId, { zIndex: Math.min(zIndex + 1, 100) });
+  }, [nodeId, zIndex, updateAnnotationNode]);
+
+  // Handle send backward (one layer down)
+  const handleSendBackward = useCallback(() => {
+    updateAnnotationNode(nodeId, { zIndex: Math.max(zIndex - 1, -100) });
+  }, [nodeId, zIndex, updateAnnotationNode]);
 
   // Handle send to back
   const handleSendToBack = useCallback(() => {
@@ -581,12 +591,13 @@ export const AnnotationPropertiesPanel: React.FC<AnnotationPropertiesPanelProps>
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
             Layer Order
           </h3>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <Button
               variant="secondary"
               size="sm"
               onClick={handleBringToFront}
-              className="flex-1"
+              className="flex items-center justify-center"
+              title="Bring to Front"
             >
               <BringToFront className="w-4 h-4 mr-1" />
               Front
@@ -595,15 +606,43 @@ export const AnnotationPropertiesPanel: React.FC<AnnotationPropertiesPanelProps>
               variant="secondary"
               size="sm"
               onClick={handleSendToBack}
-              className="flex-1"
+              className="flex items-center justify-center"
+              title="Send to Back"
             >
               <SendToBack className="w-4 h-4 mr-1" />
               Back
             </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleBringForward}
+              disabled={zIndex >= 100}
+              className="flex items-center justify-center"
+              title="Bring Forward One Layer"
+            >
+              <ChevronUp className="w-4 h-4 mr-1" />
+              Forward
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleSendBackward}
+              disabled={zIndex <= -100}
+              className="flex items-center justify-center"
+              title="Send Backward One Layer"
+            >
+              <ChevronDown className="w-4 h-4 mr-1" />
+              Backward
+            </Button>
           </div>
-          <p className="text-xs text-gray-400 mt-2">
-            Current z-index: {zIndex} ({zIndex < 0 ? 'behind nodes' : 'in front'})
-          </p>
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-xs text-gray-400">
+              Layer: {zIndex}
+            </p>
+            <p className="text-xs text-gray-400">
+              {zIndex < 0 ? 'Behind nodes' : zIndex === 0 ? 'Same as nodes' : 'In front of nodes'}
+            </p>
+          </div>
         </section>
 
         {/* Action Buttons */}
