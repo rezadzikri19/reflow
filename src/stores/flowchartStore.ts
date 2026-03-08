@@ -17,6 +17,7 @@ import type {
   UnitType,
   Sheet,
   LegacyFlowchart,
+  EdgeControlPoint,
 } from '../types';
 import {
   DEFAULT_PROCESS_NODE_DATA,
@@ -32,6 +33,7 @@ import {
   saveFlowchart as dbSaveFlowchart,
   loadFlowchart as dbLoadFlowchart,
 } from '../db/database';
+import { insertControlPointSorted } from '../utils/edgePathUtils';
 
 // =============================================================================
 // Migration Utilities
@@ -437,6 +439,11 @@ interface FlowchartActions {
   canRedo: () => boolean;
   clearHistory: () => void;
   saveSnapshot: (actionType: string) => void;
+  // Control point actions for edge routing
+  addControlPoint: (edgeId: string, position: { x: number; y: number }) => void;
+  updateControlPoint: (edgeId: string, pointId: string, position: { x: number; y: number }) => void;
+  removeControlPoint: (edgeId: string, pointId: string) => void;
+  clearControlPoints: (edgeId: string) => void;
 }
 
 type FlowchartStore = FlowchartState & FlowchartActions;
@@ -3558,6 +3565,141 @@ export const useFlowchartStore = create<FlowchartStore>()(
         set((state) => {
           state.past = [];
           state.future = [];
+        });
+      },
+
+      /**
+       * Add a control point to an edge
+       */
+      addControlPoint: (edgeId: string, position: { x: number; y: number }) => {
+        set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const edgeIndex = sheet.edges.findIndex((e) => e.id === edgeId);
+          if (edgeIndex === -1) return;
+
+          const edge = sheet.edges[edgeIndex];
+          const currentData = (edge.data || {}) as { controlPoints?: EdgeControlPoint[] };
+          const currentControlPoints = currentData.controlPoints || [];
+
+          // Find source and target positions for sorted insertion
+          // We need to get the actual node positions to calculate the proper order
+          const sourceNode = sheet.nodes.find(n => n.id === edge.source);
+          const targetNode = sheet.nodes.find(n => n.id === edge.target);
+
+          if (!sourceNode || !targetNode) return;
+
+          const source = { x: sourceNode.position.x, y: sourceNode.position.y };
+          const target = { x: targetNode.position.x, y: targetNode.position.y };
+
+          // Insert control point sorted by position along the path
+          const newControlPoints = insertControlPointSorted(
+            currentControlPoints,
+            position,
+            source,
+            target
+          );
+
+          sheet.edges[edgeIndex] = {
+            ...edge,
+            data: {
+              ...currentData,
+              controlPoints: newControlPoints,
+            },
+          };
+          sheet.updatedAt = new Date();
+          state.isDirty = true;
+          syncNodesAndEdgesFromActiveSheet(state);
+        });
+      },
+
+      /**
+       * Update a control point position
+       */
+      updateControlPoint: (edgeId: string, pointId: string, position: { x: number; y: number }) => {
+        set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const edgeIndex = sheet.edges.findIndex((e) => e.id === edgeId);
+          if (edgeIndex === -1) return;
+
+          const edge = sheet.edges[edgeIndex];
+          const currentData = (edge.data || {}) as { controlPoints?: EdgeControlPoint[] };
+          const currentControlPoints = currentData.controlPoints || [];
+
+          const updatedControlPoints = currentControlPoints.map(cp =>
+            cp.id === pointId ? { ...cp, x: position.x, y: position.y } : cp
+          );
+
+          sheet.edges[edgeIndex] = {
+            ...edge,
+            data: {
+              ...currentData,
+              controlPoints: updatedControlPoints,
+            },
+          };
+          sheet.updatedAt = new Date();
+          state.isDirty = true;
+          syncNodesAndEdgesFromActiveSheet(state);
+        });
+      },
+
+      /**
+       * Remove a control point from an edge
+       */
+      removeControlPoint: (edgeId: string, pointId: string) => {
+        set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const edgeIndex = sheet.edges.findIndex((e) => e.id === edgeId);
+          if (edgeIndex === -1) return;
+
+          const edge = sheet.edges[edgeIndex];
+          const currentData = (edge.data || {}) as { controlPoints?: EdgeControlPoint[] };
+          const currentControlPoints = currentData.controlPoints || [];
+
+          const updatedControlPoints = currentControlPoints.filter(cp => cp.id !== pointId);
+
+          sheet.edges[edgeIndex] = {
+            ...edge,
+            data: {
+              ...currentData,
+              controlPoints: updatedControlPoints.length > 0 ? updatedControlPoints : undefined,
+            },
+          };
+          sheet.updatedAt = new Date();
+          state.isDirty = true;
+          syncNodesAndEdgesFromActiveSheet(state);
+        });
+      },
+
+      /**
+       * Clear all control points from an edge
+       */
+      clearControlPoints: (edgeId: string) => {
+        set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const edgeIndex = sheet.edges.findIndex((e) => e.id === edgeId);
+          if (edgeIndex === -1) return;
+
+          const edge = sheet.edges[edgeIndex];
+          const currentData = (edge.data || {}) as { controlPoints?: EdgeControlPoint[] };
+
+          sheet.edges[edgeIndex] = {
+            ...edge,
+            data: {
+              ...currentData,
+              controlPoints: undefined,
+            },
+          };
+          sheet.updatedAt = new Date();
+          state.isDirty = true;
+          syncNodesAndEdgesFromActiveSheet(state);
         });
       },
 

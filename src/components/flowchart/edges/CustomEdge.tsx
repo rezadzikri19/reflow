@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 import {
   BaseEdge,
   getBezierPath,
@@ -7,12 +7,17 @@ import {
   getSimpleBezierPath,
   type EdgeProps,
   Position,
+  useReactFlow,
 } from '@xyflow/react';
+import { useFlowchartStore } from '../../../stores/flowchartStore';
+import { getPathThroughControlPoints, getPathMidpoint } from '../../../utils/edgePathUtils';
+import ControlPointHandle from './ControlPointHandle';
+import type { EdgeControlPoint } from '../../../types';
 
 /**
  * CustomEdge - Edge component with visual selection feedback
  * Supports multiple edge types: smoothstep, bezier, straight, simplebezier
- * Supports labels and custom styles
+ * Supports labels, custom styles, and control points for custom routing
  * Automatically styles Yes/No labels from decision nodes
  */
 function CustomEdge({
@@ -33,36 +38,95 @@ function CustomEdge({
   labelBgPadding,
   labelBgBorderRadius,
   labelStyle,
+  data,
 }: EdgeProps) {
-  // Get the appropriate path based on edge type
+  const { screenToFlowPosition } = useReactFlow();
+  const addControlPoint = useFlowchartStore((state) => state.addControlPoint);
+  const updateControlPoint = useFlowchartStore((state) => state.updateControlPoint);
+  const removeControlPoint = useFlowchartStore((state) => state.removeControlPoint);
+
+  // Get control points from edge data
+  const controlPoints = (data as { controlPoints?: EdgeControlPoint[] })?.controlPoints;
+
+  // Check if we have control points - if so, use custom path
+  const hasControlPoints = controlPoints && controlPoints.length > 0;
+
+  // Get the appropriate path based on edge type and control points
   let edgePath: string;
   let labelX: number;
   let labelY: number;
 
-  const pathParams = {
-    sourceX,
-    sourceY,
-    targetX,
-    targetY,
-    sourcePosition: sourcePosition || Position.Right,
-    targetPosition: targetPosition || Position.Left,
-  };
+  if (hasControlPoints) {
+    // Use custom path through control points
+    edgePath = getPathThroughControlPoints(
+      { x: sourceX, y: sourceY },
+      { x: targetX, y: targetY },
+      controlPoints,
+      type as 'smoothstep' | 'bezier' | 'straight' | 'simplebezier'
+    );
+    const midpoint = getPathMidpoint(
+      { x: sourceX, y: sourceY },
+      { x: targetX, y: targetY },
+      controlPoints
+    );
+    labelX = midpoint.x;
+    labelY = midpoint.y;
+  } else {
+    // Use standard React Flow path generators
+    const pathParams = {
+      sourceX,
+      sourceY,
+      targetX,
+      targetY,
+      sourcePosition: sourcePosition || Position.Right,
+      targetPosition: targetPosition || Position.Left,
+    };
 
-  switch (type) {
-    case 'bezier':
-      [edgePath, labelX, labelY] = getBezierPath(pathParams);
-      break;
-    case 'straight':
-      [edgePath, labelX, labelY] = getStraightPath(pathParams);
-      break;
-    case 'simplebezier':
-      [edgePath, labelX, labelY] = getSimpleBezierPath(pathParams);
-      break;
-    case 'smoothstep':
-    default:
-      [edgePath, labelX, labelY] = getSmoothStepPath(pathParams);
-      break;
+    switch (type) {
+      case 'bezier':
+        [edgePath, labelX, labelY] = getBezierPath(pathParams);
+        break;
+      case 'straight':
+        [edgePath, labelX, labelY] = getStraightPath(pathParams);
+        break;
+      case 'simplebezier':
+        [edgePath, labelX, labelY] = getSimpleBezierPath(pathParams);
+        break;
+      case 'smoothstep':
+      default:
+        [edgePath, labelX, labelY] = getSmoothStepPath(pathParams);
+        break;
+    }
   }
+
+  // Handle double-click to add control point
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // Convert screen position to flow position
+    const flowPosition = screenToFlowPosition({
+      x: e.clientX,
+      y: e.clientY,
+    });
+
+    // Add control point at clicked position
+    addControlPoint(id, { x: flowPosition.x, y: flowPosition.y });
+  }, [id, screenToFlowPosition, addControlPoint]);
+
+  // Handle control point drag
+  const handleControlPointDrag = useCallback((pointId: string, x: number, y: number) => {
+    updateControlPoint(id, pointId, { x, y });
+  }, [id, updateControlPoint]);
+
+  // Handle drag end (triggers save)
+  const handleControlPointDragEnd = useCallback(() => {
+    // Mark dirty for auto-save - the store already does this in updateControlPoint
+  }, []);
+
+  // Handle control point removal
+  const handleControlPointRemove = useCallback((pointId: string) => {
+    removeControlPoint(id, pointId);
+  }, [id, removeControlPoint]);
 
   return (
     <>
@@ -89,6 +153,26 @@ function CustomEdge({
           stroke: selected ? '#3B82F6' : style.stroke || '#6B7280',
         }}
       />
+      {/* Invisible wider path for double-click detection */}
+      <path
+        d={edgePath}
+        fill="none"
+        stroke="transparent"
+        strokeWidth={20}
+        className="nodrag nopan"
+        style={{ cursor: 'pointer' }}
+        onDoubleClick={handleDoubleClick}
+      />
+      {/* Control point handles - only visible when selected */}
+      {selected && controlPoints?.map((point) => (
+        <ControlPointHandle
+          key={point.id}
+          point={point}
+          onDrag={handleControlPointDrag}
+          onDragEnd={handleControlPointDragEnd}
+          onRemove={handleControlPointRemove}
+        />
+      ))}
       {/* Edge label */}
       {label && (
         <g transform={`translate(${labelX}, ${labelY})`}>

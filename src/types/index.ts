@@ -317,6 +317,18 @@ export interface InternalNodeConnection {
 }
 
 /**
+ * Control point for custom edge routing
+ */
+export interface EdgeControlPoint {
+  /** Unique identifier for the control point */
+  id: string;
+  /** X position in the flowchart coordinate system */
+  x: number;
+  /** Y position in the flowchart coordinate system */
+  y: number;
+}
+
+/**
  * Data stored on edges for boundary port positioning
  */
 export interface EdgeData {
@@ -324,6 +336,8 @@ export interface EdgeData {
   boundaryPortPosition?: { x: number; y: number };
   /** Position of the output boundary port in subprocess sheet view */
   boundaryPortOutPosition?: { x: number; y: number };
+  /** Custom control points for edge routing */
+  controlPoints?: EdgeControlPoint[];
   [key: string]: unknown;
 }
 

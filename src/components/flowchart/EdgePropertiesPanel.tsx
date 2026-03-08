@@ -2,7 +2,7 @@ import React, { useCallback, useState, useMemo } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { useFlowchartStore } from '../../stores/flowchartStore';
 import { Button } from '../common/Button';
-import type { EdgeType, EdgeStyleOptions } from '../../types';
+import type { EdgeType, EdgeStyleOptions, EdgeControlPoint } from '../../types';
 
 // ============================================================================
 // Types
@@ -103,6 +103,10 @@ export const EdgePropertiesPanel: React.FC = () => {
   const setDefaultEdgeType = useFlowchartStore((state) => state.setDefaultEdgeType);
   const updateBoundaryConnectionStyle = useFlowchartStore((state) => state.updateBoundaryConnectionStyle);
   const removeBoundaryPortConnection = useFlowchartStore((state) => state.removeBoundaryPortConnection);
+  const addControlPoint = useFlowchartStore((state) => state.addControlPoint);
+  const removeControlPoint = useFlowchartStore((state) => state.removeControlPoint);
+  const clearControlPoints = useFlowchartStore((state) => state.clearControlPoints);
+  const nodes = useFlowchartStore((state) => state.nodes);
   const { getEdges } = useReactFlow();
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -277,6 +281,41 @@ export const EdgePropertiesPanel: React.FC = () => {
   const handleCancelDelete = useCallback(() => {
     setShowDeleteConfirm(false);
   }, []);
+
+  // Get control points from edge data
+  const controlPoints = useMemo(() => {
+    if (!selectedEdge || isBoundary) return [];
+    return ((selectedEdge.data as { controlPoints?: EdgeControlPoint[] })?.controlPoints || []);
+  }, [selectedEdge, isBoundary]);
+
+  // Handle adding control point at midpoint
+  const handleAddControlPoint = useCallback(() => {
+    if (!selectedEdge || isBoundary) return;
+
+    // Find source and target nodes
+    const sourceNode = nodes.find(n => n.id === selectedEdge.source);
+    const targetNode = nodes.find(n => n.id === selectedEdge.target);
+
+    if (!sourceNode || !targetNode) return;
+
+    // Calculate midpoint between source and target
+    const midX = (sourceNode.position.x + targetNode.position.x) / 2;
+    const midY = (sourceNode.position.y + targetNode.position.y) / 2;
+
+    addControlPoint(selectedEdge.id, { x: midX, y: midY });
+  }, [selectedEdge, isBoundary, nodes, addControlPoint]);
+
+  // Handle removing a control point
+  const handleRemoveControlPoint = useCallback((pointId: string) => {
+    if (!selectedEdge) return;
+    removeControlPoint(selectedEdge.id, pointId);
+  }, [selectedEdge, removeControlPoint]);
+
+  // Handle clearing all control points
+  const handleClearControlPoints = useCallback(() => {
+    if (!selectedEdge) return;
+    clearControlPoints(selectedEdge.id);
+  }, [selectedEdge, clearControlPoints]);
 
   // Get current values with defaults based on edge type
   // Note: selectedEdge.label can be React.ReactNode from React Flow's Edge type,
@@ -463,6 +502,99 @@ export const EdgePropertiesPanel: React.FC = () => {
             )}
           </div>
         </section>
+
+        {/* Control Points Section - Only for regular edges */}
+        {!isBoundary && (
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Control Points
+            </h3>
+            <div className="space-y-3">
+              <p className="text-xs text-gray-500">
+                Double-click on the connection line to add control points, or use the button below. Drag handles to adjust the path.
+              </p>
+
+              {/* Control points list */}
+              {controlPoints.length > 0 && (
+                <div className="bg-gray-50 rounded-md p-2 space-y-1">
+                  {controlPoints.map((point, index) => (
+                    <div
+                      key={point.id}
+                      className="flex items-center justify-between bg-white rounded px-2 py-1.5 border border-gray-200"
+                    >
+                      <span className="text-xs text-gray-600">
+                        Point {index + 1}: ({Math.round(point.x)}, {Math.round(point.y)})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveControlPoint(point.id)}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                        title="Remove control point"
+                      >
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleAddControlPoint}
+                  className="flex-1"
+                  leftIcon={
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                  }
+                >
+                  Add Point
+                </Button>
+                {controlPoints.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearControlPoints}
+                    className="text-gray-500 hover:text-red-500"
+                  >
+                    Clear All
+                  </Button>
+                )}
+              </div>
+
+              {controlPoints.length === 0 && (
+                <p className="text-xs text-gray-400 italic">
+                  No control points. Double-click on the connection line to add one.
+                </p>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Action Buttons */}
         <section>
