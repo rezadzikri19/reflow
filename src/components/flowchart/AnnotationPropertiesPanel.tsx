@@ -7,9 +7,9 @@
 
 import React, { useState, useCallback } from 'react';
 import { useFlowchartStore } from '../../stores/flowchartStore';
-import type { AnnotationNodeData, AnnotationType } from '../../types';
+import type { AnnotationNodeData, AnnotationType, TextAlignment, TextVerticalAlignment } from '../../types';
 import { Button } from '../common/Button';
-import { Lock, Unlock, Trash2, BringToFront, SendToBack } from 'lucide-react';
+import { Lock, Unlock, Trash2, BringToFront, SendToBack, AlignLeft, AlignCenter, AlignRight, Bold, Italic } from 'lucide-react';
 
 // ============================================================================
 // Types
@@ -55,6 +55,19 @@ const STROKE_COLORS = [
   { name: 'Purple', value: '#a855f7' },
 ];
 
+const TEXT_COLORS = [
+  { name: 'Slate', value: '#334155' },
+  { name: 'Gray', value: '#4b5563' },
+  { name: 'Black', value: '#000000' },
+  { name: 'Red', value: '#dc2626' },
+  { name: 'Orange', value: '#ea580c' },
+  { name: 'Green', value: '#16a34a' },
+  { name: 'Blue', value: '#2563eb' },
+  { name: 'Purple', value: '#9333ea' },
+];
+
+const FONT_SIZES = [10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48];
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -76,12 +89,60 @@ export const AnnotationPropertiesPanel: React.FC<AnnotationPropertiesPanelProps>
     hideBorder = false,
     locked = false,
     zIndex = -1,
+    textAlign = 'left',
+    textVerticalAlign = 'top',
+    fontSize = 14,
+    fontWeight = 'normal',
+    fontStyle = 'normal',
+    textColor = '#334155',
   } = nodeData;
 
   // Handle label change (for text boxes)
   const handleLabelChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       updateAnnotationNode(nodeId, { label: e.target.value });
+    },
+    [nodeId, updateAnnotationNode]
+  );
+
+  // Handle text alignment change
+  const handleTextAlignChange = useCallback(
+    (alignment: TextAlignment) => {
+      updateAnnotationNode(nodeId, { textAlign: alignment });
+    },
+    [nodeId, updateAnnotationNode]
+  );
+
+  // Handle text vertical alignment change
+  const handleTextVerticalAlignChange = useCallback(
+    (alignment: TextVerticalAlignment) => {
+      updateAnnotationNode(nodeId, { textVerticalAlign: alignment });
+    },
+    [nodeId, updateAnnotationNode]
+  );
+
+  // Handle font size change
+  const handleFontSizeChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      updateAnnotationNode(nodeId, { fontSize: parseInt(e.target.value, 10) });
+    },
+    [nodeId, updateAnnotationNode]
+  );
+
+  // Handle font weight toggle
+  const handleFontWeightToggle = useCallback(() => {
+    updateAnnotationNode(nodeId, { fontWeight: fontWeight === 'bold' ? 'normal' : 'bold' });
+  }, [nodeId, fontWeight, updateAnnotationNode]);
+
+  // Handle font style toggle
+  const handleFontStyleToggle = useCallback(() => {
+    updateAnnotationNode(nodeId, { fontStyle: fontStyle === 'italic' ? 'normal' : 'italic' });
+  }, [nodeId, fontStyle, updateAnnotationNode]);
+
+  // Handle text color change
+  const handleTextColorChange = useCallback(
+    (color: string) => {
+      updateAnnotationNode(nodeId, { textColor: color });
     },
     [nodeId, updateAnnotationNode]
   );
@@ -176,6 +237,198 @@ export const AnnotationPropertiesPanel: React.FC<AnnotationPropertiesPanelProps>
                 className="block w-full rounded-md border border-gray-300 hover:border-gray-400 bg-white px-4 py-2 text-sm placeholder-gray-400 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 placeholder="Enter text..."
               />
+            </div>
+          </section>
+        )}
+
+        {/* Text Formatting Section (for Text Box only) */}
+        {annotationType === 'annotationTextBox' && (
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Text Formatting
+            </h3>
+            <div className="space-y-4">
+              {/* Horizontal Alignment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Horizontal Align
+                </label>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleTextAlignChange('left')}
+                    className={`p-2 rounded-md transition-colors ${
+                      textAlign === 'left'
+                        ? 'bg-primary-100 text-primary-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                    title="Align Left"
+                  >
+                    <AlignLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTextAlignChange('center')}
+                    className={`p-2 rounded-md transition-colors ${
+                      textAlign === 'center'
+                        ? 'bg-primary-100 text-primary-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                    title="Align Center"
+                  >
+                    <AlignCenter className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTextAlignChange('right')}
+                    className={`p-2 rounded-md transition-colors ${
+                      textAlign === 'right'
+                        ? 'bg-primary-100 text-primary-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                    title="Align Right"
+                  >
+                    <AlignRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Vertical Alignment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Vertical Align
+                </label>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleTextVerticalAlignChange('top')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      textVerticalAlign === 'top'
+                        ? 'bg-primary-100 text-primary-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    Top
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTextVerticalAlignChange('middle')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      textVerticalAlign === 'middle'
+                        ? 'bg-primary-100 text-primary-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    Middle
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTextVerticalAlignChange('bottom')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      textVerticalAlign === 'bottom'
+                        ? 'bg-primary-100 text-primary-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    Bottom
+                  </button>
+                </div>
+              </div>
+
+              {/* Font Size */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Font Size
+                </label>
+                <select
+                  value={fontSize}
+                  onChange={handleFontSizeChange}
+                  className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  {FONT_SIZES.map((size) => (
+                    <option key={size} value={size}>
+                      {size}px
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Bold and Italic */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Style
+                </label>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={handleFontWeightToggle}
+                    className={`p-2 rounded-md transition-colors ${
+                      fontWeight === 'bold'
+                        ? 'bg-primary-100 text-primary-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                    title="Bold"
+                  >
+                    <Bold className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleFontStyleToggle}
+                    className={`p-2 rounded-md transition-colors ${
+                      fontStyle === 'italic'
+                        ? 'bg-primary-100 text-primary-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                    title="Italic"
+                  >
+                    <Italic className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Text Color */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Text Color
+                </label>
+                <div className="space-y-3">
+                  {/* Color Presets */}
+                  <div className="flex flex-wrap gap-2">
+                    {TEXT_COLORS.map((color) => (
+                      <button
+                        key={color.value}
+                        type="button"
+                        onClick={() => handleTextColorChange(color.value)}
+                        className={`
+                          w-8 h-8 rounded-md border-2 transition-all
+                          ${textColor === color.value
+                            ? 'border-primary-500 ring-2 ring-primary-200'
+                            : 'border-gray-300 hover:border-gray-400'
+                          }
+                        `}
+                        style={{ backgroundColor: color.value }}
+                        title={color.name}
+                      />
+                    ))}
+                  </div>
+                  {/* Custom Color Input */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={textColor}
+                      onChange={(e) => handleTextColorChange(e.target.value)}
+                      className="w-10 h-10 rounded border border-gray-300 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={textColor}
+                      onChange={(e) => handleTextColorChange(e.target.value)}
+                      className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      placeholder="#334155"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         )}

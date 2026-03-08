@@ -2,11 +2,12 @@
  * Text Box Annotation Node
  * An editable text box with optional background for annotations and labels
  * Double-click to edit text inline
+ * Enter creates new line, Shift+Enter to save, Escape to cancel
  */
 
 import { memo, useState, useCallback, useRef, useEffect } from 'react';
 import { NodeResizer, type NodeProps } from '@xyflow/react';
-import type { AnnotationNodeData } from '../../../../types';
+import type { AnnotationNodeData, TextAlignment, TextVerticalAlignment } from '../../../../types';
 import { useFlowchartStore } from '../../../../stores/flowchartStore';
 
 function TextBoxNode({ id, data, selected }: NodeProps) {
@@ -18,6 +19,12 @@ function TextBoxNode({ id, data, selected }: NodeProps) {
     strokeWidth = 1,
     hideBorder = false,
     locked = false,
+    textAlign = 'left',
+    textVerticalAlign = 'top',
+    fontSize = 14,
+    fontWeight = 'normal',
+    fontStyle = 'normal',
+    textColor = '#334155',
   } = nodeData;
 
   const [isEditing, setIsEditing] = useState(false);
@@ -58,10 +65,12 @@ function TextBoxNode({ id, data, selected }: NodeProps) {
     if (e.key === 'Escape') {
       setEditText(label);
       setIsEditing(false);
-    } else if (e.key === 'Enter' && !e.shiftKey) {
+    } else if (e.key === 'Enter' && e.shiftKey) {
+      // Shift+Enter saves and exits edit mode
       e.preventDefault();
       handleBlur();
     }
+    // Regular Enter creates a new line (default textarea behavior)
   }, [label, handleBlur]);
 
   const handleResizeStart = useCallback(() => {
@@ -71,6 +80,20 @@ function TextBoxNode({ id, data, selected }: NodeProps) {
   const handleResizeEnd = useCallback(() => {
     setIsResizing(false);
   }, []);
+
+  // Map vertical alignment to flex alignment
+  const flexAlignMap: Record<TextVerticalAlignment, string> = {
+    top: 'flex-start',
+    middle: 'center',
+    bottom: 'flex-end',
+  };
+
+  // Map text alignment
+  const textAlignMap: Record<TextAlignment, string> = {
+    left: 'left',
+    center: 'center',
+    right: 'right',
+  };
 
   return (
     <>
@@ -85,7 +108,7 @@ function TextBoxNode({ id, data, selected }: NodeProps) {
       />
       <div
         className={`
-          w-full h-full p-2
+          w-full h-full p-2 flex
           ${selected ? 'ring-2 ring-blue-400 ring-offset-2' : ''}
           ${locked ? 'opacity-70' : ''}
           ${isResizing ? 'pointer-events-none' : ''}
@@ -98,6 +121,8 @@ function TextBoxNode({ id, data, selected }: NodeProps) {
           borderWidth: hideBorder ? 0 : strokeWidth,
           borderStyle: 'solid',
           borderRadius: 4,
+          justifyContent: textAlignMap[textAlign],
+          alignItems: flexAlignMap[textVerticalAlign],
         }}
         onDoubleClick={handleDoubleClick}
       >
@@ -108,11 +133,27 @@ function TextBoxNode({ id, data, selected }: NodeProps) {
             onChange={(e) => setEditText(e.target.value)}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            className="w-full h-full bg-transparent resize-none outline-none text-sm text-slate-700"
-            style={{ minHeight: 20 }}
+            className="w-full h-full bg-transparent resize-none outline-none"
+            style={{
+              minHeight: 20,
+              fontSize,
+              fontWeight,
+              fontStyle,
+              color: textColor,
+              textAlign: textAlignMap[textAlign],
+            }}
           />
         ) : (
-          <div className="w-full h-full text-sm text-slate-700 whitespace-pre-wrap break-words overflow-hidden">
+          <div
+            className="w-full whitespace-pre-wrap break-words overflow-hidden"
+            style={{
+              fontSize,
+              fontWeight,
+              fontStyle,
+              color: textColor,
+              textAlign: textAlignMap[textAlign],
+            }}
+          >
             {label || 'Double-click to edit'}
           </div>
         )}

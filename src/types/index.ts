@@ -180,6 +180,12 @@ export interface BoundaryPortNodeData {
 // ============================================================================
 
 /**
+ * Text alignment options for text box annotations
+ */
+export type TextAlignment = 'left' | 'center' | 'right';
+export type TextVerticalAlignment = 'top' | 'middle' | 'bottom';
+
+/**
  * Data for annotation nodes (visual elements that don't affect process logic)
  */
 export interface AnnotationNodeData {
@@ -201,6 +207,18 @@ export interface AnnotationNodeData {
   locked?: boolean;
   /** Z-index for layering (negative = behind process nodes, positive = in front) */
   zIndex?: number;
+  /** Text horizontal alignment (for textBox type) */
+  textAlign?: TextAlignment;
+  /** Text vertical alignment (for textBox type) */
+  textVerticalAlign?: TextVerticalAlignment;
+  /** Font size in pixels (for textBox type) */
+  fontSize?: number;
+  /** Font weight (for textBox type) */
+  fontWeight?: 'normal' | 'bold';
+  /** Font style (for textBox type) */
+  fontStyle?: 'normal' | 'italic';
+  /** Text color (for textBox type) */
+  textColor?: string;
   /** Index signature to satisfy Record<string, unknown> constraint */
   [key: string]: unknown;
 }
@@ -593,6 +611,13 @@ export const DEFAULT_ANNOTATION_DATA: Partial<AnnotationNodeData> = {
   hideBorder: false,
   locked: false,
   zIndex: -1, // Behind process nodes by default
+  // Text formatting defaults
+  textAlign: 'left',
+  textVerticalAlign: 'top',
+  fontSize: 14,
+  fontWeight: 'normal',
+  fontStyle: 'normal',
+  textColor: '#334155', // slate-700
 };
 
 /**
