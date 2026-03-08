@@ -3763,7 +3763,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
             const subprocessNode = sheet.nodes[subprocessNodeIndex];
             if (subprocessNode.type !== 'subprocess') return;
 
-            const nodeData = subprocessNode.data as { inputPorts?: Port[]; outputPorts?: Port[] };
+            const nodeData = subprocessNode.data as ProcessNodeData;
             const ports = direction === 'input' ? nodeData.inputPorts : nodeData.outputPorts;
             if (!ports) return;
 
@@ -3807,7 +3807,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
               data: {
                 ...nodeData,
                 [direction === 'input' ? 'inputPorts' : 'outputPorts']: ports,
-              },
+              } as ProcessNodeData,
             };
             sheet.updatedAt = new Date();
             state.isDirty = true;
@@ -3858,7 +3858,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
             const subprocessNode = sheet.nodes[subprocessNodeIndex];
             if (subprocessNode.type !== 'subprocess') return;
 
-            const nodeData = subprocessNode.data as { inputPorts?: Port[]; outputPorts?: Port[] };
+            const nodeData = subprocessNode.data as ProcessNodeData;
             const ports = direction === 'input' ? nodeData.inputPorts : nodeData.outputPorts;
             if (!ports) return;
 
@@ -3891,7 +3891,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
               data: {
                 ...nodeData,
                 [direction === 'input' ? 'inputPorts' : 'outputPorts']: ports,
-              },
+              } as ProcessNodeData,
             };
             sheet.updatedAt = new Date();
             state.isDirty = true;
@@ -3940,7 +3940,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
             const subprocessNode = sheet.nodes[subprocessNodeIndex];
             if (subprocessNode.type !== 'subprocess') return;
 
-            const nodeData = subprocessNode.data as { inputPorts?: Port[]; outputPorts?: Port[] };
+            const nodeData = subprocessNode.data as ProcessNodeData;
             const ports = direction === 'input' ? nodeData.inputPorts : nodeData.outputPorts;
             if (!ports) return;
 
@@ -3971,7 +3971,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
               data: {
                 ...nodeData,
                 [direction === 'input' ? 'inputPorts' : 'outputPorts']: ports,
-              },
+              } as ProcessNodeData,
             };
             sheet.updatedAt = new Date();
             state.isDirty = true;
