@@ -23,7 +23,7 @@ import type {
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
 import { useFlowchartStore } from '../../stores/flowchartStore';
-import type { FlowchartNode, FlowchartEdge, ProcessNodeType, ProcessNodeData, Port } from '../../types';
+import type { FlowchartNode, FlowchartEdge, ProcessNodeType, ProcessNodeData, Port, AnnotationType } from '../../types';
 import type { BoundaryPortNodeData } from './nodes/BoundaryPortNode';
 import ContextMenu from './ContextMenu';
 import SheetBar, { type SheetInfo } from './SheetBar';
@@ -105,6 +105,7 @@ function FlowCanvasInner({
   const edgeVersion = useFlowchartStore((state) => state.edgeVersion);
   const selectedNodeId = useFlowchartStore((state) => state.selectedNodeId);
   const addNode = useFlowchartStore((state) => state.addNode);
+  const addAnnotationNode = useFlowchartStore((state) => state.addAnnotationNode);
   const addEdge = useFlowchartStore((state) => state.addEdge);
   const setNodes = useFlowchartStore((state) => state.setNodes);
   const setEdges = useFlowchartStore((state) => state.setEdges);
@@ -546,7 +547,8 @@ function FlowCanvasInner({
       if (readOnly) return;
 
       // Get the node type from the drag data
-      const nodeType = event.dataTransfer.getData('application/reactflow') as ProcessNodeType;
+      const nodeType = event.dataTransfer.getData('application/reactflow');
+      const isAnnotation = event.dataTransfer.getData('application/annotation') === 'true';
 
       if (!nodeType) return;
 
@@ -562,10 +564,14 @@ function FlowCanvasInner({
         position.y = Math.round(position.y / gridSize) * gridSize;
       }
 
-      // Add the new node
-      addNode(nodeType, position);
+      // Add the node - use addAnnotationNode for annotation types, addNode for process types
+      if (isAnnotation) {
+        addAnnotationNode(nodeType as AnnotationType, position);
+      } else {
+        addNode(nodeType as ProcessNodeType, position);
+      }
     },
-    [readOnly, screenToFlowPosition, snapToGrid, gridSize, addNode]
+    [readOnly, screenToFlowPosition, snapToGrid, gridSize, addNode, addAnnotationNode]
   );
 
   /**

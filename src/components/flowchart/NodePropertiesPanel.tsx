@@ -5,7 +5,8 @@ import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { TagInput } from '../common/TagInput';
 import { RoleSelect } from '../common/RoleSelect';
-import type { ProcessNodeData, UnitType, FrequencyType, ProcessNodeType, Port } from '../../types';
+import { AnnotationPropertiesPanel } from './AnnotationPropertiesPanel';
+import type { ProcessNodeData, UnitType, FrequencyType, ProcessNodeType, Port, AnnotationNodeData } from '../../types';
 import { Plus, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
 
 // ============================================================================
@@ -438,6 +439,18 @@ export const NodePropertiesPanel: React.FC = () => {
           </p>
         </div>
       </div>
+    );
+  }
+
+  // Check if this is an annotation node
+  const isAnnotationNode = selectedNode.type?.startsWith('annotation');
+
+  if (isAnnotationNode) {
+    return (
+      <AnnotationPropertiesPanel
+        nodeId={selectedNode.id}
+        nodeData={selectedNode.data as AnnotationNodeData}
+      />
     );
   }
 

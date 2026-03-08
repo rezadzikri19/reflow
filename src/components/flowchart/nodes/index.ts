@@ -18,8 +18,17 @@ export { default as ManualProcessNode } from './ManualProcessNode';
 export { default as ConnectorNode } from './ConnectorNode';
 export { default as TerminatorNode } from './TerminatorNode';
 
+// Annotation node exports
+export {
+  RectangleNode,
+  SquareNode,
+  CircleNode,
+  LineNode,
+  TextBoxNode,
+} from './annotations';
+
 // Type exports for external use
-export type { ProcessNodeData, BaseNodeData, BoundaryPortNodeData } from '../../../types/index';
+export type { ProcessNodeData, BaseNodeData, BoundaryPortNodeData, AnnotationNodeData } from '../../../types/index';
 
 /**
  * Node types map for React Flow
@@ -44,7 +53,17 @@ import ManualProcessNode from './ManualProcessNode';
 import ConnectorNode from './ConnectorNode';
 import TerminatorNode from './TerminatorNode';
 
+// Annotation node imports
+import {
+  RectangleNode,
+  SquareNode,
+  CircleNode,
+  LineNode,
+  TextBoxNode,
+} from './annotations';
+
 export const nodeTypes = {
+  // Process nodes
   start: StartNode,
   end: EndNode,
   process: ProcessNode,
@@ -56,6 +75,12 @@ export const nodeTypes = {
   manualProcess: ManualProcessNode,
   connector: ConnectorNode,
   terminator: TerminatorNode,
+  // Annotation nodes
+  annotationRectangle: RectangleNode,
+  annotationSquare: SquareNode,
+  annotationCircle: CircleNode,
+  annotationLine: LineNode,
+  annotationTextBox: TextBoxNode,
 } as const;
 
 /**

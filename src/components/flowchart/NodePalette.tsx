@@ -1,28 +1,28 @@
 import React, { useState, useMemo } from 'react';
-import type { ProcessNodeType } from '../../types';
+import type { ProcessNodeType, AnnotationType } from '../../types';
 
 // ============================================================================
 // Types
 // ============================================================================
 
 interface NodeTypeInfo {
-  type: ProcessNodeType;
+  type: ProcessNodeType | AnnotationType;
   name: string;
   description: string;
   icon: React.ReactNode;
   color: string;
   bgColor: string;
   borderColor: string;
-  category: 'flow-control' | 'process-steps' | 'advanced';
+  category: 'flow-control' | 'process-steps' | 'advanced' | 'annotations';
 }
 
 interface NodePaletteProps {
   /** Optional className for additional styling */
   className?: string;
   /** Callback when a node type is dragged */
-  onDragStart?: (nodeType: ProcessNodeType, event: React.DragEvent) => void;
+  onDragStart?: (nodeType: ProcessNodeType | AnnotationType, event: React.DragEvent) => void;
   /** Callback when a node type is clicked (optional alternative to drag) */
-  onNodeClick?: (nodeType: ProcessNodeType) => void;
+  onNodeClick?: (nodeType: ProcessNodeType | AnnotationType) => void;
 }
 
 // ============================================================================
@@ -163,11 +163,85 @@ const NODE_TYPES: NodeTypeInfo[] = [
       </svg>
     ),
   },
+  // Annotations
+  {
+    type: 'annotationRectangle',
+    name: 'Rectangle',
+    description: 'Resizable rectangle for highlighting areas',
+    category: 'annotations',
+    color: 'text-slate-600',
+    bgColor: 'bg-slate-50',
+    borderColor: 'border-slate-300',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+      </svg>
+    ),
+  },
+  {
+    type: 'annotationSquare',
+    name: 'Square',
+    description: 'Resizable square for highlighting elements',
+    category: 'annotations',
+    color: 'text-slate-600',
+    bgColor: 'bg-slate-50',
+    borderColor: 'border-slate-300',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+        <rect x="4" y="4" width="16" height="16" rx="2" />
+      </svg>
+    ),
+  },
+  {
+    type: 'annotationCircle',
+    name: 'Circle',
+    description: 'Resizable circle for highlighting elements',
+    category: 'annotations',
+    color: 'text-slate-600',
+    bgColor: 'bg-slate-50',
+    borderColor: 'border-slate-300',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+      </svg>
+    ),
+  },
+  {
+    type: 'annotationLine',
+    name: 'Line',
+    description: 'Horizontal line for visual separation',
+    category: 'annotations',
+    color: 'text-slate-600',
+    bgColor: 'bg-slate-50',
+    borderColor: 'border-slate-300',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+        <line x1="3" y1="12" x2="21" y2="12" />
+      </svg>
+    ),
+  },
+  {
+    type: 'annotationTextBox',
+    name: 'Text Box',
+    description: 'Editable text box for annotations and labels',
+    category: 'annotations',
+    color: 'text-slate-600',
+    bgColor: 'bg-slate-50',
+    borderColor: 'border-slate-300',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <line x1="7" y1="10" x2="17" y2="10" />
+        <line x1="7" y1="14" x2="13" y2="14" />
+      </svg>
+    ),
+  },
 ];
 
 const CATEGORIES = [
   { id: 'flow-control', name: 'Flow Control' },
   { id: 'process-steps', name: 'Process Steps' },
+  { id: 'annotations', name: 'Annotations' },
   { id: 'advanced', name: 'Advanced' },
 ] as const;
 
@@ -192,8 +266,8 @@ const SearchIcon: React.FC = () => (
 
 interface NodePaletteItemProps {
   nodeInfo: NodeTypeInfo;
-  onDragStart?: (nodeType: ProcessNodeType, event: React.DragEvent) => void;
-  onClick?: (nodeType: ProcessNodeType) => void;
+  onDragStart?: (nodeType: ProcessNodeType | AnnotationType, event: React.DragEvent) => void;
+  onClick?: (nodeType: ProcessNodeType | AnnotationType) => void;
 }
 
 const NodePaletteItem: React.FC<NodePaletteItemProps> = ({
@@ -205,6 +279,7 @@ const NodePaletteItem: React.FC<NodePaletteItemProps> = ({
 
   const handleDragStart = (event: React.DragEvent) => {
     event.dataTransfer.setData('application/reactflow', nodeInfo.type);
+    event.dataTransfer.setData('application/annotation', nodeInfo.type.startsWith('annotation') ? 'true' : 'false');
     event.dataTransfer.effectAllowed = 'move';
     setIsDragging(true);
     onDragStart?.(nodeInfo.type, event);

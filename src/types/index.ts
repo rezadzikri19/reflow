@@ -20,6 +20,17 @@ export type ProcessNodeType =
   | 'connector'
   | 'terminator';
 
+/**
+ * All supported annotation types for visual elements
+ * These are purely visual and do not affect process logic
+ */
+export type AnnotationType =
+  | 'annotationRectangle'
+  | 'annotationSquare'
+  | 'annotationCircle'
+  | 'annotationLine'
+  | 'annotationTextBox';
+
 // ============================================================================
 // Edge Types
 // ============================================================================
@@ -165,6 +176,36 @@ export interface BoundaryPortNodeData {
 }
 
 // ============================================================================
+// Annotation Node Data
+// ============================================================================
+
+/**
+ * Data for annotation nodes (visual elements that don't affect process logic)
+ */
+export interface AnnotationNodeData {
+  /** Unique identifier for the annotation */
+  id: string;
+  /** The type of annotation element */
+  annotationType: AnnotationType;
+  /** Text content (for textBox type) */
+  label?: string;
+  /** Fill/background color (hex or CSS color) */
+  fillColor?: string;
+  /** Border/stroke color (hex or CSS color) */
+  strokeColor?: string;
+  /** Border/stroke width in pixels */
+  strokeWidth?: number;
+  /** Whether to hide the border/stroke */
+  hideBorder?: boolean;
+  /** Whether the annotation is locked and cannot be moved */
+  locked?: boolean;
+  /** Z-index for layering (negative = behind process nodes, positive = in front) */
+  zIndex?: number;
+  /** Index signature to satisfy Record<string, unknown> constraint */
+  [key: string]: unknown;
+}
+
+// ============================================================================
 // Process Node Data
 // ============================================================================
 
@@ -220,11 +261,12 @@ export interface ProcessNodeData extends BaseNodeData {
 
 /**
  * Custom flowchart node extending React Flow's Node type
- * Supports both process nodes and boundary port nodes
+ * Supports process nodes, boundary port nodes, and annotation nodes
  */
 export type FlowchartNode =
   | Node<ProcessNodeData, Exclude<ProcessNodeType, 'boundaryPort'>>
-  | Node<BoundaryPortNodeData, 'boundaryPort'>;
+  | Node<BoundaryPortNodeData, 'boundaryPort'>
+  | Node<AnnotationNodeData, AnnotationType>;
 
 /**
  * Custom style options for edge connections
@@ -539,6 +581,18 @@ export const DEFAULT_PROCESS_NODE_DATA: Partial<ProcessNodeData> = {
   tags: [],
   documents: [],
   data: [],
+};
+
+/**
+ * Default values for new annotation nodes
+ */
+export const DEFAULT_ANNOTATION_DATA: Partial<AnnotationNodeData> = {
+  fillColor: 'transparent',
+  strokeColor: '#64748b', // slate-500
+  strokeWidth: 2,
+  hideBorder: false,
+  locked: false,
+  zIndex: -1, // Behind process nodes by default
 };
 
 /**

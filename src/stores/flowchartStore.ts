@@ -7,6 +7,8 @@ import type {
   FlowchartEdge,
   ProcessNodeData,
   ProcessNodeType,
+  AnnotationType,
+  AnnotationNodeData,
   EdgeType,
   EdgeStyleOptions,
   Port,
@@ -18,6 +20,7 @@ import type {
 } from '../types';
 import {
   DEFAULT_PROCESS_NODE_DATA,
+  DEFAULT_ANNOTATION_DATA,
 } from '../types';
 import type {
   FlowchartRecord,
@@ -303,6 +306,8 @@ export const getActiveEdges = (state: FlowchartState): FlowchartEdge[] => {
 
 interface FlowchartActions {
   addNode: (type: ProcessNodeType, position: { x: number; y: number }) => void;
+  addAnnotationNode: (type: AnnotationType, position: { x: number; y: number }) => void;
+  updateAnnotationNode: (nodeId: string, data: Partial<AnnotationNodeData>) => void;
   createReferenceToNode: (referencedNodeId: string, position?: { x: number; y: number }) => string | null;
   updateNode: (nodeId: string, data: Partial<ProcessNodeData>) => void;
   deleteNode: (nodeId: string) => void;
@@ -675,6 +680,91 @@ export const useFlowchartStore = create<FlowchartStore>()(
           sheet.updatedAt = new Date();
           state.isDirty = true;
           syncNodesAndEdgesFromActiveSheet(state);
+        });
+      },
+
+      addAnnotationNode: (type: AnnotationType, position: { x: number; y: number }) => {
+        const id = uuidv4();
+
+        // Save snapshot for undo before making changes
+        get().saveSnapshot('Add annotation');
+
+        // Default sizes for different annotation types
+        const defaultSizes: Record<AnnotationType, { width: number; height: number }> = {
+          annotationRectangle: { width: 150, height: 100 },
+          annotationSquare: { width: 100, height: 100 },
+          annotationCircle: { width: 100, height: 100 },
+          annotationLine: { width: 150, height: 4 },
+          annotationTextBox: { width: 150, height: 60 },
+        };
+
+        const defaultLabels: Record<AnnotationType, string> = {
+          annotationRectangle: '',
+          annotationSquare: '',
+          annotationCircle: '',
+          annotationLine: '',
+          annotationTextBox: 'Text',
+        };
+
+        set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const size = defaultSizes[type];
+
+          const newNode = {
+            id,
+            type,
+            position,
+            width: size.width,
+            height: size.height,
+            data: {
+              id,
+              annotationType: type,
+              label: defaultLabels[type],
+              ...DEFAULT_ANNOTATION_DATA,
+            } as AnnotationNodeData,
+            zIndex: -1,
+          } as FlowchartNode;
+
+          sheet.nodes.push(newNode);
+          sheet.updatedAt = new Date();
+          state.isDirty = true;
+          syncNodesAndEdgesFromActiveSheet(state);
+        });
+      },
+
+      updateAnnotationNode: (nodeId: string, data: Partial<AnnotationNodeData>) => {
+        // Save snapshot for undo before making changes
+        get().saveSnapshot('Update annotation');
+
+        set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          const nodeIndex = sheet.nodes.findIndex((n) => n.id === nodeId);
+          if (nodeIndex !== -1) {
+            const node = sheet.nodes[nodeIndex];
+
+            // Build the updated node
+            const updatedNode: FlowchartNode = {
+              ...node,
+              data: {
+                ...node.data,
+                ...data,
+              },
+            } as FlowchartNode;
+
+            // If zIndex is being updated, also set it on the node level (React Flow uses this for layering)
+            if (data.zIndex !== undefined) {
+              (updatedNode as FlowchartNode & { zIndex: number }).zIndex = data.zIndex;
+            }
+
+            sheet.nodes[nodeIndex] = updatedNode;
+            sheet.updatedAt = new Date();
+            state.isDirty = true;
+            syncNodesAndEdgesFromActiveSheet(state);
+          }
         });
       },
 
