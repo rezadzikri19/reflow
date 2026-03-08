@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 // Common components
-import { Layout } from './components/common';
+import { Layout, Button, Modal, ModalBody, ModalFooter } from './components/common';
 
 // Flowchart components
 import {
@@ -17,8 +17,17 @@ import {
 // List View components
 import { ListView } from './components/listview';
 
+// Auth components
+import { LoginPage, TokenGeneratorPage } from './components/auth';
+
 // Stores
 import { useFlowchartStore, useShowGrid, useShowMinimap } from './stores/flowchartStore';
+import {
+  useAuthStore,
+  useIsAuthenticated,
+  useIsAdmin,
+  useSessionExpiry,
+} from './stores/authStore';
 
 // Hooks
 import { useAutoSave } from './hooks/useAutoSave';
@@ -30,17 +39,21 @@ import { FlowOrderProvider } from './contexts/FlowOrderContext';
 // Types
 // ============================================================================
 
-type ViewType = 'flowchart' | 'list';
+type ViewType = 'flowchart' | 'list' | 'tokenGenerator';
 
 interface NavItem {
   id: ViewType;
   label: string;
   icon: React.ReactNode;
+  adminOnly?: boolean;
 }
 
 // ============================================================================
 // Constants
 // ============================================================================
+
+// Warning threshold: 1 day before expiry
+const SESSION_WARNING_THRESHOLD = 24 * 60 * 60 * 1000; // 1 day in milliseconds
 
 const NAV_ITEMS: NavItem[] = [
   {
@@ -61,6 +74,16 @@ const NAV_ITEMS: NavItem[] = [
       </svg>
     ),
   },
+  {
+    id: 'tokenGenerator',
+    label: 'Token Generator',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+      </svg>
+    ),
+    adminOnly: true,
+  },
 ];
 
 // ============================================================================
@@ -70,12 +93,15 @@ const NAV_ITEMS: NavItem[] = [
 interface NavTabsProps {
   activeView: ViewType;
   onViewChange: (view: ViewType) => void;
+  isAdmin: boolean;
 }
 
-const NavTabs: React.FC<NavTabsProps> = ({ activeView, onViewChange }) => {
+const NavTabs: React.FC<NavTabsProps> = ({ activeView, onViewChange, isAdmin }) => {
+  const visibleItems = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin);
+
   return (
     <nav className="flex items-center gap-1">
-      {NAV_ITEMS.map((item) => (
+      {visibleItems.map((item) => (
         <button
           key={item.id}
           onClick={() => onViewChange(item.id)}
@@ -153,12 +179,50 @@ const FlowchartView: React.FC = () => {
 
 function App() {
   const [activeView, setActiveView] = useState<ViewType>('flowchart');
+  const [showExpiryWarning, setShowExpiryWarning] = useState(false);
+  const warningShownRef = useRef(false);
 
   const nodes = useFlowchartStore((state) => state.nodes);
   const edges = useFlowchartStore((state) => state.edges);
 
+  // Auth state
+  const { isInitialized, initialize, logout } = useAuthStore();
+  const isAuthenticated = useIsAuthenticated();
+  const isAdmin = useIsAdmin();
+  const sessionExpiry = useSessionExpiry();
+
+  // Check if session is expiring soon
+  const isExpiringSoon = sessionExpiry && sessionExpiry.timeRemaining <= SESSION_WARNING_THRESHOLD;
+
+  // Initialize auth on mount
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  // Check for session expiry periodically
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const checkExpiry = () => {
+      if (sessionExpiry && sessionExpiry.timeRemaining <= 0) {
+        logout();
+      }
+    };
+
+    const interval = setInterval(checkExpiry, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, [isAuthenticated, sessionExpiry, logout]);
+
+  // Show warning modal when session is expiring soon (once per mount)
+  useEffect(() => {
+    if (isExpiringSoon && !warningShownRef.current) {
+      warningShownRef.current = true;
+      setShowExpiryWarning(true);
+    }
+  }, [isExpiringSoon]);
+
   // Listen for navigation events from ListView
-  React.useEffect(() => {
+  useEffect(() => {
     const handleNavigateToFlowchart = () => {
       setActiveView('flowchart');
     };
@@ -169,15 +233,49 @@ function App() {
     };
   }, []);
 
+  // Show loading state during initialization
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
+
   const renderView = () => {
     switch (activeView) {
       case 'flowchart':
         return <FlowchartView />;
       case 'list':
         return <ListView />;
+      case 'tokenGenerator':
+        return <TokenGeneratorPage />;
       default:
         return null;
     }
+  };
+
+  const handleLogout = () => {
+    logout();
+    setActiveView('flowchart');
+  };
+
+  const formatTimeRemaining = (ms: number): string => {
+    const hours = Math.floor(ms / (60 * 60 * 1000));
+    const minutes = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
   };
 
   const header = (
@@ -186,7 +284,48 @@ function App() {
         <h1 className="text-lg font-semibold text-gray-900">
           Reflow
         </h1>
-        <NavTabs activeView={activeView} onViewChange={setActiveView} />
+        <NavTabs
+          activeView={activeView}
+          onViewChange={setActiveView}
+          isAdmin={isAdmin}
+        />
+      </div>
+      <div className="flex items-center gap-4">
+        {sessionExpiry && (
+          <>
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              isAdmin
+                ? 'bg-purple-100 text-purple-800'
+                : 'bg-green-100 text-green-800'
+            }`}>
+              {sessionExpiry.name}
+            </span>
+            {isExpiringSoon ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Expires in {formatTimeRemaining(sessionExpiry.timeRemaining)}
+              </span>
+            ) : (
+              <span className="text-sm text-gray-400">
+                Session expires: {sessionExpiry.expiresAt.toLocaleString()}
+              </span>
+            )}
+          </>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleLogout}
+          leftIcon={
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          }
+        >
+          Logout
+        </Button>
       </div>
     </div>
   );
@@ -199,6 +338,46 @@ function App() {
             {renderView()}
           </div>
         </Layout>
+
+        {/* Session Expiry Warning Modal */}
+        <Modal
+          open={showExpiryWarning}
+          onOpenChange={(open) => setShowExpiryWarning(open)}
+          title="Session Expiring Soon"
+        >
+          <ModalBody>
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <svg className="w-6 h-6 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm text-gray-700">
+                  {isAdmin ? (
+                    <>
+                      Your admin session will expire in <strong>{formatTimeRemaining(sessionExpiry?.timeRemaining || 0)}</strong>.
+                      You'll need to log in again with your admin credentials.
+                    </>
+                  ) : (
+                    <>
+                      Your session will expire in <strong>{formatTimeRemaining(sessionExpiry?.timeRemaining || 0)}</strong>.
+                      Please ask your administrator for a new access token to continue using the application.
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="secondary" onClick={() => setShowExpiryWarning(false)}>
+              Dismiss
+            </Button>
+            <Button onClick={handleLogout}>
+              Logout Now
+            </Button>
+          </ModalFooter>
+        </Modal>
       </FlowOrderProvider>
     </ReactFlowProvider>
   );
