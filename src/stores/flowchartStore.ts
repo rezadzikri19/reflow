@@ -322,6 +322,7 @@ interface FlowchartActions {
   setEdges: (edges: FlowchartEdge[]) => void;
   saveFlowchart: () => Promise<void>;
   loadFlowchart: (id: string) => Promise<boolean>;
+  loadFlowchartFromVersion: (version: { sheets: Sheet[]; activeSheetId: string }) => void;
   newFlowchart: (name?: string) => void;
   markDirty: () => void;
   reset: () => void;
@@ -1610,6 +1611,24 @@ export const useFlowchartStore = create<FlowchartStore>()(
         }
 
         return false;
+      },
+
+      loadFlowchartFromVersion: (version: { sheets: Sheet[]; activeSheetId: string }) => {
+        set((state) => {
+          state.sheets = version.sheets;
+          state.activeSheetId = version.activeSheetId || version.sheets[0]?.id || DEFAULT_SHEET_ID;
+          state.activeSubprocessId = null;
+          state.subprocessNavigationStack = [];
+          state.selectedNodeId = null;
+          state.isDirty = true; // Mark dirty so user saves after restoring
+          // Clear history when loading from version
+          state.past = [];
+          state.future = [];
+          // Clear clipboard
+          state.clipboardNodes = [];
+          state.clipboardEdges = [];
+          syncNodesAndEdgesFromActiveSheet(state);
+        });
       },
 
       newFlowchart: (name?: string) => {

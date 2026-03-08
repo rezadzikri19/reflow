@@ -20,6 +20,9 @@ import { ListView } from './components/listview';
 // Stores
 import { useFlowchartStore, useShowGrid, useShowMinimap } from './stores/flowchartStore';
 
+// Hooks
+import { useAutoSave } from './hooks/useAutoSave';
+
 // Context
 import { FlowOrderProvider } from './contexts/FlowOrderContext';
 
@@ -103,6 +106,9 @@ const FlowchartView: React.FC = () => {
   const toggleGrid = useFlowchartStore((state) => state.toggleGrid);
   const toggleMinimap = useFlowchartStore((state) => state.toggleMinimap);
   const selectedEdgeId = useFlowchartStore((state) => state.selectedEdgeId);
+
+  // Initialize auto-save hook
+  useAutoSave();
 
   // Check if any edge is selected (using store's selectedEdgeId which tracks both regular and virtual edges)
   const selectedEdge = selectedEdgeId;

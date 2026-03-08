@@ -43,6 +43,23 @@ export interface SettingsRecord {
   value: unknown;
 }
 
+/**
+ * Flowchart version record for version history.
+ * Stores complete snapshots of flowchart state at specific points in time.
+ */
+export interface FlowchartVersionRecord {
+  id: string;
+  flowchartId: string;
+  sheets: Sheet[];
+  activeSheetId: string;
+  label?: string;
+  description?: string;
+  triggerType: 'auto' | 'manual';
+  nodeCount: number;
+  edgeCount: number;
+  createdAt: Date;
+}
+
 // =============================================================================
 // Database Class Definition
 // =============================================================================
@@ -51,6 +68,7 @@ export class FlowchartDatabase extends Dexie {
   flowcharts!: EntityTable<FlowchartRecord, 'id'>;
   scenarios!: EntityTable<ScenarioRecord, 'id'>;
   settings!: EntityTable<SettingsRecord, 'id'>;
+  flowchartVersions!: EntityTable<FlowchartVersionRecord, 'id'>;
 
   constructor() {
     super('FlowchartProcessDB');
@@ -59,6 +77,13 @@ export class FlowchartDatabase extends Dexie {
       flowcharts: 'id, name, createdAt, updatedAt',
       scenarios: 'id, flowchartId, name, isBaseline, createdAt, updatedAt',
       settings: 'id, &key',
+    });
+
+    this.version(2).stores({
+      flowcharts: 'id, name, createdAt, updatedAt',
+      scenarios: 'id, flowchartId, name, isBaseline, createdAt, updatedAt',
+      settings: 'id, &key',
+      flowchartVersions: 'id, flowchartId, createdAt, triggerType',
     });
   }
 }
@@ -168,4 +193,58 @@ export async function setSetting(key: string, value: unknown): Promise<void> {
 
 export async function deleteSetting(key: string): Promise<void> {
   await db.settings.where('key').equals(key).delete();
+}
+
+// =============================================================================
+// Flowchart Version Helper Functions
+// =============================================================================
+
+export async function saveFlowchartVersion(version: FlowchartVersionRecord): Promise<string> {
+  const newVersion: FlowchartVersionRecord = {
+    ...version,
+    createdAt: version.createdAt || new Date(),
+  };
+  await db.flowchartVersions.add(newVersion);
+  return newVersion.id;
+}
+
+export async function getFlowchartVersions(flowchartId: string): Promise<FlowchartVersionRecord[]> {
+  return db.flowchartVersions
+    .where('flowchartId')
+    .equals(flowchartId)
+    .reverse()
+    .sortBy('createdAt');
+}
+
+export async function getFlowchartVersion(versionId: string): Promise<FlowchartVersionRecord | undefined> {
+  return db.flowchartVersions.get(versionId);
+}
+
+export async function deleteFlowchartVersion(versionId: string): Promise<void> {
+  await db.flowchartVersions.delete(versionId);
+}
+
+export async function deleteAllFlowchartVersions(flowchartId: string): Promise<void> {
+  await db.flowchartVersions.where('flowchartId').equals(flowchartId).delete();
+}
+
+export async function getFlowchartVersionCount(flowchartId: string): Promise<number> {
+  return db.flowchartVersions.where('flowchartId').equals(flowchartId).count();
+}
+
+export async function cleanupOldFlowchartVersions(
+  flowchartId: string,
+  maxVersions: number
+): Promise<void> {
+  const versions = await db.flowchartVersions
+    .where('flowchartId')
+    .equals(flowchartId)
+    .reverse()
+    .sortBy('createdAt');
+
+  if (versions.length > maxVersions) {
+    const versionsToDelete = versions.slice(maxVersions);
+    const idsToDelete = versionsToDelete.map((v) => v.id);
+    await db.flowchartVersions.bulkDelete(idsToDelete);
+  }
 }

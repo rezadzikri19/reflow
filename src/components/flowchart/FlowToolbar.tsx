@@ -9,6 +9,8 @@ import type { FlowchartRecord } from '../../db/database';
 import type { FlowchartNode, FlowchartEdge } from '../../types';
 import AdvancedFilter from './AdvancedFilter';
 import { RuleBasedFilter } from '../filter/RuleBasedFilter';
+import { AutoSaveIndicator } from './AutoSaveIndicator';
+import { VersionHistoryModal } from './VersionHistoryModal';
 
 // =============================================================================
 // Types
@@ -165,6 +167,13 @@ const FilterIcon = () => (
   </svg>
 );
 
+const HistoryIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
 // =============================================================================
 // Component
 // =============================================================================
@@ -181,6 +190,7 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
   const [isSaveLoading, setIsSaveLoading] = useState(false);
   const [isOpenModalOpen, setIsOpenModalOpen] = useState(false);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
   const [savedFlowcharts, setSavedFlowcharts] = useState<FlowchartRecord[]>([]);
   const [isLoadingFlowcharts, setIsLoadingFlowcharts] = useState(false);
 
@@ -466,11 +476,7 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
             className="text-lg font-semibold text-gray-800 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-primary-500 focus:outline-none px-1 py-0.5 min-w-[150px] max-w-[250px]"
             placeholder="Flowchart Name"
           />
-          {isDirty && (
-            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-              Unsaved
-            </span>
-          )}
+          <AutoSaveIndicator />
         </div>
 
         {/* Divider */}
@@ -486,6 +492,15 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
             leftIcon={<SaveIcon />}
           >
             Save
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsVersionHistoryOpen(true)}
+            leftIcon={<HistoryIcon />}
+            title="Version History"
+          >
+            History
           </Button>
           <Button
             variant="ghost"
@@ -834,6 +849,12 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
           </Button>
         </ModalFooter>
       </Modal>
+
+      {/* Version History Modal */}
+      <VersionHistoryModal
+        open={isVersionHistoryOpen}
+        onOpenChange={setIsVersionHistoryOpen}
+      />
     </div>
   );
 };
