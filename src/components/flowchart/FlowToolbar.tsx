@@ -190,6 +190,13 @@ const HandCursorIcon = () => (
   </svg>
 );
 
+const RefreshIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+    <path d="M21 3v5h-5" />
+  </svg>
+);
+
 // =============================================================================
 // Component
 // =============================================================================
@@ -478,6 +485,13 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
     selectedNodes[0]?.type !== 'reference' &&
     selectedNodes[0]?.type !== 'boundaryPort';
 
+  // Handle refresh render - forces a re-render of the canvas
+  const handleRefreshRender = useCallback(() => {
+    // Create new array references to trigger React Flow re-render
+    setNodes([...nodes]);
+    setEdges([...edges]);
+  }, [nodes, edges, setNodes, setEdges]);
+
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 bg-white border-b border-gray-200 shadow-sm">
       {/* Left Section - Flowchart Name & File Actions */}
@@ -686,6 +700,15 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
           title="Fit to Screen"
         >
           Fit
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleRefreshRender}
+          leftIcon={<RefreshIcon />}
+          title="Refresh Render - Force canvas to re-render"
+        >
+          Refresh
         </Button>
       </div>
 
