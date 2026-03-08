@@ -162,7 +162,7 @@ export const LoginPage: React.FC = () => {
           Contact your administrator for access tokens
         </p>
         <p className="mt-3 text-center text-xs text-gray-400">
-          Made by <span className="font-medium">The Almighty Redzik</span>
+          Made by <span className="font-medium">Polygentic</span>
         </p>
       </div>
     </div>
