@@ -179,7 +179,7 @@ function App() {
     <div className="h-full px-4 flex items-center justify-between">
       <div className="flex items-center gap-6">
         <h1 className="text-lg font-semibold text-gray-900">
-          {flowchartName || 'Process Flowchart Tool'}
+          Reflow
         </h1>
         <NavTabs activeView={activeView} onViewChange={setActiveView} />
       </div>
