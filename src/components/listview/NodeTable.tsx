@@ -443,8 +443,10 @@ export const NodeTable: React.FC<NodeTableProps> = ({
 
   // Handle sort toggle
   const handleSort = (columnKey: string) => {
+    // Special case: flowOrder is not in COLUMNS but is sortable
+    const isFlowOrder = columnKey === 'flowOrder';
     const column = COLUMNS.find((c) => c.key === columnKey);
-    if (!column || !column.sortable) return;
+    if (!isFlowOrder && (!column || !column.sortable)) return;
 
     if (sort.column === columnKey) {
       onSortChange({
@@ -594,12 +596,16 @@ export const NodeTable: React.FC<NodeTableProps> = ({
               >
                 {/* Tree column */}
               </th>
-              {/* Row number column header */}
+              {/* Row number column header - sortable by flow order */}
               <th
-                className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 border-b border-gray-200"
+                onClick={() => handleSort('flowOrder')}
+                className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 border-b border-gray-200 cursor-pointer hover:bg-gray-100 select-none"
                 style={{ width: '40px', minWidth: '40px' }}
               >
-                #
+                <div className="flex items-center">
+                  #
+                  <SortIndicator columnKey="flowOrder" />
+                </div>
               </th>
               {visibleColumns.map((column) => (
                 <th

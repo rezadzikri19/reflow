@@ -200,7 +200,8 @@ export function filterTreeWithAncestors(
 export function sortTreeNodes(
   tree: TreeNode[],
   sortColumn: string | null,
-  sortDirection: 'asc' | 'desc'
+  sortDirection: 'asc' | 'desc',
+  flowOrderMap?: Map<string, string>
 ): TreeNode[] {
   if (!sortColumn) return tree;
 
@@ -227,6 +228,9 @@ export function sortTreeNodes(
         return data.frequency || '';
       case 'sheet':
         return (node as any).sheetName || '';
+      case 'flowOrder':
+        // Use hierarchical flow order (e.g., "2.3.5") for sorting
+        return flowOrderMap?.get(node.id) || '';
       default:
         return '';
     }

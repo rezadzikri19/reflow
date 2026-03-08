@@ -36,6 +36,7 @@ import {
   getParentChain,
   getBreadcrumbPath,
 } from '../../utils/nodeHierarchy';
+import { useHierarchicalFlowOrderMap } from '../../contexts/FlowOrderContext';
 
 // ============================================================================
 // Icons
@@ -111,6 +112,9 @@ export const ListView: React.FC = () => {
 
   const connections = useNodeConnections(nodes, allEdges);
   const setSelectedNode = useFlowchartStore((state) => state.setSelectedNode);
+
+  // Get hierarchical flow order map for sorting by node number
+  const flowOrderMap = useHierarchicalFlowOrderMap();
 
   // Global filter mode state
   const filterMode = useFilterMode();
@@ -366,8 +370,8 @@ export const ListView: React.FC = () => {
 
   // Sort tree respecting hierarchy
   const sortedTree = useMemo(() => {
-    return sortTreeNodes(nodeTree, sort.column, sort.direction);
-  }, [nodeTree, sort.column, sort.direction]);
+    return sortTreeNodes(nodeTree, sort.column, sort.direction, flowOrderMap);
+  }, [nodeTree, sort.column, sort.direction, flowOrderMap]);
 
   // Auto-expand ancestors when filtering
   const effectiveExpandedIds = useMemo(() => {
