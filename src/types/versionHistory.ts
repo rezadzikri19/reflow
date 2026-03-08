@@ -40,7 +40,7 @@ export interface AutoSaveStatus {
 export const DEFAULT_AUTO_SAVE_CONFIG: AutoSaveConfig = {
   enabled: true,
   intervalSeconds: 5,
-  versionIntervalMinutes: 10,
+  versionIntervalMinutes: 5,
   maxVersions: 20,
 };
 

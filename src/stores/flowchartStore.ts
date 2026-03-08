@@ -175,6 +175,11 @@ function needsPortMigration(record: FlowchartRecordWithVersion): boolean {
 export type FilterMode = 'simple' | 'advanced';
 
 /**
+ * Cursor mode type for canvas interaction
+ */
+export type CursorMode = 'select' | 'pan';
+
+/**
  * Filter state for node filtering functionality
  */
 export interface NodeFilterState {
@@ -280,6 +285,8 @@ interface FlowchartState {
   maxHistoryDepth: number;
   /** Highlighted node IDs from ListView selection (for Flowchart visual filtering) */
   highlightedNodeIds: string[];
+  /** Current cursor mode for canvas interaction */
+  cursorMode: CursorMode;
 }
 
 // =============================================================================
@@ -413,6 +420,7 @@ interface FlowchartActions {
   toggleFilterPanel: () => void;
   setFilterPanelOpen: (isOpen: boolean) => void;
   setFilterMode: (mode: FilterMode) => void;
+  setCursorMode: (mode: CursorMode) => void;
   // Highlighted nodes actions (ListView -> Flowchart visual filtering)
   setHighlightedNodes: (nodeIds: string[]) => void;
   toggleHighlightedNode: (nodeId: string) => void;
@@ -487,6 +495,8 @@ const initialState: FlowchartState = {
   maxHistoryDepth: 50,
   // Highlighted nodes for visual filtering
   highlightedNodeIds: [],
+  // Cursor mode for canvas interaction
+  cursorMode: 'select',
 };
 
 // =============================================================================
@@ -3070,6 +3080,15 @@ export const useFlowchartStore = create<FlowchartStore>()(
         });
       },
 
+      /**
+       * Set cursor mode for canvas interaction
+       */
+      setCursorMode: (mode: CursorMode) => {
+        set((state) => {
+          state.cursorMode = mode;
+        });
+      },
+
       // =============================================================================
       // Highlighted Nodes Actions (ListView -> Flowchart visual filtering)
       // =============================================================================
@@ -3614,6 +3633,7 @@ export const useFilterHasImprovement = () => useFlowchartStore((state) => state.
 export const useFilterSheets = () => useFlowchartStore((state) => state.filterSheets);
 export const useIsFilterPanelOpen = () => useFlowchartStore((state) => state.isFilterPanelOpen);
 export const useFilterMode = () => useFlowchartStore((state) => state.filterMode);
+export const useCursorMode = () => useFlowchartStore((state) => state.cursorMode);
 
 /**
  * Get highlighted node IDs from ListView selection

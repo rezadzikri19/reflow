@@ -45,7 +45,7 @@ export function useAutoSave() {
 
   // Create version snapshot
   const createVersionSnapshot = useCallback(async () => {
-    if (!config.enabled || !flowchartId) {
+    if (!config.enabled || !flowchartId || !isDirty) {
       return null;
     }
 

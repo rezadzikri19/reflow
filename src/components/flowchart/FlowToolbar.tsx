@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { useReactFlow, useStore } from '@xyflow/react';
 import { Button } from '../common/Button';
 import { Modal, ModalFooter, ModalBody } from '../common/Modal';
-import { useFlowchartStore, useHasActiveFilters, useIsFilterPanelOpen, useFilterMode, useNodes, useEdges, useHighlightedNodeIds, useHasHighlightedNodes } from '../../stores/flowchartStore';
+import { useFlowchartStore, useHasActiveFilters, useIsFilterPanelOpen, useFilterMode, useNodes, useEdges, useHighlightedNodeIds, useHasHighlightedNodes, useCursorMode } from '../../stores/flowchartStore';
 import { useFlowchartFilterConfig, useSetFlowchartFilterConfig, useClearFlowchartFilter } from '../../stores/filterStore';
 import { getAllFlowcharts, deleteFlowchart } from '../../db/database';
 import type { FlowchartRecord } from '../../db/database';
@@ -174,6 +174,22 @@ const HistoryIcon = () => (
   </svg>
 );
 
+const SelectCursorIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
+    <path d="M13 13l6 6" />
+  </svg>
+);
+
+const HandCursorIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0" />
+    <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2" />
+    <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8" />
+    <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
+  </svg>
+);
+
 // =============================================================================
 // Component
 // =============================================================================
@@ -203,6 +219,8 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
   const setFilterPanelOpen = useFlowchartStore((state) => state.setFilterPanelOpen);
   const filterMode = useFilterMode();
   const setFilterMode = useFlowchartStore((state) => state.setFilterMode);
+  const cursorMode = useCursorMode();
+  const setCursorMode = useFlowchartStore((state) => state.setCursorMode);
   const flowchartFilterConfig = useFlowchartFilterConfig();
   const setFlowchartFilterConfig = useSetFlowchartFilterConfig();
   const clearFlowchartFilter = useClearFlowchartFilter();
@@ -609,6 +627,30 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
             title={canCreateReference ? 'Create reference to selected node' : 'Select a node to create reference'}
           >
             Reference
+          </Button>
+        </div>
+
+        <div className="h-4 w-px bg-gray-200 mx-1" />
+
+        {/* Cursor Mode Selector */}
+        <div className="flex items-center gap-0.5 bg-gray-100 rounded-md p-0.5">
+          <Button
+            variant={cursorMode === 'select' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setCursorMode('select')}
+            title="Select Mode - Click to select and move nodes"
+            className="!p-1.5"
+          >
+            <SelectCursorIcon />
+          </Button>
+          <Button
+            variant={cursorMode === 'pan' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setCursorMode('pan')}
+            title="Pan Mode - Click and drag to pan the canvas"
+            className="!p-1.5"
+          >
+            <HandCursorIcon />
           </Button>
         </div>
 

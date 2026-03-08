@@ -22,7 +22,7 @@ import type {
 
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
-import { useFlowchartStore } from '../../stores/flowchartStore';
+import { useFlowchartStore, useCursorMode } from '../../stores/flowchartStore';
 import type { FlowchartNode, FlowchartEdge, ProcessNodeType, ProcessNodeData, Port, AnnotationType } from '../../types';
 import type { BoundaryPortNodeData } from './nodes/BoundaryPortNode';
 import ContextMenu from './ContextMenu';
@@ -136,6 +136,9 @@ function FlowCanvasInner({
   const redo = useFlowchartStore((state) => state.redo);
   const hasClipboardContent = useFlowchartStore((state) => state.clipboardNodes.length > 0);
   const clearHighlightedNodes = useFlowchartStore((state) => state.clearHighlightedNodes);
+  const isDirty = useFlowchartStore((state) => state.isDirty);
+  const saveFlowchart = useFlowchartStore((state) => state.saveFlowchart);
+  const cursorMode = useCursorMode();
 
   // Context menu state
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
@@ -725,11 +728,19 @@ function FlowCanvasInner({
         event.preventDefault();
         redo();
       }
+
+      // Save: Ctrl+S
+      if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+        event.preventDefault();
+        if (isDirty) {
+          saveFlowchart();
+        }
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [readOnly, getNodes, getEdges, deleteNodes, deleteEdges, setSelectedNode, groupNodesIntoSubprocess, edges, removeBoundaryPortConnection, nodes, activeSubprocessId, removeManualPortConnection, copySelectedNodes, pasteNodes, cutSelectedNodes, undo, redo, clearHighlightedNodes]);
+  }, [readOnly, getNodes, getEdges, deleteNodes, deleteEdges, setSelectedNode, groupNodesIntoSubprocess, edges, removeBoundaryPortConnection, nodes, activeSubprocessId, removeManualPortConnection, copySelectedNodes, pasteNodes, cutSelectedNodes, undo, redo, clearHighlightedNodes, isDirty, saveFlowchart]);
 
   // =============================================================================
   // Context Menu Handling
@@ -1293,12 +1304,13 @@ function FlowCanvasInner({
           defaultViewport={{ x: 0, y: 0, zoom: 1 }}
           deleteKeyCode={null} // We handle delete manually
           multiSelectionKeyCode="Control"
-          selectionOnDrag
-          panOnDrag={[1, 2]} // Pan with middle or right mouse button
+          selectionOnDrag={cursorMode === 'select'}
+          panOnDrag={cursorMode === 'pan' ? true : [1, 2]} // Pan with left click in pan mode, or middle/right click in select mode
+          panOnScroll={cursorMode === 'pan'}
           selectionMode={SelectionMode.Partial}
-          nodesDraggable={!readOnly}
-          nodesConnectable={!readOnly}
-          elementsSelectable={!readOnly}
+          nodesDraggable={!readOnly && cursorMode === 'select'}
+          nodesConnectable={!readOnly && cursorMode === 'select'}
+          elementsSelectable={!readOnly && cursorMode === 'select'}
           className="bg-gray-50"
         >
           {/* Background with dots pattern */}
