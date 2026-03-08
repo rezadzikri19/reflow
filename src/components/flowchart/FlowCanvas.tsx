@@ -82,7 +82,7 @@ function FlowCanvasInner({
   customNodeTypes,
 }: FlowCanvasInnerProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { screenToFlowPosition, getNodes, getEdges } = useReactFlow();
+  const { screenToFlowPosition, getNodes, getEdges, fitView } = useReactFlow();
 
   // Store custom positions for boundary port nodes (input/output nodes in subprocess sheets)
   // This allows them to be freely moved and maintain their positions
@@ -116,6 +116,7 @@ function FlowCanvasInner({
   const deleteEdges = useFlowchartStore((state) => state.deleteEdges);
   const markDirty = useFlowchartStore((state) => state.markDirty);
   const activeSubprocessId = useFlowchartStore((state) => state.activeSubprocessId);
+  const activeSheetId = useFlowchartStore((state) => state.activeSheetId);
   const subprocessNavigationStack = useFlowchartStore((state) => state.subprocessNavigationStack);
   const openSubprocessSheet = useFlowchartStore((state) => state.openSubprocessSheet);
   const closeActiveSubprocess = useFlowchartStore((state) => state.closeActiveSubprocess);
@@ -150,6 +151,16 @@ function FlowCanvasInner({
     virtualEdgeSelectionRef.current.clear();
     boundaryPortSelectionRef.current.clear();
   }, [activeSubprocessId]);
+
+  // Auto fit-to-view when switching canvas context (subprocess, sheet)
+  useEffect(() => {
+    // Small delay to allow the DOM to update with new nodes before fitting
+    const timeoutId = setTimeout(() => {
+      fitView({ padding: 0.2, duration: 300 });
+    }, 50);
+
+    return () => clearTimeout(timeoutId);
+  }, [activeSubprocessId, activeSheetId, fitView]);
 
   // Use custom node types if provided, otherwise use defaults
   const registeredNodeTypes = customNodeTypes || nodeTypes;
@@ -1220,6 +1231,8 @@ function FlowCanvasInner({
               connectionIndex: index,
               portId: portData.portId,
               subprocessId: activeSubprocessId,
+              controlPoints: conn.controlPoints, // Include control points for boundary edges
+              isEdgeBased: !portData.edgeId?.startsWith('port-'), // True for edge-based ports, false for manual ports
             },
           } as FlowchartEdge);
         });
@@ -1276,6 +1289,8 @@ function FlowCanvasInner({
               connectionIndex: index,
               portId: portData.portId,
               subprocessId: activeSubprocessId,
+              controlPoints: conn.controlPoints, // Include control points for boundary edges
+              isEdgeBased: !portData.edgeId?.startsWith('port-'), // True for edge-based ports, false for manual ports
             },
           } as FlowchartEdge);
         });

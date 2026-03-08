@@ -314,6 +314,8 @@ export interface InternalNodeConnection {
   label?: string;
   /** Optional custom style for this connection */
   style?: EdgeStyleOptions;
+  /** Optional control points for custom edge routing */
+  controlPoints?: EdgeControlPoint[];
 }
 
 /**

@@ -19,6 +19,7 @@ import type { EdgeControlPoint } from '../../../types';
  * Supports multiple edge types: smoothstep, bezier, straight, simplebezier
  * Supports labels, custom styles, and control points for custom routing
  * Automatically styles Yes/No labels from decision nodes
+ * Supports boundary edge control points for connections inside sub-processes
  */
 function CustomEdge({
   id,
@@ -41,12 +42,35 @@ function CustomEdge({
   data,
 }: EdgeProps) {
   const { screenToFlowPosition } = useReactFlow();
+
+  // Regular edge control point actions
   const addControlPoint = useFlowchartStore((state) => state.addControlPoint);
   const updateControlPoint = useFlowchartStore((state) => state.updateControlPoint);
   const removeControlPoint = useFlowchartStore((state) => state.removeControlPoint);
 
+  // Boundary edge control point actions
+  const addBoundaryEdgeControlPoint = useFlowchartStore((state) => state.addBoundaryEdgeControlPoint);
+  const updateBoundaryEdgeControlPoint = useFlowchartStore((state) => state.updateBoundaryEdgeControlPoint);
+  const removeBoundaryEdgeControlPoint = useFlowchartStore((state) => state.removeBoundaryEdgeControlPoint);
+
+  // Parse edge data to check if this is a boundary edge
+  const edgeData = data as {
+    controlPoints?: EdgeControlPoint[];
+    subprocessId?: string;
+    portId?: string;
+    originalEdgeId?: string; // For edge-based ports, this is the actual edge ID
+    direction?: 'input' | 'output';
+    connectionIndex?: number;
+    isEdgeBased?: boolean; // True for edge-based ports, false for manual ports
+  };
+
+  const isBoundaryEdge = edgeData?.subprocessId && edgeData?.portId && edgeData?.direction !== undefined && edgeData?.connectionIndex !== undefined;
+
+  // For edge-based ports, use originalEdgeId; for manual ports, use portId
+  const effectivePortId = edgeData?.isEdgeBased === true ? edgeData?.originalEdgeId : edgeData?.portId;
+
   // Get control points from edge data
-  const controlPoints = (data as { controlPoints?: EdgeControlPoint[] })?.controlPoints;
+  const controlPoints = edgeData?.controlPoints;
 
   // Check if we have control points - if so, use custom path
   const hasControlPoints = controlPoints && controlPoints.length > 0;
@@ -109,24 +133,61 @@ function CustomEdge({
       y: e.clientY,
     });
 
-    // Add control point at clicked position
-    addControlPoint(id, { x: flowPosition.x, y: flowPosition.y });
-  }, [id, screenToFlowPosition, addControlPoint]);
+    if (isBoundaryEdge) {
+      // Add control point to boundary edge
+      // Use originalEdgeId for edge-based ports, portId for manual ports
+      addBoundaryEdgeControlPoint(
+        edgeData.subprocessId!,
+        effectivePortId!,
+        edgeData.direction!,
+        edgeData.connectionIndex!,
+        { x: flowPosition.x, y: flowPosition.y }
+      );
+    } else {
+      // Add control point to regular edge
+      addControlPoint(id, { x: flowPosition.x, y: flowPosition.y });
+    }
+  }, [id, screenToFlowPosition, addControlPoint, addBoundaryEdgeControlPoint, isBoundaryEdge, edgeData, effectivePortId]);
 
   // Handle control point drag
   const handleControlPointDrag = useCallback((pointId: string, x: number, y: number) => {
-    updateControlPoint(id, pointId, { x, y });
-  }, [id, updateControlPoint]);
+    if (isBoundaryEdge) {
+      // Update control point on boundary edge
+      updateBoundaryEdgeControlPoint(
+        edgeData.subprocessId!,
+        effectivePortId!,
+        edgeData.direction!,
+        edgeData.connectionIndex!,
+        pointId,
+        { x, y }
+      );
+    } else {
+      // Update control point on regular edge
+      updateControlPoint(id, pointId, { x, y });
+    }
+  }, [id, updateControlPoint, updateBoundaryEdgeControlPoint, isBoundaryEdge, edgeData, effectivePortId]);
 
   // Handle drag end (triggers save)
   const handleControlPointDragEnd = useCallback(() => {
-    // Mark dirty for auto-save - the store already does this in updateControlPoint
+    // Mark dirty for auto-save - the store already does this in update functions
   }, []);
 
   // Handle control point removal
   const handleControlPointRemove = useCallback((pointId: string) => {
-    removeControlPoint(id, pointId);
-  }, [id, removeControlPoint]);
+    if (isBoundaryEdge) {
+      // Remove control point from boundary edge
+      removeBoundaryEdgeControlPoint(
+        edgeData.subprocessId!,
+        effectivePortId!,
+        edgeData.direction!,
+        edgeData.connectionIndex!,
+        pointId
+      );
+    } else {
+      // Remove control point from regular edge
+      removeControlPoint(id, pointId);
+    }
+  }, [id, removeControlPoint, removeBoundaryEdgeControlPoint, isBoundaryEdge, edgeData, effectivePortId]);
 
   return (
     <>

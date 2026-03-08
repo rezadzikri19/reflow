@@ -444,6 +444,10 @@ interface FlowchartActions {
   updateControlPoint: (edgeId: string, pointId: string, position: { x: number; y: number }) => void;
   removeControlPoint: (edgeId: string, pointId: string) => void;
   clearControlPoints: (edgeId: string) => void;
+  // Control point actions for boundary edge routing (inside sub-processes)
+  addBoundaryEdgeControlPoint: (subprocessId: string, portId: string, direction: 'input' | 'output', connectionIndex: number, position: { x: number; y: number }) => void;
+  updateBoundaryEdgeControlPoint: (subprocessId: string, portId: string, direction: 'input' | 'output', connectionIndex: number, pointId: string, position: { x: number; y: number }) => void;
+  removeBoundaryEdgeControlPoint: (subprocessId: string, portId: string, direction: 'input' | 'output', connectionIndex: number, pointId: string) => void;
 }
 
 type FlowchartStore = FlowchartState & FlowchartActions;
@@ -3700,6 +3704,279 @@ export const useFlowchartStore = create<FlowchartStore>()(
           sheet.updatedAt = new Date();
           state.isDirty = true;
           syncNodesAndEdgesFromActiveSheet(state);
+        });
+      },
+
+      /**
+       * Add a control point to a boundary edge (inside sub-process)
+       * Handles both manual ports and edge-based (auto-generated) ports
+       */
+      addBoundaryEdgeControlPoint: (subprocessId: string, portId: string, direction: 'input' | 'output', connectionIndex: number, position: { x: number; y: number }) => {
+        set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          // Check if this is an edge-based port (portId is actually an edge ID)
+          const edge = sheet.edges.find(e => e.id === portId);
+          const isEdgeBased = !!edge;
+
+          if (isEdgeBased) {
+            // Handle edge-based port - update edge.originalTargets or edge.originalSources
+            const connections = direction === 'input' ? edge.originalTargets : edge.originalSources;
+            if (!connections || connectionIndex >= connections.length) return;
+
+            const connection = connections[connectionIndex];
+            const currentControlPoints = connection.controlPoints || [];
+
+            // Get positions for sorted insertion
+            const boundaryPortPosition = (edge.data as { boundaryPortPosition?: { x: number; y: number }; boundaryPortOutPosition?: { x: number; y: number } })?.[
+              direction === 'input' ? 'boundaryPortPosition' : 'boundaryPortOutPosition'
+            ] || { x: 0, y: 0 };
+            const internalNode = sheet.nodes.find(n => n.id === connection.nodeId);
+            if (!internalNode) return;
+
+            const source = direction === 'input' ? boundaryPortPosition : internalNode.position;
+            const target = direction === 'input' ? internalNode.position : boundaryPortPosition;
+
+            // Insert control point sorted by position along the path
+            const newControlPoints = insertControlPointSorted(
+              currentControlPoints,
+              position,
+              source,
+              target
+            );
+
+            // Update the connection
+            connections[connectionIndex] = {
+              ...connection,
+              controlPoints: newControlPoints,
+            };
+
+            sheet.updatedAt = new Date();
+            state.isDirty = true;
+            syncNodesAndEdgesFromActiveSheet(state);
+          } else {
+            // Handle manual port - update port.internalConnections
+            const subprocessNodeIndex = sheet.nodes.findIndex(n => n.id === subprocessId);
+            if (subprocessNodeIndex === -1) return;
+
+            const subprocessNode = sheet.nodes[subprocessNodeIndex];
+            if (subprocessNode.type !== 'subprocess') return;
+
+            const nodeData = subprocessNode.data as { inputPorts?: Port[]; outputPorts?: Port[] };
+            const ports = direction === 'input' ? nodeData.inputPorts : nodeData.outputPorts;
+            if (!ports) return;
+
+            // Find the port by ID
+            const portIndex = ports.findIndex(p => p.id === portId);
+            if (portIndex === -1) return;
+
+            const port = ports[portIndex];
+            if (!port.internalConnections || port.internalConnections.length === 0) return;
+
+            // Ensure connection index is valid
+            if (connectionIndex >= port.internalConnections.length) return;
+
+            const connection = port.internalConnections[connectionIndex];
+            const currentControlPoints = connection.controlPoints || [];
+
+            // Get source and target positions for sorted insertion
+            const boundaryPortPosition = port.position || { x: 0, y: 0 };
+            const internalNode = sheet.nodes.find(n => n.id === connection.nodeId);
+            if (!internalNode) return;
+
+            const source = direction === 'input' ? boundaryPortPosition : internalNode.position;
+            const target = direction === 'input' ? internalNode.position : boundaryPortPosition;
+
+            // Insert control point sorted by position along the path
+            const newControlPoints = insertControlPointSorted(
+              currentControlPoints,
+              position,
+              source,
+              target
+            );
+
+            // Update the connection with new control points
+            port.internalConnections[connectionIndex] = {
+              ...connection,
+              controlPoints: newControlPoints,
+            };
+
+            sheet.nodes[subprocessNodeIndex] = {
+              ...subprocessNode,
+              data: {
+                ...nodeData,
+                [direction === 'input' ? 'inputPorts' : 'outputPorts']: ports,
+              },
+            };
+            sheet.updatedAt = new Date();
+            state.isDirty = true;
+            syncNodesAndEdgesFromActiveSheet(state);
+          }
+        });
+      },
+
+      /**
+       * Update a control point position on a boundary edge (inside sub-process)
+       * Handles both manual ports and edge-based (auto-generated) ports
+       */
+      updateBoundaryEdgeControlPoint: (subprocessId: string, portId: string, direction: 'input' | 'output', connectionIndex: number, pointId: string, position: { x: number; y: number }) => {
+        set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          // Check if this is an edge-based port (portId is actually an edge ID)
+          const edge = sheet.edges.find(e => e.id === portId);
+          const isEdgeBased = !!edge;
+
+          if (isEdgeBased) {
+            // Handle edge-based port - update edge.originalTargets or edge.originalSources
+            const connections = direction === 'input' ? edge.originalTargets : edge.originalSources;
+            if (!connections || connectionIndex >= connections.length) return;
+
+            const connection = connections[connectionIndex];
+            if (!connection.controlPoints) return;
+
+            // Update the specific control point
+            const updatedControlPoints = connection.controlPoints.map(cp =>
+              cp.id === pointId ? { ...cp, x: position.x, y: position.y } : cp
+            );
+
+            connections[connectionIndex] = {
+              ...connection,
+              controlPoints: updatedControlPoints,
+            };
+
+            sheet.updatedAt = new Date();
+            state.isDirty = true;
+            syncNodesAndEdgesFromActiveSheet(state);
+          } else {
+            // Handle manual port - update port.internalConnections
+            const subprocessNodeIndex = sheet.nodes.findIndex(n => n.id === subprocessId);
+            if (subprocessNodeIndex === -1) return;
+
+            const subprocessNode = sheet.nodes[subprocessNodeIndex];
+            if (subprocessNode.type !== 'subprocess') return;
+
+            const nodeData = subprocessNode.data as { inputPorts?: Port[]; outputPorts?: Port[] };
+            const ports = direction === 'input' ? nodeData.inputPorts : nodeData.outputPorts;
+            if (!ports) return;
+
+            // Find the port by ID
+            const portIndex = ports.findIndex(p => p.id === portId);
+            if (portIndex === -1) return;
+
+            const port = ports[portIndex];
+            if (!port.internalConnections || port.internalConnections.length === 0) return;
+
+            // Ensure connection index is valid
+            if (connectionIndex >= port.internalConnections.length) return;
+
+            const connection = port.internalConnections[connectionIndex];
+            if (!connection.controlPoints) return;
+
+            // Update the specific control point
+            const updatedControlPoints = connection.controlPoints.map(cp =>
+              cp.id === pointId ? { ...cp, x: position.x, y: position.y } : cp
+            );
+
+            // Update the connection with updated control points
+            port.internalConnections[connectionIndex] = {
+              ...connection,
+              controlPoints: updatedControlPoints,
+            };
+
+            sheet.nodes[subprocessNodeIndex] = {
+              ...subprocessNode,
+              data: {
+                ...nodeData,
+                [direction === 'input' ? 'inputPorts' : 'outputPorts']: ports,
+              },
+            };
+            sheet.updatedAt = new Date();
+            state.isDirty = true;
+            syncNodesAndEdgesFromActiveSheet(state);
+          }
+        });
+      },
+
+      /**
+       * Remove a control point from a boundary edge (inside sub-process)
+       * Handles both manual ports and edge-based (auto-generated) ports
+       */
+      removeBoundaryEdgeControlPoint: (subprocessId: string, portId: string, direction: 'input' | 'output', connectionIndex: number, pointId: string) => {
+        set((state) => {
+          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (!sheet) return;
+
+          // Check if this is an edge-based port (portId is actually an edge ID)
+          const edge = sheet.edges.find(e => e.id === portId);
+          const isEdgeBased = !!edge;
+
+          if (isEdgeBased) {
+            // Handle edge-based port - update edge.originalTargets or edge.originalSources
+            const connections = direction === 'input' ? edge.originalTargets : edge.originalSources;
+            if (!connections || connectionIndex >= connections.length) return;
+
+            const connection = connections[connectionIndex];
+            if (!connection.controlPoints) return;
+
+            // Remove the specific control point
+            const updatedControlPoints = connection.controlPoints.filter(cp => cp.id !== pointId);
+
+            connections[connectionIndex] = {
+              ...connection,
+              controlPoints: updatedControlPoints.length > 0 ? updatedControlPoints : undefined,
+            };
+
+            sheet.updatedAt = new Date();
+            state.isDirty = true;
+            syncNodesAndEdgesFromActiveSheet(state);
+          } else {
+            // Handle manual port - update port.internalConnections
+            const subprocessNodeIndex = sheet.nodes.findIndex(n => n.id === subprocessId);
+            if (subprocessNodeIndex === -1) return;
+
+            const subprocessNode = sheet.nodes[subprocessNodeIndex];
+            if (subprocessNode.type !== 'subprocess') return;
+
+            const nodeData = subprocessNode.data as { inputPorts?: Port[]; outputPorts?: Port[] };
+            const ports = direction === 'input' ? nodeData.inputPorts : nodeData.outputPorts;
+            if (!ports) return;
+
+            // Find the port by ID
+            const portIndex = ports.findIndex(p => p.id === portId);
+            if (portIndex === -1) return;
+
+            const port = ports[portIndex];
+            if (!port.internalConnections || port.internalConnections.length === 0) return;
+
+            // Ensure connection index is valid
+            if (connectionIndex >= port.internalConnections.length) return;
+
+            const connection = port.internalConnections[connectionIndex];
+            if (!connection.controlPoints) return;
+
+            // Remove the specific control point
+            const updatedControlPoints = connection.controlPoints.filter(cp => cp.id !== pointId);
+
+            // Update the connection with updated control points
+            port.internalConnections[connectionIndex] = {
+              ...connection,
+              controlPoints: updatedControlPoints.length > 0 ? updatedControlPoints : undefined,
+            };
+
+            sheet.nodes[subprocessNodeIndex] = {
+              ...subprocessNode,
+              data: {
+                ...nodeData,
+                [direction === 'input' ? 'inputPorts' : 'outputPorts']: ports,
+              },
+            };
+            sheet.updatedAt = new Date();
+            state.isDirty = true;
+            syncNodesAndEdgesFromActiveSheet(state);
+          }
         });
       },
 
