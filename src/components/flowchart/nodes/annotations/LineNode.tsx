@@ -7,7 +7,7 @@ import { memo, useState, useCallback } from 'react';
 import { NodeResizer, type NodeProps } from '@xyflow/react';
 import type { AnnotationNodeData } from '../../../../types';
 
-function LineNode({ id, data, selected }: NodeProps) {
+function LineNode({ data, selected }: NodeProps) {
   const nodeData = (data as AnnotationNodeData) || {};
   const {
     strokeColor = '#64748b',

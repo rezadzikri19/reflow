@@ -89,7 +89,7 @@ function TextBoxNode({ id, data, selected }: NodeProps) {
   };
 
   // Map text alignment
-  const textAlignMap: Record<TextAlignment, string> = {
+  const textAlignMap: Record<TextAlignment, 'left' | 'center' | 'right'> = {
     left: 'left',
     center: 'center',
     right: 'right',

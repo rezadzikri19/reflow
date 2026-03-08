@@ -1084,10 +1084,10 @@ function FlowCanvasInner({
     if (activeSubprocessId === null) {
       // Main view: show all nodes NOT inside a subprocess
       // Create new references to force React Flow re-render when nodeVersion changes
-      return nodes
+      return (nodes
         .filter((node) => !node.data.parentId)
-        .map((node) => ({ ...node, data: { ...node.data }, draggable: !node.data.locked }))
-        .sort(sortByZIndex) as FlowchartNode[];
+        .map((node) => ({ ...node, data: { ...node.data }, draggable: !node.data.locked })) as FlowchartNode[])
+        .sort(sortByZIndex);
     }
 
     // Sheet view: show only children of this subprocess

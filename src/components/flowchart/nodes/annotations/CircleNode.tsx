@@ -7,7 +7,7 @@ import { memo, useState, useCallback } from 'react';
 import { NodeResizer, type NodeProps } from '@xyflow/react';
 import type { AnnotationNodeData } from '../../../../types';
 
-function CircleNode({ id, data, selected }: NodeProps) {
+function CircleNode({ data, selected }: NodeProps) {
   const nodeData = (data as AnnotationNodeData) || {};
   const {
     fillColor = 'transparent',

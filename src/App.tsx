@@ -154,7 +154,6 @@ const FlowchartView: React.FC = () => {
 function App() {
   const [activeView, setActiveView] = useState<ViewType>('flowchart');
 
-  const { flowchartName } = useFlowchartStore();
   const nodes = useFlowchartStore((state) => state.nodes);
   const edges = useFlowchartStore((state) => state.edges);
 

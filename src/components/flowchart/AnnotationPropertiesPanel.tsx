@@ -9,7 +9,7 @@ import React, { useState, useCallback } from 'react';
 import { useFlowchartStore } from '../../stores/flowchartStore';
 import type { AnnotationNodeData, AnnotationType, TextAlignment, TextVerticalAlignment } from '../../types';
 import { Button } from '../common/Button';
-import { Lock, Unlock, Trash2, BringToFront, SendToBack, AlignLeft, AlignCenter, AlignRight, Bold, Italic, ChevronUp, ChevronDown, Layers } from 'lucide-react';
+import { Lock, Unlock, Trash2, BringToFront, SendToBack, AlignLeft, AlignCenter, AlignRight, Bold, Italic, ChevronUp, ChevronDown } from 'lucide-react';
 
 // ============================================================================
 // Types
