@@ -165,7 +165,17 @@ function FlowCanvasInner({
     (changes) => {
       let hasBoundaryPortSelectionChange = false;
 
-      // Handle boundary port node position and selection changes separately (they are virtual nodes)
+      // Collect boundary port position changes to apply AFTER setNodes
+      // This prevents setNodes from overwriting the port position updates
+      const boundaryPortPositionChanges: Array<{
+        portId: string;
+        direction: 'input' | 'output';
+        position: { x: number; y: number };
+        isEdgeBased: boolean;
+        edgeId?: string;
+      }> = [];
+
+      // First pass: identify changes and collect boundary port position updates
       changes.forEach((change) => {
         // Skip changes that don't have an id (e.g., NodeAddChange)
         if (!('id' in change)) return;
@@ -176,7 +186,6 @@ function FlowCanvasInner({
         if (change.type === 'position' && change.position && isBoundaryPort) {
           // Store the position in our ref for boundary port nodes
           boundaryPortPositionsRef.current.set(change.id, change.position);
-          markDirty();
 
           // Extract the ID from the port node ID
           const inputMatch = change.id.match(/^boundary-in-(.+)$/);
@@ -184,40 +193,24 @@ function FlowCanvasInner({
 
           if (inputMatch && activeSubprocessId) {
             const extractedId = inputMatch[1];
-            // Check if this is an edge-based port (ID matches an actual edge)
             const isEdgeBased = edges.some(e => e.id === extractedId);
-
-            if (isEdgeBased) {
-              // Edge-based port: save position to edge data (merge with existing data)
-              const edge = edges.find(e => e.id === extractedId);
-              updateEdge(extractedId, {
-                data: {
-                  ...edge?.data,
-                  boundaryPortPosition: change.position,
-                },
-              });
-            } else {
-              // Manual port: save position to manual port data
-              updateManualPort(activeSubprocessId, extractedId, { position: change.position });
-            }
+            boundaryPortPositionChanges.push({
+              portId: extractedId,
+              direction: 'input',
+              position: change.position,
+              isEdgeBased,
+              edgeId: isEdgeBased ? extractedId : undefined,
+            });
           } else if (outputMatch && activeSubprocessId) {
             const extractedId = outputMatch[1];
-            // Check if this is an edge-based port (ID matches an actual edge)
             const isEdgeBased = edges.some(e => e.id === extractedId);
-
-            if (isEdgeBased) {
-              // Edge-based port: save position to edge data (merge with existing data)
-              const edge = edges.find(e => e.id === extractedId);
-              updateEdge(extractedId, {
-                data: {
-                  ...edge?.data,
-                  boundaryPortOutPosition: change.position,
-                },
-              });
-            } else {
-              // Manual port: save position to manual port data
-              updateManualPort(activeSubprocessId, extractedId, { position: change.position });
-            }
+            boundaryPortPositionChanges.push({
+              portId: extractedId,
+              direction: 'output',
+              position: change.position,
+              isEdgeBased,
+              edgeId: isEdgeBased ? extractedId : undefined,
+            });
           }
         }
 
@@ -257,12 +250,42 @@ function FlowCanvasInner({
         }
       });
 
+      // Apply boundary port position changes AFTER setNodes to prevent overwriting
+      // This is critical for persistence - the port positions must be saved after
+      // the regular node changes are applied
+      boundaryPortPositionChanges.forEach(({ portId, direction, position, isEdgeBased, edgeId }) => {
+        markDirty();
+
+        if (isEdgeBased && edgeId) {
+          // Edge-based port: save position to edge data
+          const edge = edges.find(e => e.id === edgeId);
+          if (direction === 'input') {
+            updateEdge(edgeId, {
+              data: {
+                ...edge?.data,
+                boundaryPortPosition: position,
+              },
+            });
+          } else {
+            updateEdge(edgeId, {
+              data: {
+                ...edge?.data,
+                boundaryPortOutPosition: position,
+              },
+            });
+          }
+        } else {
+          // Manual port: save position to manual port data
+          updateManualPort(activeSubprocessId!, portId, { position });
+        }
+      });
+
       // Force re-render if boundary port selection changed
       if (hasBoundaryPortSelectionChange) {
         setBoundaryPortSelectionVersion(v => v + 1);
       }
     },
-    [nodes, readOnly, deleteNode, setSelectedNode, selectedNodeId, setNodes, markDirty, activeSubprocessId, updateManualPort, setBoundaryPortSelectionVersion]
+    [nodes, readOnly, deleteNode, setSelectedNode, selectedNodeId, setNodes, markDirty, activeSubprocessId, updateManualPort, updateEdge, edges, setBoundaryPortSelectionVersion]
   );
 
   /**
