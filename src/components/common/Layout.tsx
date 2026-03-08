@@ -63,7 +63,12 @@ export const Layout: React.FC<LayoutProps> = ({
             ${sidebar ? (sidebarCollapsed ? 'ml-16' : 'ml-64') : ''}
           `.replace(/\s+/g, ' ').trim()}
         >
-          <div className="h-full overflow-hidden">{children}</div>
+          <div className="h-full overflow-hidden flex flex-col">
+            <div className="flex-1 overflow-hidden">{children}</div>
+            <footer className="py-2 px-4 text-center text-xs text-gray-400 border-t border-gray-100 bg-white">
+              Made by <span className="font-medium">The Almighty Redzik</span>
+            </footer>
+          </div>
         </main>
       </div>
     </div>

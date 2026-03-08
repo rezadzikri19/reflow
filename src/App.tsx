@@ -3,7 +3,7 @@ import { ReactFlowProvider } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 // Common components
-import { Layout, Button, Modal, ModalBody, ModalFooter } from './components/common';
+import { Layout, Button, Modal, ModalBody, ModalFooter, Logo } from './components/common';
 
 // Flowchart components
 import {
@@ -281,9 +281,7 @@ function App() {
   const header = (
     <div className="h-full px-4 flex items-center justify-between">
       <div className="flex items-center gap-6">
-        <h1 className="text-lg font-semibold text-gray-900">
-          Reflow
-        </h1>
+        <Logo size="sm" />
         <NavTabs
           activeView={activeView}
           onViewChange={setActiveView}

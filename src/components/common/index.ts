@@ -29,3 +29,7 @@ export type { HeaderProps, HeaderActionProps } from './Header';
 // Sidebar Component
 export { Sidebar, SidebarSection } from './Sidebar';
 export type { SidebarProps, SidebarItem, SidebarSectionProps } from './Sidebar';
+
+// Logo Component
+export { Logo } from './Logo';
+export type { LogoProps } from './Logo';

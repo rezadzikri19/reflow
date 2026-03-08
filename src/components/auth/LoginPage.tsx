@@ -5,6 +5,7 @@
 import React, { useState } from 'react';
 import { Input } from '../common/Input';
 import { Button } from '../common/Button';
+import { Logo } from '../common/Logo';
 import { useAuthStore } from '../../stores/authStore';
 
 // =============================================================================
@@ -49,9 +50,8 @@ export const LoginPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo/Title */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Reflow</h1>
-          <p className="mt-2 text-gray-600">Flowchart Application</p>
+        <div className="flex justify-center mb-8">
+          <Logo size="lg" showSubtitle />
         </div>
 
         {/* Login Card */}
@@ -160,6 +160,9 @@ export const LoginPage: React.FC = () => {
         {/* Footer */}
         <p className="mt-4 text-center text-sm text-gray-500">
           Contact your administrator for access tokens
+        </p>
+        <p className="mt-3 text-center text-xs text-gray-400">
+          Made by <span className="font-medium">The Almighty Redzik</span>
         </p>
       </div>
     </div>
