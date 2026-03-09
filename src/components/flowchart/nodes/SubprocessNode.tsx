@@ -45,6 +45,15 @@ const getPortPosition = (index: number, total: number): string => {
 };
 
 /**
+ * Calculate horizontal port position for top/bottom ports
+ * Distributes ports evenly along the horizontal edge
+ */
+const getHorizontalPortPosition = (index: number, total: number): string => {
+  if (total === 1) return '50%';
+  return `${((index + 1) / (total + 1)) * 100}%`;
+};
+
+/**
  * Extended port info for rendering
  */
 interface PortRenderInfo {
@@ -53,6 +62,7 @@ interface PortRenderInfo {
   internalHandleId?: string | null;
   direction: 'input' | 'output';
   label?: string;
+  handlePosition?: 'top' | 'bottom' | 'left' | 'right';
 }
 
 // =============================================================================
@@ -105,6 +115,10 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
     const inputs: PortRenderInfo[] = [];
     const outputs: PortRenderInfo[] = [];
 
+    // Create maps of stored ports by ID for quick lookup
+    const storedInputPortsMap = new Map((inputPorts as Port[]).map(p => [p.id, p]));
+    const storedOutputPortsMap = new Map((outputPorts as Port[]).map(p => [p.id, p]));
+
     // First, add edge-based ports
     edges.forEach((edge) => {
       // Incoming edge (external -> subprocess) - this is an input port
@@ -118,11 +132,15 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
           { nodeId: edge.originalTarget!, handleId: edge.originalTargetHandle }
         ];
 
+        // Check if there's a stored port with this ID
+        const storedPort = storedInputPortsMap.get(portId);
+
         inputs.push({
           id: portId,
           internalNodeId: internalTargets[0].nodeId,
           internalHandleId: internalTargets[0].handleId,
           direction: 'input',
+          handlePosition: storedPort?.handlePosition,
         });
       }
 
@@ -137,11 +155,15 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
           { nodeId: edge.originalSource!, handleId: edge.originalSourceHandle }
         ];
 
+        // Check if there's a stored port with this ID
+        const storedPort = storedOutputPortsMap.get(portId);
+
         outputs.push({
           id: portId,
           internalNodeId: internalSources[0].nodeId,
           internalHandleId: internalSources[0].handleId,
           direction: 'output',
+          handlePosition: storedPort?.handlePosition,
         });
       }
     });
@@ -159,6 +181,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
           internalHandleId: port.internalConnections?.[0]?.handleId || null,
           direction: 'input',
           label: port.label,
+          handlePosition: port.handlePosition,
         });
       }
     });
@@ -172,6 +195,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
           internalHandleId: port.internalConnections?.[0]?.handleId || null,
           direction: 'output',
           label: port.label,
+          handlePosition: port.handlePosition,
         });
       }
     });
@@ -208,35 +232,87 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
       {/* Flow Order Badge */}
       <FlowOrderBadge order={flowOrder} />
 
-      {/* Dynamic Input Handles - Left side for incoming connections */}
+      {/* Dynamic Input Handles - positioned based on handlePosition */}
       {/* Only render handles when there are actual ports */}
       {/* Using HybridHandle with forceType="target" for input ports */}
-      {computedInputPorts.map((port, index) => (
-        <HybridHandle
-          key={port.id}
-          position={Position.Left}
-          id={port.id}
-          nodeId={id}
-          nodeColor="purple"
-          forceType="target"
-          style={{ top: getPortPosition(index, computedInputPorts.length) }}
-        />
-      ))}
+      {computedInputPorts.map((port, _index, arr) => {
+        // Get the position from the port or default to left for inputs
+        const handlePosition = port.handlePosition || 'left';
+        // Count ports in the same position for proper spacing
+        const portsInSamePosition = arr.filter(p => (p.handlePosition || 'left') === handlePosition);
+        const indexInPosition = portsInSamePosition.findIndex(p => p.id === port.id);
 
-      {/* Dynamic Output Handles - Right side for outgoing connections */}
+        let position: Position;
+        let style: React.CSSProperties;
+
+        if (handlePosition === 'top') {
+          position = Position.Top;
+          style = { left: getHorizontalPortPosition(indexInPosition, portsInSamePosition.length) };
+        } else if (handlePosition === 'bottom') {
+          position = Position.Bottom;
+          style = { left: getHorizontalPortPosition(indexInPosition, portsInSamePosition.length) };
+        } else if (handlePosition === 'right') {
+          position = Position.Right;
+          style = { top: getPortPosition(indexInPosition, portsInSamePosition.length) };
+        } else {
+          // Default to left
+          position = Position.Left;
+          style = { top: getPortPosition(indexInPosition, portsInSamePosition.length) };
+        }
+
+        return (
+          <HybridHandle
+            key={port.id}
+            position={position}
+            id={port.id}
+            nodeId={id}
+            nodeColor="purple"
+            forceType="target"
+            style={style}
+          />
+        );
+      })}
+
+      {/* Dynamic Output Handles - positioned based on handlePosition */}
       {/* Only render handles when there are actual ports */}
       {/* Using HybridHandle with forceType="source" for output ports */}
-      {computedOutputPorts.map((port, index) => (
-        <HybridHandle
-          key={port.id}
-          position={Position.Right}
-          id={port.id}
-          nodeId={id}
-          nodeColor="purple"
-          forceType="source"
-          style={{ top: getPortPosition(index, computedOutputPorts.length) }}
-        />
-      ))}
+      {computedOutputPorts.map((port, _index, arr) => {
+        // Get the position from the port or default to right for outputs
+        const handlePosition = port.handlePosition || 'right';
+        // Count ports in the same position for proper spacing
+        const portsInSamePosition = arr.filter(p => (p.handlePosition || 'right') === handlePosition);
+        const indexInPosition = portsInSamePosition.findIndex(p => p.id === port.id);
+
+        let position: Position;
+        let style: React.CSSProperties;
+
+        if (handlePosition === 'top') {
+          position = Position.Top;
+          style = { left: getHorizontalPortPosition(indexInPosition, portsInSamePosition.length) };
+        } else if (handlePosition === 'bottom') {
+          position = Position.Bottom;
+          style = { left: getHorizontalPortPosition(indexInPosition, portsInSamePosition.length) };
+        } else if (handlePosition === 'left') {
+          position = Position.Left;
+          style = { top: getPortPosition(indexInPosition, portsInSamePosition.length) };
+        } else {
+          // Default to right
+          position = Position.Right;
+          style = { top: getPortPosition(indexInPosition, portsInSamePosition.length) };
+        }
+
+        return (
+          <HybridHandle
+            key={port.id}
+            position={position}
+            id={port.id}
+            nodeId={id}
+            nodeColor="purple"
+            forceType="source"
+            style={style}
+          />
+        );
+      })}
 
       {/* Content container */}
       <div className="flex flex-col gap-2">

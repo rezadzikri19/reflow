@@ -1047,7 +1047,12 @@ function FlowCanvasInner({
     });
 
     // Add input ports (unified - from node's inputPorts array)
+    // Skip ports that were already added as edge-based ports (match by portId in data)
+    const existingInputPortIds = new Set(inputPorts.map(p => p.data.portId));
     (subprocessData?.inputPorts || []).forEach((port: Port) => {
+      // Skip if this port already exists as an edge-based port (by portId)
+      if (existingInputPortIds.has(port.id)) return;
+
       // Get internal connections from the port's stored data
       const connections = port.internalConnections || [];
 
@@ -1073,7 +1078,12 @@ function FlowCanvasInner({
     });
 
     // Add output ports (unified - from node's outputPorts array)
+    // Skip ports that were already added as edge-based ports (match by portId in data)
+    const existingOutputPortIds = new Set(outputPorts.map(p => p.data.portId));
     (subprocessData?.outputPorts || []).forEach((port: Port) => {
+      // Skip if this port already exists as an edge-based port (by portId)
+      if (existingOutputPortIds.has(port.id)) return;
+
       // Get internal connections from the port's stored data
       const connections = port.internalConnections || [];
 

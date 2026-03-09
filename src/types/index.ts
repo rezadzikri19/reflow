@@ -144,6 +144,8 @@ export interface Port {
   label: string;
   /** Optional stored position for the boundary port node in sheet view */
   position?: { x: number; y: number };
+  /** Handle position for the port on the subprocess node (flowchart canvas) */
+  handlePosition?: 'top' | 'bottom' | 'left' | 'right';
   /** Whether the port is locked and cannot be moved */
   locked?: boolean;
   /** Internal connections for this port (nodes inside the subprocess connected to this port) */

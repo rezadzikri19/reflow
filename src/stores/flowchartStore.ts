@@ -388,7 +388,7 @@ interface FlowchartActions {
   ) => void;
   // Manual port actions for subprocess nodes
   addManualPort: (subprocessId: string, direction: 'input' | 'output', label?: string) => string;
-  updateManualPort: (subprocessId: string, portId: string, updates: Partial<Pick<Port, 'label' | 'position' | 'locked'>>) => void;
+  updateManualPort: (subprocessId: string, portId: string, updates: Partial<Pick<Port, 'label' | 'position' | 'locked' | 'handlePosition'>>) => void;
   deleteManualPort: (subprocessId: string, portId: string) => void;
   // Manual port internal connection actions
   addManualPortConnection: (
@@ -1826,6 +1826,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
             parentId: commonParentId || undefined, // Inherit parent for nesting support
             childNodeIds: nodeIds,
             isExpanded: true,
+            inputPorts: [],
+            outputPorts: [],
             ...DEFAULT_PROCESS_NODE_DATA,
           } as ProcessNodeData,
         };
@@ -1931,6 +1933,15 @@ export const useFlowchartStore = create<FlowchartStore>()(
           });
         });
 
+        // Add input ports to subprocess node
+        const createdInputPorts: Port[] = mergedIncomingEdges.map((edge, idx) => ({
+          id: edge.targetHandle || `port-in-${idx}`,
+          direction: 'input' as const,
+          label: `Input ${idx + 1}`,
+          handlePosition: 'left' as const,
+        }));
+        subprocessNode.data.inputPorts = createdInputPorts;
+
         // Step 3: Group outgoing edges by unique external TARGET
         // One output port per unique external target, tracking all internal sources
         const outgoingByTarget = new Map<string, FlowchartEdge[]>();
@@ -1969,6 +1980,15 @@ export const useFlowchartStore = create<FlowchartStore>()(
             originalSources: originalSources,
           });
         });
+
+        // Add output ports to subprocess node
+        const createdOutputPorts: Port[] = mergedOutgoingEdges.map((edge, idx) => ({
+          id: edge.sourceHandle || `port-out-${idx}`,
+          direction: 'output' as const,
+          label: `Output ${idx + 1}`,
+          handlePosition: 'right' as const,
+        }));
+        subprocessNode.data.outputPorts = createdOutputPorts;
 
         // Combine all edges
         const updatedEdges = [
@@ -2615,6 +2635,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
             direction,
             label: portLabel,
             position: initialPosition,
+            // Default handlePosition: left for inputs, right for outputs
+            handlePosition: direction === 'input' ? 'left' : 'right',
           };
 
           if (direction === 'input') {
@@ -2649,9 +2671,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
        * Update a manual port's properties
        * @param subprocessId - The ID of the subprocess node
        * @param portId - The ID of the port to update
-       * @param updates - Partial updates (label and/or position)
+       * @param updates - Partial updates (label, position, locked, handlePosition)
        */
-      updateManualPort: (subprocessId: string, portId: string, updates: Partial<Pick<Port, 'label' | 'position' | 'locked'>>) => {
+      updateManualPort: (subprocessId: string, portId: string, updates: Partial<Pick<Port, 'label' | 'position' | 'locked' | 'handlePosition'>>) => {
         set((state) => {
           const sheet = state.sheets.find(s => s.id === state.activeSheetId);
           if (!sheet) return;

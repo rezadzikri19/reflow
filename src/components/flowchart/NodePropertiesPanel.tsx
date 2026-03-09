@@ -159,8 +159,12 @@ export const NodePropertiesPanel: React.FC = () => {
 
     const nodeId = selectedNode.id;
     const nodeData = selectedNode.data as ProcessNodeData;
-    const inputs: { id: string; label: string; edgeId?: string; direction: 'input' | 'output' }[] = [];
-    const outputs: { id: string; label: string; edgeId?: string; direction: 'input' | 'output' }[] = [];
+    const inputs: { id: string; label: string; edgeId?: string; direction: 'input' | 'output'; handlePosition?: 'top' | 'bottom' | 'left' | 'right' }[] = [];
+    const outputs: { id: string; label: string; edgeId?: string; direction: 'input' | 'output'; handlePosition?: 'top' | 'bottom' | 'left' | 'right' }[] = [];
+
+    // Create maps of stored ports by ID for quick lookup
+    const storedInputPorts = new Map((nodeData.inputPorts || []).map(p => [p.id, p]));
+    const storedOutputPorts = new Map((nodeData.outputPorts || []).map(p => [p.id, p]));
 
     // Add edge-based ports
     edges.forEach((edge) => {
@@ -173,11 +177,15 @@ export const NodePropertiesPanel: React.FC = () => {
         const internalNode = nodes.find(n => n.id === internalTargets[0].nodeId);
         const defaultLabel = internalNode ? (internalNode.data as ProcessNodeData).label || internalTargets[0].nodeId : internalTargets[0].nodeId;
 
+        // Check if there's a stored port with this ID
+        const storedPort = storedInputPorts.get(portId);
+
         inputs.push({
           id: portId,
           label: (edge.data as { portLabel?: string })?.portLabel || defaultLabel,
           edgeId: edge.id,
           direction: 'input',
+          handlePosition: storedPort?.handlePosition,
         });
       }
 
@@ -190,16 +198,20 @@ export const NodePropertiesPanel: React.FC = () => {
         const internalNode = nodes.find(n => n.id === internalSources[0].nodeId);
         const defaultLabel = internalNode ? (internalNode.data as ProcessNodeData).label || internalSources[0].nodeId : internalSources[0].nodeId;
 
+        // Check if there's a stored port with this ID
+        const storedPort = storedOutputPorts.get(portId);
+
         outputs.push({
           id: portId,
           label: (edge.data as { portLabel?: string })?.portLabel || defaultLabel,
           edgeId: edge.id,
           direction: 'output',
+          handlePosition: storedPort?.handlePosition,
         });
       }
     });
 
-    // Add stored ports
+    // Add stored ports that weren't added as edge-based ports
     const existingInputIds = new Set(inputs.map(p => p.id));
     const existingOutputIds = new Set(outputs.map(p => p.id));
 
@@ -209,6 +221,7 @@ export const NodePropertiesPanel: React.FC = () => {
           id: port.id,
           label: port.label || 'Input',
           direction: 'input',
+          handlePosition: port.handlePosition,
         });
       }
     });
@@ -219,6 +232,7 @@ export const NodePropertiesPanel: React.FC = () => {
           id: port.id,
           label: port.label || 'Output',
           direction: 'output',
+          handlePosition: port.handlePosition,
         });
       }
     });
@@ -241,6 +255,17 @@ export const NodePropertiesPanel: React.FC = () => {
       updateManualPort(selectedNode.id, port.id, { label: newLabel });
     }
   }, [selectedNode, updateManualPort, updateEdge, edges]);
+
+  // Handler for updating port handle position
+  const handlePortPositionChange = useCallback((port: { id: string; edgeId?: string; direction: 'input' | 'output' }, newPosition: 'top' | 'bottom' | 'left' | 'right') => {
+    if (!selectedNode) return;
+
+    // Stored ports (including auto-generated ones from grouping) can have position changed
+    // Edge-based ports that have a corresponding stored port can also be updated
+    updateManualPort(selectedNode.id, port.id, { handlePosition: newPosition });
+    // Force React Flow to recalculate handle positions
+    updateNodeInternals(selectedNode.id);
+  }, [selectedNode, updateManualPort, updateNodeInternals]);
 
   // Handler for deleting port
   const handlePortDelete = useCallback((port: { id: string; label: string; edgeId?: string; direction: 'input' | 'output' }) => {
@@ -1113,6 +1138,20 @@ export const NodePropertiesPanel: React.FC = () => {
                         className="flex-1 text-sm bg-transparent border-none outline-none text-gray-700"
                         placeholder="Port name"
                       />
+                      {/* Position selector - for ports with handlePosition (stored or auto-generated) */}
+                      {port.handlePosition !== undefined && (
+                        <select
+                          value={port.handlePosition || 'left'}
+                          onChange={(e) => handlePortPositionChange(port, e.target.value as 'top' | 'bottom' | 'left' | 'right')}
+                          className="text-xs bg-white border border-gray-300 rounded px-1 py-0.5 text-gray-600"
+                          title="Port position"
+                        >
+                          <option value="left">Left</option>
+                          <option value="right">Right</option>
+                          <option value="top">Top</option>
+                          <option value="bottom">Bottom</option>
+                        </select>
+                      )}
                       <button
                         onClick={() => handlePortDelete(port)}
                         className="text-gray-400 hover:text-red-500 transition-colors"
@@ -1162,6 +1201,20 @@ export const NodePropertiesPanel: React.FC = () => {
                         className="flex-1 text-sm bg-transparent border-none outline-none text-gray-700"
                         placeholder="Port name"
                       />
+                      {/* Position selector - for ports with handlePosition (stored or auto-generated) */}
+                      {port.handlePosition !== undefined && (
+                        <select
+                          value={port.handlePosition || 'right'}
+                          onChange={(e) => handlePortPositionChange(port, e.target.value as 'top' | 'bottom' | 'left' | 'right')}
+                          className="text-xs bg-white border border-gray-300 rounded px-1 py-0.5 text-gray-600"
+                          title="Port position"
+                        >
+                          <option value="left">Left</option>
+                          <option value="right">Right</option>
+                          <option value="top">Top</option>
+                          <option value="bottom">Bottom</option>
+                        </select>
+                      )}
                       <button
                         onClick={() => handlePortDelete(port)}
                         className="text-gray-400 hover:text-red-500 transition-colors"
