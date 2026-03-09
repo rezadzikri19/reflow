@@ -2932,6 +2932,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
           sheet.updatedAt = new Date();
           state.isDirty = true;
           state.nodeVersion += 1;
+          syncNodesAndEdgesFromActiveSheet(state);
         });
       },
 
@@ -2958,6 +2959,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
           sheet.updatedAt = new Date();
           state.isDirty = true;
           state.nodeVersion += 1;
+          syncNodesAndEdgesFromActiveSheet(state);
         });
       },
 
