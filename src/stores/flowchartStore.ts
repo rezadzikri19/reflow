@@ -933,11 +933,44 @@ export const useFlowchartStore = create<FlowchartStore>()(
               // Find all reference nodes that reference this node
               sheet.nodes.forEach((node, index) => {
                 if (node.type === 'reference') {
-                  const refData = node.data as { referencedNodeId?: string; role?: string };
+                  const refData = node.data as { referencedNodeId?: string; role?: string[] };
                   if (refData.referencedNodeId === nodeId) {
                     sheet.nodes[index] = {
                       ...node,
                       data: { ...refData, role: newRole },
+                    } as FlowchartNode;
+                  }
+                }
+              });
+            }
+
+            // Sync all syncable properties to reference nodes
+            // Properties that should be synced: label, description, tags, documents, data, systems, role,
+            // frequency, painPoints, improvement, risk, unitType, customUnitName, unitTimeMinutes, defaultQuantity
+            const syncableProperties = [
+              'label', 'description', 'tags', 'documents', 'data', 'systems', 'role',
+              'frequency', 'painPoints', 'improvement', 'risk', 'unitType', 'customUnitName',
+              'unitTimeMinutes', 'defaultQuantity'
+            ] as const;
+
+            const hasSyncableChange = syncableProperties.some(prop => data[prop as keyof ProcessNodeData] !== undefined);
+
+            if (hasSyncableChange) {
+              // Find all reference nodes that reference this node
+              sheet.nodes.forEach((node, index) => {
+                if (node.type === 'reference') {
+                  const refData = node.data as ProcessNodeData & { referencedNodeId?: string };
+                  if (refData.referencedNodeId === nodeId) {
+                    // Create updated data object with only the changed syncable properties
+                    const updatedData: Record<string, unknown> = { ...refData };
+                    syncableProperties.forEach(prop => {
+                      if (data[prop as keyof ProcessNodeData] !== undefined) {
+                        updatedData[prop] = data[prop as keyof ProcessNodeData];
+                      }
+                    });
+                    sheet.nodes[index] = {
+                      ...node,
+                      data: updatedData as ProcessNodeData,
                     } as FlowchartNode;
                   }
                 }

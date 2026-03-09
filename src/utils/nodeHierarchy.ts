@@ -217,7 +217,14 @@ export function sortTreeNodes(
       case 'description':
         return data.description || '';
       case 'role':
-        return data.role || '';
+        // Handle backward compatibility: role could be string or string[]
+        const rawRole = data.role;
+        const roles: string[] = Array.isArray(rawRole)
+          ? rawRole
+          : rawRole
+            ? [rawRole]
+            : [];
+        return roles.join(', ');
       case 'tags':
         return (data.tags || []).join(', ');
       case 'documents':

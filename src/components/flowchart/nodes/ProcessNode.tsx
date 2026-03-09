@@ -90,6 +90,13 @@ function ProcessNode({ id, data, selected }: NodeProps) {
   const flowOrder = useHierarchicalFlowOrder(id);
   const isMuted = useIsNodeMuted(id);
 
+  // Normalize role to array for backward compatibility
+  const normalizedRoles: string[] = Array.isArray(role)
+    ? role
+    : role
+      ? [role]
+      : [];
+
   return (
     <div className={`relative transition-opacity duration-200 ${isMuted ? 'opacity-30 grayscale' : ''}`}>
       {/* Lock Indicator */}
@@ -215,21 +222,26 @@ function ProcessNode({ id, data, selected }: NodeProps) {
             )}
 
             {/* Role */}
-            {role && (
+            {normalizedRoles.length > 0 && (
               <div className="mb-3">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                   <User className="w-3.5 h-3.5" />
                   Role
                 </div>
-                {(() => {
-                  const color = getRoleColor(role);
-                  return (
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium rounded-full ${color.bg} ${color.text}`}>
-                      <User className="w-3.5 h-3.5" />
-                      {role}
-                    </span>
-                  );
-                })()}
+                <div className="flex flex-wrap gap-1.5">
+                  {normalizedRoles.map((r) => {
+                    const color = getRoleColor(r);
+                    return (
+                      <span
+                        key={r}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium rounded-full ${color.bg} ${color.text}`}
+                      >
+                        <User className="w-3.5 h-3.5" />
+                        {r}
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
@@ -378,9 +390,9 @@ function ProcessNode({ id, data, selected }: NodeProps) {
       </div>
 
       {/* Role indicator above node */}
-      {role && (
+      {normalizedRoles.length > 0 && (
         <div className="absolute pointer-events-none left-1/2 -translate-x-1/2" style={{ bottom: '100%', marginBottom: '36px' }}>
-          <NodeRole role={role} />
+          <NodeRole role={normalizedRoles} />
         </div>
       )}
     </div>

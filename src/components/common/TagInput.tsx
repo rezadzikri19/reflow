@@ -137,7 +137,7 @@ export const TagInput: React.FC<TagInputProps> = ({
   );
 
   return (
-    <div className="w-full" ref={containerRef}>
+    <div className="w-full relative" ref={containerRef}>
       {label && (
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
           {label}

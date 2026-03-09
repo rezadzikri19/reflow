@@ -38,7 +38,9 @@ const getFieldValue = (nodeData: NodeDataForFilter, field: string): unknown => {
     case 'tags':
       return nodeData.tags || [];
     case 'role':
-      return nodeData.role || '';
+      // Handle backward compatibility: role could be string or string[]
+      const rawRuleRole = nodeData.role;
+      return Array.isArray(rawRuleRole) ? rawRuleRole : rawRuleRole ? [rawRuleRole] : [];
     case 'documents':
       return nodeData.documents || [];
     case 'data':

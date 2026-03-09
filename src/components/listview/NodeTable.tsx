@@ -143,12 +143,22 @@ export const COLUMNS: ColumnDef[] = [
     label: 'Role',
     defaultVisible: true,
     accessor: (node) => {
-      const role = hasProcessNodeData(node) ? node.data.role : undefined;
-      if (!role) return '-';
+      const rawRole = hasProcessNodeData(node) ? node.data.role : undefined;
+      // Handle backward compatibility: role could be string or string[]
+      const roles: string[] = Array.isArray(rawRole)
+        ? rawRole
+        : rawRole
+          ? [rawRole]
+          : [];
+      if (roles.length === 0) return '-';
       return (
-        <span className="text-xs px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">
-          {role}
-        </span>
+        <div className="flex flex-wrap gap-1">
+          {roles.map((role) => (
+            <span key={role} className="text-xs px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">
+              {role}
+            </span>
+          ))}
+        </div>
       );
     },
     sortable: true,

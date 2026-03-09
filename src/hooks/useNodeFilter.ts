@@ -85,7 +85,7 @@ interface NodeDataForFilter {
   documents?: string[];
   data?: string[];
   systems?: string[];
-  role?: string;
+  role?: string[] | string; // Support both for backward compatibility
   locked?: boolean;
   painPoints?: string;
   improvement?: string;
@@ -285,8 +285,15 @@ function nodeMatchesFilterCriteria(
 
   // Check roles filter
   if (filterRoles.length > 0) {
-    const nodeRole = nodeData.role;
-    if (!nodeRole || !filterRoles.includes(nodeRole)) {
+    const rawRole = nodeData.role;
+    // Handle backward compatibility: role could be string or string[]
+    const nodeRoles: string[] = Array.isArray(rawRole)
+      ? rawRole
+      : rawRole
+        ? [rawRole]
+        : [];
+    const hasMatchingRole = filterRoles.some((role) => nodeRoles.includes(role));
+    if (!hasMatchingRole) {
       return false;
     }
   }
@@ -438,9 +445,16 @@ export function useNodeFilter(): UseNodeFilterReturn {
         nodeData.tags.forEach((tag) => tags.add(tag));
       }
 
-      // Collect role
+      // Collect roles
       if (nodeData.role) {
-        roles.add(nodeData.role);
+        const rawRole = nodeData.role;
+        // Handle backward compatibility: role could be string or string[]
+        const nodeRoles: string[] = Array.isArray(rawRole)
+          ? rawRole
+          : rawRole
+            ? [rawRole]
+            : [];
+        nodeRoles.forEach((r) => roles.add(r));
       }
 
       // Collect documents

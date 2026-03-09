@@ -94,8 +94,8 @@ export interface BaseNodeData {
   documents?: string[];
   /** Data elements associated with this node */
   data?: string[];
-  /** Role assigned to this node (single value, indicates responsibility) */
-  role?: string;
+  /** Roles assigned to this node (multiple values, indicates responsibility) */
+  role?: string[];
   /** Whether the node is locked and cannot be moved */
   locked?: boolean;
   /** Current issues, bottlenecks, or inefficiencies */
@@ -259,8 +259,8 @@ export interface ProcessNodeData extends BaseNodeData {
   documents?: string[];
   /** Data elements associated with this node */
   data?: string[];
-  /** Role assigned to this node (single value, indicates responsibility) */
-  role?: string;
+  /** Roles assigned to this node (multiple values, indicates responsibility) */
+  role?: string[];
   /** ID of parent subprocess node (for grouped nodes) */
   parentId?: string;
   /** Child node IDs (for subprocess nodes) */

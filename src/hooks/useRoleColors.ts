@@ -15,9 +15,15 @@ export function useRoleColors() {
 
     // Collect all roles from all nodes
     for (const node of nodes) {
-      const role = node.data?.role as string | undefined;
-      if (role) {
-        allRoles.add(role);
+      const rawRole = node.data?.role;
+      // Handle backward compatibility: role could be string or string[]
+      const roles: string[] = Array.isArray(rawRole)
+        ? rawRole
+        : rawRole
+          ? [rawRole as string]
+          : [];
+      if (roles.length > 0) {
+        roles.forEach((r) => allRoles.add(r));
       }
     }
 

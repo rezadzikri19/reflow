@@ -4,7 +4,6 @@ import { useFlowchartStore, useSelectedNode, useNodes } from '../../stores/flowc
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { TagInput } from '../common/TagInput';
-import { RoleSelect } from '../common/RoleSelect';
 import { AnnotationPropertiesPanel } from './AnnotationPropertiesPanel';
 import type { ProcessNodeData, UnitType, FrequencyType, ProcessNodeType, Port, AnnotationNodeData } from '../../types';
 import { Plus, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
@@ -130,10 +129,14 @@ export const NodePropertiesPanel: React.FC = () => {
   const allExistingRoles = useMemo(() => {
     const roleSet = new Set<string>();
     nodes.forEach((node) => {
-      const nodeRole = (node.data as ProcessNodeData).role;
-      if (nodeRole) {
-        roleSet.add(nodeRole);
-      }
+      const rawRole = (node.data as ProcessNodeData).role;
+      // Handle backward compatibility: role could be string or string[]
+      const nodeRoles: string[] = Array.isArray(rawRole)
+        ? rawRole
+        : rawRole
+          ? [rawRole]
+          : [];
+      nodeRoles.forEach((r) => roleSet.add(r));
     });
     return Array.from(roleSet).sort();
   }, [nodes]);
@@ -435,7 +438,7 @@ export const NodePropertiesPanel: React.FC = () => {
   );
 
   const handleRoleChange = useCallback(
-    (role: string | undefined) => {
+    (role: string[]) => {
       if (selectedNode) {
         updateNode(selectedNode.id, { role });
       }
@@ -484,7 +487,8 @@ export const NodePropertiesPanel: React.FC = () => {
 
   const nodeData = selectedNode.data as ProcessNodeData;
   const nodeType = nodeData.nodeType;
-  const isProcessNode = nodeType === 'process' || nodeType === 'subprocess' || nodeType === 'manualProcess';
+  // All regular nodes (not annotations) can have process properties
+  const supportsAllProperties = true; // All non-annotation nodes support full properties
 
   return (
     <div className="h-full bg-white border-l border-gray-200 overflow-y-auto">
@@ -535,14 +539,21 @@ export const NodePropertiesPanel: React.FC = () => {
               >
                 Description
               </label>
-              <textarea
-                id="description"
-                value={nodeData.description || ''}
-                onChange={handleDescriptionChange}
-                rows={3}
-                className="block w-full rounded-md border border-gray-300 hover:border-gray-400 bg-white px-4 py-2 text-sm placeholder-gray-400 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                placeholder="Enter node description"
-              />
+              {nodeType === 'reference' ? (
+                <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+                  <p className="text-sm text-gray-800">{nodeData.description || 'None'}</p>
+                  <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
+                </div>
+              ) : (
+                <textarea
+                  id="description"
+                  value={nodeData.description || ''}
+                  onChange={handleDescriptionChange}
+                  rows={3}
+                  className="block w-full rounded-md border border-gray-300 hover:border-gray-400 bg-white px-4 py-2 text-sm placeholder-gray-400 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Enter node description"
+                />
+              )}
             </div>
           </div>
         </section>
@@ -552,22 +563,56 @@ export const NodePropertiesPanel: React.FC = () => {
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
             Tags
           </h3>
-          <TagInput
-            label=""
-            value={nodeData.tags || []}
-            onChange={handleTagsChange}
-            suggestions={allExistingTags}
-            placeholder="Add a tag..."
-            helperText="Press Enter or comma to add a tag"
-          />
+          {nodeType === 'reference' ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+              <p className="text-xs text-gray-500 font-medium mb-1">Tags (auto-synced)</p>
+              <div className="flex flex-wrap gap-1">
+                {(nodeData.tags || []).length > 0 ? (
+                  nodeData.tags!.map((tag) => (
+                    <span key={tag} className="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-700">
+                      {tag}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-gray-400">None</span>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
+            </div>
+          ) : (
+            <TagInput
+              label=""
+              value={nodeData.tags || []}
+              onChange={handleTagsChange}
+              suggestions={allExistingTags}
+              placeholder="Add a tag..."
+              helperText="Press Enter or comma to add a tag"
+            />
+          )}
         </section>
 
-        {/* Documents Section - Only for Process and Manual Process nodes */}
-        {(nodeType === 'process' || nodeType === 'manualProcess') && (
-          <section>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Documents
-            </h3>
+        {/* Documents Section */}
+        <section>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            Documents
+          </h3>
+          {nodeType === 'reference' ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+              <p className="text-xs text-gray-500 font-medium mb-1">Documents (auto-synced)</p>
+              <div className="flex flex-wrap gap-1">
+                {(nodeData.documents || []).length > 0 ? (
+                  nodeData.documents!.map((doc) => (
+                    <span key={doc} className="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-700">
+                      {doc}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-gray-400">None</span>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
+            </div>
+          ) : (
             <TagInput
               label=""
               value={nodeData.documents || []}
@@ -576,15 +621,31 @@ export const NodePropertiesPanel: React.FC = () => {
               placeholder="Add a document..."
               helperText="Press Enter or comma to add a document"
             />
-          </section>
-        )}
+          )}
+        </section>
 
-        {/* Data Section - Only for Process and Manual Process nodes */}
-        {(nodeType === 'process' || nodeType === 'manualProcess') && (
-          <section>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Data
-            </h3>
+        {/* Data Section */}
+        <section>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            Data
+          </h3>
+          {nodeType === 'reference' ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+              <p className="text-xs text-gray-500 font-medium mb-1">Data (auto-synced)</p>
+              <div className="flex flex-wrap gap-1">
+                {(nodeData.data || []).length > 0 ? (
+                  nodeData.data!.map((d) => (
+                    <span key={d} className="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-700">
+                      {d}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-gray-400">None</span>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
+            </div>
+          ) : (
             <TagInput
               label=""
               value={nodeData.data || []}
@@ -593,15 +654,31 @@ export const NodePropertiesPanel: React.FC = () => {
               placeholder="Add a data element..."
               helperText="Press Enter or comma to add a data element"
             />
-          </section>
-        )}
+          )}
+        </section>
 
-        {/* Systems Section - Only for Process and Manual Process nodes */}
-        {(nodeType === 'process' || nodeType === 'manualProcess') && (
-          <section>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Systems
-            </h3>
+        {/* Systems Section */}
+        <section>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            Systems
+          </h3>
+          {nodeType === 'reference' ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+              <p className="text-xs text-gray-500 font-medium mb-1">Systems (auto-synced)</p>
+              <div className="flex flex-wrap gap-1">
+                {(nodeData.systems || []).length > 0 ? (
+                  nodeData.systems!.map((s) => (
+                    <span key={s} className="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-700">
+                      {s}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-gray-400">None</span>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
+            </div>
+          ) : (
             <TagInput
               label=""
               value={nodeData.systems || []}
@@ -610,15 +687,21 @@ export const NodePropertiesPanel: React.FC = () => {
               placeholder="Add a system..."
               helperText="Press Enter or comma to add a system"
             />
-          </section>
-        )}
+          )}
+        </section>
 
-        {/* Pain Points Section - Only for Process and Manual Process nodes */}
-        {(nodeType === 'process' || nodeType === 'manualProcess') && (
-          <section>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Pain Points
-            </h3>
+        {/* Pain Points Section */}
+        <section>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            Pain Points
+          </h3>
+          {nodeType === 'reference' ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+              <p className="text-xs text-gray-500 font-medium mb-1">Pain Points (auto-synced)</p>
+              <p className="text-sm text-gray-800">{nodeData.painPoints || 'None'}</p>
+              <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
+            </div>
+          ) : (
             <div>
               <textarea
                 id="painPoints"
@@ -629,15 +712,21 @@ export const NodePropertiesPanel: React.FC = () => {
                 placeholder="Current issues, bottlenecks, or inefficiencies"
               />
             </div>
-          </section>
-        )}
+          )}
+        </section>
 
-        {/* Improvement Section - Only for Process and Manual Process nodes */}
-        {(nodeType === 'process' || nodeType === 'manualProcess') && (
-          <section>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Improvement
-            </h3>
+        {/* Improvement Section */}
+        <section>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            Improvement
+          </h3>
+          {nodeType === 'reference' ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+              <p className="text-xs text-gray-500 font-medium mb-1">Improvement (auto-synced)</p>
+              <p className="text-sm text-gray-800">{nodeData.improvement || 'None'}</p>
+              <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
+            </div>
+          ) : (
             <div>
               <textarea
                 id="improvement"
@@ -648,15 +737,21 @@ export const NodePropertiesPanel: React.FC = () => {
                 placeholder="Proposed optimizations, automation ideas, or solutions"
               />
             </div>
-          </section>
-        )}
+          )}
+        </section>
 
-        {/* Risk Section - Only for Process and Manual Process nodes */}
-        {(nodeType === 'process' || nodeType === 'manualProcess') && (
-          <section>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Risk
-            </h3>
+        {/* Risk Section */}
+        <section>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            Risk
+          </h3>
+          {nodeType === 'reference' ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+              <p className="text-xs text-gray-500 font-medium mb-1">Risk (auto-synced)</p>
+              <p className="text-sm text-gray-800">{nodeData.risk || 'None'}</p>
+              <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
+            </div>
+          ) : (
             <div>
               <textarea
                 id="risk"
@@ -667,15 +762,21 @@ export const NodePropertiesPanel: React.FC = () => {
                 placeholder="Potential risks or concerns associated with this process"
               />
             </div>
-          </section>
-        )}
+          )}
+        </section>
 
-        {/* Frequency Section - Only for Process and Manual Process nodes */}
-        {(nodeType === 'process' || nodeType === 'manualProcess') && (
-          <section>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Frequency
-            </h3>
+        {/* Frequency Section */}
+        <section>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            Frequency
+          </h3>
+          {nodeType === 'reference' ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+              <p className="text-xs text-gray-500 font-medium mb-1">Frequency (auto-synced)</p>
+              <p className="text-sm text-gray-800 capitalize">{nodeData.frequency || 'None'}</p>
+              <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
+            </div>
+          ) : (
             <div>
               <label
                 htmlFor="frequency"
@@ -684,115 +785,148 @@ export const NodePropertiesPanel: React.FC = () => {
                 How often is this process performed?
               </label>
               <select
-                id="frequency"
-                value={nodeData.frequency || ''}
-                onChange={handleFrequencyChange}
-                className="block w-full rounded-md border border-gray-300 hover:border-gray-400 bg-white px-4 py-2 text-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              >
-                <option value="">Select frequency...</option>
-                {FREQUENCY_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              id="frequency"
+              value={nodeData.frequency || ''}
+              onChange={handleFrequencyChange}
+              className="block w-full rounded-md border border-gray-300 hover:border-gray-400 bg-white px-4 py-2 text-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            >
+              <option value="">Select frequency...</option>
+              {FREQUENCY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
             </div>
-          </section>
-        )}
+          )}
+        </section>
 
-        {/* Role Section - For all nodes except subprocess, connector, junction */}
-        {nodeType !== 'subprocess' && nodeType !== 'connector' && nodeType !== 'junction' && nodeType !== 'boundaryPort' && (
-          <section>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Role
-            </h3>
-            {nodeType === 'reference' ? (
-              <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
-                <p className="text-xs text-gray-500 font-medium mb-1">Role (auto-synced)</p>
-                <p className="text-sm text-gray-800">
-                  {referencedNodeInfo.node ? ((referencedNodeInfo.node.data as ProcessNodeData).role || 'None') : 'None'}
-                </p>
-                <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
-              </div>
-            ) : (
-              <RoleSelect
-                label=""
-                value={nodeData.role}
-                onChange={handleRoleChange}
-                suggestions={allExistingRoles}
-                placeholder="Select or create a role..."
-                helperText="Assign a responsibility role to this node"
-                allowCreate={true}
-              />
-            )}
-          </section>
-        )}
+        {/* Role Section */}
+        <section>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            Role
+          </h3>
+          {nodeType === 'reference' ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+              <p className="text-xs text-gray-500 font-medium mb-1">Role (auto-synced)</p>
+              <p className="text-sm text-gray-800">
+                {(() => {
+                  if (!referencedNodeInfo.node) return 'None';
+                  const rawRole = (referencedNodeInfo.node.data as ProcessNodeData).role;
+                  const roles: string[] = Array.isArray(rawRole) ? rawRole : rawRole ? [rawRole] : [];
+                  return roles.join(', ') || 'None';
+                })()}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
+            </div>
+          ) : (
+            <TagInput
+              label=""
+              value={Array.isArray(nodeData.role) ? nodeData.role : nodeData.role ? [nodeData.role] : []}
+              onChange={handleRoleChange}
+              suggestions={allExistingRoles}
+              placeholder="Add roles..."
+              helperText="Assign responsibility roles to this node"
+            />
+          )}
+        </section>
 
         {/* Process Node Properties */}
-        {isProcessNode && (
+        {supportsAllProperties && (
           <section>
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
               Process Settings
             </h3>
             <div className="space-y-4">
-              <div>
-                <label
-                  htmlFor="unitType"
-                  className="block text-sm font-medium text-gray-700 mb-1.5"
-                >
-                  Unit Type
-                </label>
-                <select
-                  id="unitType"
-                  value={nodeData.unitType}
-                  onChange={handleUnitTypeChange}
-                  className="block w-full rounded-md border border-gray-300 hover:border-gray-400 bg-white px-4 py-2 text-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                >
-                  {UNIT_TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {nodeType === 'reference' ? (
+                <>
+                  <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+                    <p className="text-xs text-gray-500 font-medium mb-1">Unit Type (auto-synced)</p>
+                    <p className="text-sm text-gray-800">
+                      {UNIT_TYPE_OPTIONS.find(o => o.value === nodeData.unitType)?.label || nodeData.unitType || 'Documents'}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
+                  </div>
+                  {nodeData.unitType === 'custom' && (
+                    <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+                      <p className="text-xs text-gray-500 font-medium mb-1">Custom Unit Name (auto-synced)</p>
+                      <p className="text-sm text-gray-800">{nodeData.customUnitName || 'None'}</p>
+                      <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
+                    </div>
+                  )}
+                  <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+                    <p className="text-xs text-gray-500 font-medium mb-1">Unit Time (auto-synced)</p>
+                    <p className="text-sm text-gray-800">{nodeData.unitTimeMinutes ?? 0} minutes</p>
+                    <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
+                  </div>
+                  <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+                    <p className="text-xs text-gray-500 font-medium mb-1">Default Quantity (auto-synced)</p>
+                    <p className="text-sm text-gray-800">{nodeData.defaultQuantity ?? 1}</p>
+                    <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label
+                      htmlFor="unitType"
+                      className="block text-sm font-medium text-gray-700 mb-1.5"
+                    >
+                      Unit Type
+                    </label>
+                    <select
+                      id="unitType"
+                      value={nodeData.unitType || 'documents'}
+                      onChange={handleUnitTypeChange}
+                      className="block w-full rounded-md border border-gray-300 hover:border-gray-400 bg-white px-4 py-2 text-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    >
+                      {UNIT_TYPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              {nodeData.unitType === 'custom' && (
-                <Input
-                  label="Custom Unit Name"
-                  value={nodeData.customUnitName || ''}
-                  onChange={handleCustomUnitNameChange}
-                  fullWidth
-                  placeholder="Enter custom unit name"
-                />
+                  {nodeData.unitType === 'custom' && (
+                    <Input
+                      label="Custom Unit Name"
+                      value={nodeData.customUnitName || ''}
+                      onChange={handleCustomUnitNameChange}
+                      fullWidth
+                      placeholder="Enter custom unit name"
+                    />
+                  )}
+
+                  <Input
+                    label="Unit Time (minutes)"
+                    type="number"
+                    min={0}
+                    step={0.1}
+                    value={nodeData.unitTimeMinutes ?? 0}
+                    onChange={handleUnitTimeChange}
+                    fullWidth
+                    helperText="Time to process one unit"
+                  />
+
+                  <Input
+                    label="Default Quantity"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={nodeData.defaultQuantity ?? 1}
+                    onChange={handleDefaultQuantityChange}
+                    fullWidth
+                    helperText="Default number of units"
+                  />
+                </>
               )}
-
-              <Input
-                label="Unit Time (minutes)"
-                type="number"
-                min={0}
-                step={0.1}
-                value={nodeData.unitTimeMinutes}
-                onChange={handleUnitTimeChange}
-                fullWidth
-                helperText="Time to process one unit"
-              />
-
-              <Input
-                label="Default Quantity"
-                type="number"
-                min={0}
-                step={1}
-                value={nodeData.defaultQuantity}
-                onChange={handleDefaultQuantityChange}
-                fullWidth
-                helperText="Default number of units"
-              />
             </div>
           </section>
         )}
 
-        {/* FTE Settings (for Process and Subprocess nodes) */}
-        {isProcessNode && (
+        {/* FTE Settings */}
+        {supportsAllProperties && (
           <section>
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
               FTE Settings
@@ -802,7 +936,7 @@ export const NodePropertiesPanel: React.FC = () => {
                 <input
                   type="checkbox"
                   id="requiresFTE"
-                  checked={nodeData.requiresFTE}
+                  checked={nodeData.requiresFTE ?? false}
                   onChange={handleRequiresFTEChange}
                   className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                 />
@@ -814,7 +948,7 @@ export const NodePropertiesPanel: React.FC = () => {
                 </label>
               </div>
 
-              {nodeData.requiresFTE && (
+              {(nodeData.requiresFTE ?? false) && (
                 <Input
                   label="FTE Per Unit"
                   type="number"

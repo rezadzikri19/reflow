@@ -1,14 +1,35 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { Position, type NodeProps } from '@xyflow/react';
-import { Layers, ExternalLink, ArrowLeft, ArrowRight } from 'lucide-react';
+import {
+  Layers,
+  ExternalLink,
+  ArrowLeft,
+  ArrowRight,
+  Info,
+  Type,
+  FileText,
+  Package,
+  Clock,
+  Hash,
+  Repeat,
+  AlertTriangle,
+  TrendingUp,
+  User,
+  Database,
+  Tag,
+  Shield,
+  ShieldAlert,
+} from 'lucide-react';
 import type { ProcessNodeData, Port } from '../../../types/index';
-import NodeTags from './NodeTags';
 import FlowOrderBadge from './FlowOrderBadge';
 import { useHierarchicalFlowOrder } from '../../../contexts/FlowOrderContext';
 import { useFlowchartStore } from '../../../stores/flowchartStore';
 import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
 import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
+import { useTagColors } from '../../../hooks/useTagColors';
+import { useRoleColors } from '../../../hooks/useRoleColors';
+import NodeRole from './NodeRole';
 
 // =============================================================================
 // Helper Functions
@@ -39,12 +60,42 @@ interface PortRenderInfo {
 // =============================================================================
 
 function SubprocessNode({ data, selected, id }: NodeProps) {
-  const { label = 'Subprocess', description, tags, childNodeIds = [], inputPorts = [], outputPorts = [], locked } = (data as ProcessNodeData) || {};
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const {
+    label = 'Subprocess',
+    description,
+    tags,
+    childNodeIds = [],
+    inputPorts = [],
+    outputPorts = [],
+    locked,
+    documents,
+    data: nodeData,
+    systems,
+    role,
+    frequency,
+    painPoints,
+    improvement,
+    risk,
+    unitType = 'documents',
+    customUnitName,
+    unitTimeMinutes = 0,
+    defaultQuantity = 1,
+  } = (data as ProcessNodeData) || {};
   const openSubprocessSheet = useFlowchartStore((state) => state.openSubprocessSheet);
   const edges = useFlowchartStore((state) => state.edges);
   const nodeVersion = useFlowchartStore((state) => state.nodeVersion);
   const flowOrder = useHierarchicalFlowOrder(id);
   const isMuted = useIsNodeMuted(id);
+  const { getTagColor } = useTagColors();
+  const { getRoleColor } = useRoleColors();
+
+  // Normalize role to array for backward compatibility
+  const normalizedRoles: string[] = Array.isArray(role)
+    ? role
+    : role
+      ? [role]
+      : [];
 
   // Get child count from childNodeIds array directly
   const childCount = childNodeIds.length;
@@ -251,10 +302,254 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
             <span>Open</span>
           </button>
         </div>
-
-        {/* Tags indicator */}
-        <NodeTags tags={tags} className="justify-center" />
       </div>
+
+      {/* Info Icon with Toggle Popup */}
+      <div className="absolute -bottom-1 -left-1 z-30">
+        <div
+          className={`bg-white rounded-full p-0.5 shadow-md hover:shadow-lg transition-shadow cursor-pointer ${isInfoOpen ? 'ring-2 ring-purple-400' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsInfoOpen(!isInfoOpen);
+          }}
+        >
+          <Info className={`w-3.5 h-3.5 text-purple-600 ${isInfoOpen ? 'text-purple-800' : ''}`} />
+        </div>
+
+        {/* Info Popup */}
+        {isInfoOpen && (
+          <div
+            className={`
+              absolute z-50 top-full mt-2 left-0
+              min-w-[320px] max-w-[400px]
+              bg-white rounded-lg shadow-xl border border-gray-200
+              p-4
+            `}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Label */}
+            <div className="mb-3 pb-2 border-b border-gray-100">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                <Type className="w-3.5 h-3.5" />
+                Label
+              </div>
+              <div className="text-sm font-medium text-gray-900">{label}</div>
+            </div>
+
+            {/* Description */}
+            {description && (
+              <div className="mb-3 pb-2 border-b border-gray-100">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  <FileText className="w-3.5 h-3.5" />
+                  Description
+                </div>
+                <div className="text-sm text-gray-700">{description}</div>
+              </div>
+            )}
+
+            {/* Child Nodes */}
+            <div className="mb-3">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                <Layers className="w-3.5 h-3.5" />
+                Child Nodes
+              </div>
+              <div className="text-sm text-gray-700">{childCount} node{childCount !== 1 ? 's' : ''}</div>
+            </div>
+
+            {/* Unit Type */}
+            <div className="mb-3">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                <Package className="w-3.5 h-3.5" />
+                Unit Type
+              </div>
+              <div className="text-sm text-gray-700 capitalize">
+                {unitType === 'custom' ? (customUnitName || 'Custom') : unitType}
+              </div>
+            </div>
+
+            {/* Unit Time */}
+            <div className="mb-3">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                <Clock className="w-3.5 h-3.5" />
+                Unit Time
+              </div>
+              <div className="text-sm text-gray-700">{unitTimeMinutes} minutes</div>
+            </div>
+
+            {/* Default Quantity */}
+            <div className="mb-3">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                <Hash className="w-3.5 h-3.5" />
+                Default Quantity
+              </div>
+              <div className="text-sm text-gray-700">{defaultQuantity}</div>
+            </div>
+
+            {/* Frequency */}
+            {frequency && (
+              <div className="mb-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  <Repeat className="w-3.5 h-3.5" />
+                  Frequency
+                </div>
+                <div className="text-sm text-gray-700 capitalize">{frequency}</div>
+              </div>
+            )}
+
+            {/* Pain Points */}
+            {painPoints && (
+              <div className="mb-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  Pain Points
+                </div>
+                <div className="text-sm text-gray-700">{painPoints}</div>
+              </div>
+            )}
+
+            {/* Improvement */}
+            {improvement && (
+              <div className="mb-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  Improvement
+                </div>
+                <div className="text-sm text-gray-700">{improvement}</div>
+              </div>
+            )}
+
+            {/* Risk */}
+            {risk && (
+              <div className="mb-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  Risk
+                </div>
+                <div className="text-sm text-gray-700">{risk}</div>
+              </div>
+            )}
+
+            {/* Role */}
+            {normalizedRoles.length > 0 && (
+              <div className="mb-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  <User className="w-3.5 h-3.5" />
+                  Role
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {normalizedRoles.map((r) => {
+                    const color = getRoleColor(r);
+                    return (
+                      <span
+                        key={r}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium rounded-full ${color.bg} ${color.text}`}
+                      >
+                        <User className="w-3.5 h-3.5" />
+                        {r}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Documents */}
+            {documents && documents.length > 0 && (
+              <div className="mb-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  <FileText className="w-3.5 h-3.5" />
+                  Documents
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {documents.map((doc) => {
+                    const color = getTagColor(doc);
+                    return (
+                      <span key={doc} className={`text-xs px-2 py-0.5 rounded-full font-medium ${color.bg} ${color.text}`}>
+                        {doc}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Data */}
+            {nodeData && nodeData.length > 0 && (
+              <div className="mb-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  <Database className="w-3.5 h-3.5" />
+                  Data
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {nodeData.map((item) => {
+                    const color = getTagColor(item);
+                    return (
+                      <span key={item} className={`text-xs px-2 py-0.5 rounded-full font-medium ${color.bg} ${color.text}`}>
+                        {item}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Systems */}
+            {systems && systems.length > 0 && (
+              <div className="mb-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  <Shield className="w-3.5 h-3.5" />
+                  Systems
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {systems.map((item) => {
+                    const color = getTagColor(item);
+                    return (
+                      <span key={item} className={`text-xs px-2 py-0.5 rounded-full font-medium ${color.bg} ${color.text}`}>
+                        {item}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Tags */}
+            {tags && tags.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  <Tag className="w-3.5 h-3.5" />
+                  Tags
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {tags.map((tag) => {
+                    const color = getTagColor(tag);
+                    return (
+                      <span key={tag} className={`text-xs px-2 py-0.5 rounded-full font-medium ${color.bg} ${color.text}`}>
+                        {tag}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Arrow pointer */}
+            <div
+              className={`
+                absolute top-0 left-2 -translate-y-1/2 w-2 h-2 bg-white border-gray-200
+                border-l border-t rotate-45
+              `}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Role indicator above node */}
+      {normalizedRoles.length > 0 && (
+        <div className="absolute pointer-events-none left-1/2 -translate-x-1/2" style={{ bottom: '100%', marginBottom: '36px' }}>
+          <NodeRole role={normalizedRoles} />
+        </div>
+      )}
     </div>
   );
 }

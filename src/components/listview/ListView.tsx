@@ -202,7 +202,7 @@ export const ListView: React.FC = () => {
         tags?: string[];
         documents?: string[];
         data?: string[];
-        role?: string;
+        role?: string[] | string; // Support both for backward compatibility
         locked?: boolean;
         painPoints?: string;
         improvement?: string;
@@ -242,8 +242,15 @@ export const ListView: React.FC = () => {
 
       // Check roles filter
       if (filterRoles.length > 0) {
-        const nodeRole = nodeData.role;
-        if (!nodeRole || !filterRoles.includes(nodeRole)) {
+        const rawRole = nodeData.role;
+        // Handle backward compatibility: role could be string or string[]
+        const nodeRoles: string[] = Array.isArray(rawRole)
+          ? rawRole
+          : rawRole
+            ? [rawRole]
+            : [];
+        const hasMatchingRole = filterRoles.some((role) => nodeRoles.includes(role));
+        if (!hasMatchingRole) {
           return false;
         }
       }
