@@ -84,13 +84,15 @@ const isEmptyValue = (value: unknown): boolean => {
 };
 
 const containsValue = (nodeValue: unknown, searchValue: string): boolean => {
+  if (searchValue === null || searchValue === undefined) return false;
   if (typeof nodeValue === 'string' && typeof searchValue === 'string') {
     return nodeValue.toLowerCase().includes(searchValue.toLowerCase());
   }
   if (Array.isArray(nodeValue)) {
-    return nodeValue.some((item) =>
-      String(item).toLowerCase().includes(searchValue.toLowerCase())
-    );
+    return nodeValue.some((item) => {
+      if (item === null || item === undefined) return false;
+      return String(item).toLowerCase().includes(searchValue.toLowerCase());
+    });
   }
   return false;
 };
@@ -99,6 +101,7 @@ const equalsValue = (nodeValue: unknown, searchValue: string | boolean): boolean
   if (typeof searchValue === 'boolean') {
     return nodeValue === searchValue;
   }
+  if (searchValue === null || searchValue === undefined) return false;
   if (typeof nodeValue === 'string' && typeof searchValue === 'string') {
     return nodeValue.toLowerCase() === searchValue.toLowerCase();
   }
@@ -107,24 +110,36 @@ const equalsValue = (nodeValue: unknown, searchValue: string | boolean): boolean
 
 const containsAnyValue = (nodeValue: unknown, searchValues: string[]): boolean => {
   if (!Array.isArray(nodeValue) || !Array.isArray(searchValues)) return false;
-  return searchValues.some((search) =>
-    nodeValue.some((item) => String(item).toLowerCase() === search.toLowerCase())
-  );
+  return searchValues.some((search) => {
+    if (search === null || search === undefined) return false;
+    return nodeValue.some((item) => {
+      if (item === null || item === undefined) return false;
+      return String(item).toLowerCase() === search.toLowerCase();
+    });
+  });
 };
 
 const containsAllValue = (nodeValue: unknown, searchValues: string[]): boolean => {
   if (!Array.isArray(nodeValue) || !Array.isArray(searchValues)) return false;
-  return searchValues.every((search) =>
-    nodeValue.some((item) => String(item).toLowerCase() === search.toLowerCase())
-  );
+  return searchValues.every((search) => {
+    if (search === null || search === undefined) return false;
+    return nodeValue.some((item) => {
+      if (item === null || item === undefined) return false;
+      return String(item).toLowerCase() === search.toLowerCase();
+    });
+  });
 };
 
 const inValue = (nodeValue: unknown, searchValues: string[]): boolean => {
   if (!Array.isArray(searchValues)) return false;
+  if (nodeValue === null || nodeValue === undefined) return false;
   if (typeof nodeValue === 'string') {
-    return searchValues.some((v) => v.toLowerCase() === nodeValue.toLowerCase());
+    return searchValues.some((v) => {
+      if (v === null || v === undefined) return false;
+      return v.toLowerCase() === nodeValue.toLowerCase();
+    });
   }
-  return searchValues.includes(nodeValue as string);
+  return searchValues.some((v) => v === nodeValue);
 };
 
 /**
