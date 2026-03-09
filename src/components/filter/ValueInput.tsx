@@ -242,6 +242,9 @@ export const ValueInput: React.FC<ValueInputProps> = ({ field, operator, value, 
       case 'data':
         options = filterOptions.data;
         break;
+      case 'systems':
+        options = filterOptions.systems;
+        break;
       default:
         options = [];
     }

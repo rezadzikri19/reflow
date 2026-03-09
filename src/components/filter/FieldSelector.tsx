@@ -11,10 +11,10 @@ interface FieldSelectorProps {
 const FIELD_GROUPS = {
   'Basic': ['label', 'description', 'nodeType', 'sheet'] as FilterableField[],
   'People & Resources': ['role', 'tags'] as FilterableField[],
-  'Inputs & Outputs': ['documents', 'data'] as FilterableField[],
+  'Inputs & Outputs': ['documents', 'data', 'systems'] as FilterableField[],
   'Timing': ['frequency', 'unitType'] as FilterableField[],
-  'Status': ['locked', 'requiresFTE', 'hasPainPoints', 'hasImprovement'] as FilterableField[],
-  'Analysis': ['painPoints', 'improvement'] as FilterableField[],
+  'Status': ['locked', 'requiresFTE', 'hasPainPoints', 'hasImprovement', 'hasRisk'] as FilterableField[],
+  'Analysis': ['painPoints', 'improvement', 'risk'] as FilterableField[],
 };
 
 export const FieldSelector: React.FC<FieldSelectorProps> = ({ value, onChange }) => {
