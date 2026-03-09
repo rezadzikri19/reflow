@@ -274,6 +274,8 @@ interface FlowchartState {
   filterRequiresFTE: boolean | null;
   filterHasPainPoints: boolean | null;
   filterHasImprovement: boolean | null;
+  filterSystems: string[];
+  filterHasRisk: boolean | null;
   filterSheets: string[];
   isFilterPanelOpen: boolean;
   filterMode: FilterMode;
@@ -417,6 +419,8 @@ interface FlowchartActions {
   setFilterRequiresFTE: (requiresFTE: boolean | null) => void;
   setFilterHasPainPoints: (hasPainPoints: boolean | null) => void;
   setFilterHasImprovement: (hasImprovement: boolean | null) => void;
+  setFilterSystems: (systems: string[]) => void;
+  setFilterHasRisk: (hasRisk: boolean | null) => void;
   setFilterSheets: (sheets: string[]) => void;
   clearAllFilters: () => void;
   toggleFilterPanel: () => void;
@@ -494,6 +498,8 @@ const initialState: FlowchartState = {
   filterRequiresFTE: null,
   filterHasPainPoints: null,
   filterHasImprovement: null,
+  filterSystems: [],
+  filterHasRisk: null,
   filterSheets: [],
   isFilterPanelOpen: false,
   filterMode: 'simple',
@@ -3044,6 +3050,24 @@ export const useFlowchartStore = create<FlowchartStore>()(
       },
 
       /**
+       * Set filter systems
+       */
+      setFilterSystems: (systems: string[]) => {
+        set((state) => {
+          state.filterSystems = systems;
+        });
+      },
+
+      /**
+       * Set filter hasRisk status
+       */
+      setFilterHasRisk: (hasRisk: boolean | null) => {
+        set((state) => {
+          state.filterHasRisk = hasRisk;
+        });
+      },
+
+      /**
        * Clear all filters
        */
       clearAllFilters: () => {
@@ -3060,6 +3084,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
           state.filterRequiresFTE = null;
           state.filterHasPainPoints = null;
           state.filterHasImprovement = null;
+          state.filterSystems = [];
+          state.filterHasRisk = null;
           state.filterSheets = [];
         });
       },
@@ -4049,6 +4075,8 @@ export const useFilterLocked = () => useFlowchartStore((state) => state.filterLo
 export const useFilterRequiresFTE = () => useFlowchartStore((state) => state.filterRequiresFTE);
 export const useFilterHasPainPoints = () => useFlowchartStore((state) => state.filterHasPainPoints);
 export const useFilterHasImprovement = () => useFlowchartStore((state) => state.filterHasImprovement);
+export const useFilterSystems = () => useFlowchartStore((state) => state.filterSystems);
+export const useFilterHasRisk = () => useFlowchartStore((state) => state.filterHasRisk);
 export const useFilterSheets = () => useFlowchartStore((state) => state.filterSheets);
 export const useIsFilterPanelOpen = () => useFlowchartStore((state) => state.isFilterPanelOpen);
 export const useFilterMode = () => useFlowchartStore((state) => state.filterMode);
@@ -4081,6 +4109,8 @@ export const useHasActiveFilters = () => {
   const filterRequiresFTE = useFlowchartStore((state) => state.filterRequiresFTE);
   const filterHasPainPoints = useFlowchartStore((state) => state.filterHasPainPoints);
   const filterHasImprovement = useFlowchartStore((state) => state.filterHasImprovement);
+  const filterSystems = useFlowchartStore((state) => state.filterSystems);
+  const filterHasRisk = useFlowchartStore((state) => state.filterHasRisk);
   const filterSheets = useFlowchartStore((state) => state.filterSheets);
 
   // Simple filter check
@@ -4097,6 +4127,8 @@ export const useHasActiveFilters = () => {
     filterRequiresFTE !== null ||
     filterHasPainPoints !== null ||
     filterHasImprovement !== null ||
+    filterSystems.length > 0 ||
+    filterHasRisk !== null ||
     filterSheets.length > 0;
 
   // For advanced mode, we need to check the flowchartFilterConfig

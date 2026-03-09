@@ -7,6 +7,7 @@ import {
   useFilterRoles,
   useFilterDocuments,
   useFilterData,
+  useFilterSystems,
   useFilterSearchText,
   useFilterNodeTypes,
   useFilterFrequencies,
@@ -15,6 +16,7 @@ import {
   useFilterRequiresFTE,
   useFilterHasPainPoints,
   useFilterHasImprovement,
+  useFilterHasRisk,
   useFilterSheets,
   useSheets,
   useHasActiveFilters,
@@ -244,6 +246,7 @@ export const AdvancedFilter: React.FC = () => {
   const filterRoles = useFilterRoles();
   const filterDocuments = useFilterDocuments();
   const filterData = useFilterData();
+  const filterSystems = useFilterSystems();
   const filterSearchText = useFilterSearchText();
   const filterNodeTypes = useFilterNodeTypes();
   const filterFrequencies = useFilterFrequencies();
@@ -252,6 +255,7 @@ export const AdvancedFilter: React.FC = () => {
   const filterRequiresFTE = useFilterRequiresFTE();
   const filterHasPainPoints = useFilterHasPainPoints();
   const filterHasImprovement = useFilterHasImprovement();
+  const filterHasRisk = useFilterHasRisk();
   const filterSheets = useFilterSheets();
   const sheets = useSheets();
   const hasActiveFilters = useHasActiveFilters();
@@ -261,6 +265,7 @@ export const AdvancedFilter: React.FC = () => {
   const setFilterRoles = useFlowchartStore((state) => state.setFilterRoles);
   const setFilterDocuments = useFlowchartStore((state) => state.setFilterDocuments);
   const setFilterData = useFlowchartStore((state) => state.setFilterData);
+  const setFilterSystems = useFlowchartStore((state) => state.setFilterSystems);
   const setFilterSearchText = useFlowchartStore((state) => state.setFilterSearchText);
   const setFilterNodeTypes = useFlowchartStore((state) => state.setFilterNodeTypes);
   const setFilterFrequencies = useFlowchartStore((state) => state.setFilterFrequencies);
@@ -269,6 +274,7 @@ export const AdvancedFilter: React.FC = () => {
   const setFilterRequiresFTE = useFlowchartStore((state) => state.setFilterRequiresFTE);
   const setFilterHasPainPoints = useFlowchartStore((state) => state.setFilterHasPainPoints);
   const setFilterHasImprovement = useFlowchartStore((state) => state.setFilterHasImprovement);
+  const setFilterHasRisk = useFlowchartStore((state) => state.setFilterHasRisk);
   const setFilterSheets = useFlowchartStore((state) => state.setFilterSheets);
   const clearAllFilters = useFlowchartStore((state) => state.clearAllFilters);
 
@@ -296,6 +302,14 @@ export const AdvancedFilter: React.FC = () => {
     solid: 'bg-cyan-500',
     hover: 'hover:bg-cyan-200',
     border: 'border-cyan-500',
+  });
+
+  const getSystemsColor = (_system: string): TagColor => ({
+    bg: 'bg-emerald-100',
+    text: 'text-emerald-800',
+    solid: 'bg-emerald-500',
+    hover: 'hover:bg-emerald-200',
+    border: 'border-emerald-500',
   });
 
   const getNodeTypeColor = (_nodeType: string): TagColor => ({
@@ -336,6 +350,7 @@ export const AdvancedFilter: React.FC = () => {
     filterRoles.length +
     filterDocuments.length +
     filterData.length +
+    filterSystems.length +
     (filterSearchText.length > 0 ? 1 : 0) +
     filterNodeTypes.length +
     filterFrequencies.length +
@@ -344,6 +359,7 @@ export const AdvancedFilter: React.FC = () => {
     (filterRequiresFTE !== null ? 1 : 0) +
     (filterHasPainPoints !== null ? 1 : 0) +
     (filterHasImprovement !== null ? 1 : 0) +
+    (filterHasRisk !== null ? 1 : 0) +
     filterSheets.length;
 
   return (
@@ -533,6 +549,52 @@ export const AdvancedFilter: React.FC = () => {
         )}
       </CollapsibleSection>
 
+      {/* Systems */}
+      <CollapsibleSection title="Systems" defaultOpen={false}>
+        {filterOptions.systems.length === 0 ? (
+          <p className="text-xs text-gray-400 italic">No systems in flowchart</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {filterOptions.systems.map((s) => {
+              const isSelected = filterSystems.includes(s);
+              const color = getSystemsColor(s);
+              return (
+                <FilterChip
+                  key={s}
+                  label={s}
+                  isSelected={isSelected}
+                  color={color}
+                  onClick={() => toggleArrayValue(filterSystems, s, setFilterSystems)}
+                />
+              );
+            })}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      {/* Systems */}
+      <CollapsibleSection title="Systems" defaultOpen={false}>
+        {filterOptions.systems.length === 0 ? (
+          <p className="text-xs text-gray-400 italic">No systems in flowchart</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {filterOptions.systems.map((s) => {
+              const isSelected = filterSystems.includes(s);
+              const color = getSystemsColor(s);
+              return (
+                <FilterChip
+                  key={s}
+                  label={s}
+                  isSelected={isSelected}
+                  color={color}
+                  onClick={() => toggleArrayValue(filterSystems, s, setFilterSystems)}
+                />
+              );
+            })}
+          </div>
+        )}
+      </CollapsibleSection>
+
       {/* Frequency */}
       {filterOptions.frequencies.length > 0 && (
         <CollapsibleSection title="Frequency" defaultOpen={false}>
@@ -598,6 +660,11 @@ export const AdvancedFilter: React.FC = () => {
           title="Has Improvement"
           value={filterHasImprovement}
           onChange={setFilterHasImprovement}
+        />
+        <BooleanFilter
+          title="Has Risk"
+          value={filterHasRisk}
+          onChange={setFilterHasRisk}
         />
       </CollapsibleSection>
 

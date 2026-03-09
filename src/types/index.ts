@@ -104,6 +104,10 @@ export interface BaseNodeData {
   improvement?: string;
   /** How often this process is performed */
   frequency?: FrequencyType;
+  /** Systems associated with this node */
+  systems?: string[];
+  /** Potential risks or concerns associated with this node */
+  risk?: string;
   /** Index signature to satisfy Record<string, unknown> constraint */
   [key: string]: unknown;
 }
@@ -615,6 +619,7 @@ export const DEFAULT_PROCESS_NODE_DATA: Partial<ProcessNodeData> = {
   tags: [],
   documents: [],
   data: [],
+  systems: [],
 };
 
 /**

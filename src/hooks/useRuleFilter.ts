@@ -12,10 +12,12 @@ export interface NodeDataForFilter {
   tags?: string[];
   documents?: string[];
   data?: string[];
+  systems?: string[];
   role?: string;
   locked?: boolean;
   painPoints?: string;
   improvement?: string;
+  risk?: string;
   frequency?: string;
   unitType?: string;
   requiresFTE?: boolean;
@@ -41,6 +43,8 @@ const getFieldValue = (nodeData: NodeDataForFilter, field: string): unknown => {
       return nodeData.documents || [];
     case 'data':
       return nodeData.data || [];
+    case 'systems':
+      return nodeData.systems || [];
     case 'frequency':
       return nodeData.frequency || '';
     case 'unitType':
@@ -53,10 +57,14 @@ const getFieldValue = (nodeData: NodeDataForFilter, field: string): unknown => {
       return !!nodeData.painPoints && nodeData.painPoints.trim().length > 0;
     case 'hasImprovement':
       return !!nodeData.improvement && nodeData.improvement.trim().length > 0;
+    case 'hasRisk':
+      return !!nodeData.risk && nodeData.risk.trim().length > 0;
     case 'painPoints':
       return nodeData.painPoints || '';
     case 'improvement':
       return nodeData.improvement || '';
+    case 'risk':
+      return nodeData.risk || '';
     case 'sheet':
       return nodeData.sheet || '';
     default:

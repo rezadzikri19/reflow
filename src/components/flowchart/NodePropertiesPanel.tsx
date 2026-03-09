@@ -138,6 +138,16 @@ export const NodePropertiesPanel: React.FC = () => {
     return Array.from(roleSet).sort();
   }, [nodes]);
 
+  // Get all existing systems from all nodes for autocomplete suggestions
+  const allExistingSystems = useMemo(() => {
+    const systemSet = new Set<string>();
+    nodes.forEach((node) => {
+      const nodeSystems = (node.data as ProcessNodeData).systems || [];
+      nodeSystems.forEach((s) => systemSet.add(s));
+    });
+    return Array.from(systemSet).sort();
+  }, [nodes]);
+
   // Compute all ports (edge-based + stored) for subprocess nodes
   const { allInputPorts, allOutputPorts } = useMemo(() => {
     if (!selectedNode || (selectedNode.data as ProcessNodeData).nodeType !== 'subprocess') {
@@ -406,6 +416,24 @@ export const NodePropertiesPanel: React.FC = () => {
     [selectedNode, updateNode]
   );
 
+  const handleSystemsChange = useCallback(
+    (systems: string[]) => {
+      if (selectedNode) {
+        updateNode(selectedNode.id, { systems });
+      }
+    },
+    [selectedNode, updateNode]
+  );
+
+  const handleRiskChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      if (selectedNode) {
+        updateNode(selectedNode.id, { risk: e.target.value });
+      }
+    },
+    [selectedNode, updateNode]
+  );
+
   const handleRoleChange = useCallback(
     (role: string | undefined) => {
       if (selectedNode) {
@@ -568,6 +596,23 @@ export const NodePropertiesPanel: React.FC = () => {
           </section>
         )}
 
+        {/* Systems Section - Only for Process and Manual Process nodes */}
+        {(nodeType === 'process' || nodeType === 'manualProcess') && (
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Systems
+            </h3>
+            <TagInput
+              label=""
+              value={nodeData.systems || []}
+              onChange={handleSystemsChange}
+              suggestions={allExistingSystems}
+              placeholder="Add a system..."
+              helperText="Press Enter or comma to add a system"
+            />
+          </section>
+        )}
+
         {/* Pain Points Section - Only for Process and Manual Process nodes */}
         {(nodeType === 'process' || nodeType === 'manualProcess') && (
           <section>
@@ -601,6 +646,25 @@ export const NodePropertiesPanel: React.FC = () => {
                 rows={3}
                 className="block w-full rounded-md border border-gray-300 hover:border-gray-400 bg-white px-4 py-2 text-sm placeholder-gray-400 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 placeholder="Proposed optimizations, automation ideas, or solutions"
+              />
+            </div>
+          </section>
+        )}
+
+        {/* Risk Section - Only for Process and Manual Process nodes */}
+        {(nodeType === 'process' || nodeType === 'manualProcess') && (
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Risk
+            </h3>
+            <div>
+              <textarea
+                id="risk"
+                value={nodeData.risk || ''}
+                onChange={handleRiskChange}
+                rows={3}
+                className="block w-full rounded-md border border-gray-300 hover:border-gray-400 bg-white px-4 py-2 text-sm placeholder-gray-400 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="Potential risks or concerns associated with this process"
               />
             </div>
           </section>

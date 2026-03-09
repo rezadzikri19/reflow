@@ -17,6 +17,8 @@ import {
   User,
   Database,
   Tag,
+  Shield,
+  ShieldAlert,
 } from 'lucide-react';
 import type { ProcessNodeData, UnitType } from '../../../types/index';
 import NodeRole from './NodeRole';
@@ -103,11 +105,13 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
     tags,
     documents,
     data: nodeData,
+    systems,
     role,
     locked,
     frequency,
     painPoints,
     improvement,
+    risk,
   } = (data as ProcessNodeData) || {};
 
   const UnitIcon = unitTypeIcons[unitType];
@@ -153,7 +157,7 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
     return () => {
       resizeObserver.disconnect();
     };
-  }, [updateSvgPath, label, unitType, customUnitName, unitTimeMinutes, defaultQuantity, tags, documents, nodeData, role]);
+  }, [updateSvgPath, label, unitType, customUnitName, unitTimeMinutes, defaultQuantity, tags, documents, nodeData, systems, role]);
 
   return (
     <div className={`relative transition-opacity duration-200 ${isMuted ? 'opacity-30 grayscale' : ''}`}>
@@ -278,6 +282,17 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
                 </div>
               )}
 
+              {/* Risk */}
+              {risk && (
+                <div className="mb-3">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    Risk
+                  </div>
+                  <div className="text-sm text-gray-700">{risk}</div>
+                </div>
+              )}
+
               {/* Role */}
               {role && (
                 <div className="mb-3">
@@ -321,6 +336,26 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {nodeData.map((item) => {
+                      const color = getTagColor(item);
+                      return (
+                        <span key={item} className={`text-xs px-2 py-0.5 rounded-full font-medium ${color.bg} ${color.text}`}>
+                          {item}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Systems */}
+              {systems && systems.length > 0 && (
+                <div className="mb-3">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    <Shield className="w-3.5 h-3.5" />
+                    Systems
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {systems.map((item) => {
                       const color = getTagColor(item);
                       return (
                         <span key={item} className={`text-xs px-2 py-0.5 rounded-full font-medium ${color.bg} ${color.text}`}>

@@ -6,14 +6,17 @@ export type FilterableField =
   | 'role'
   | 'documents'
   | 'data'
+  | 'systems'
   | 'frequency'
   | 'unitType'
   | 'locked'
   | 'requiresFTE'
   | 'hasPainPoints'
   | 'hasImprovement'
+  | 'hasRisk'
   | 'painPoints'
   | 'improvement'
+  | 'risk'
   | 'sheet';
 
 export type FilterOperator =
@@ -60,14 +63,17 @@ export const FIELD_TYPES: Record<FilterableField, FieldType> = {
   role: 'select',
   documents: 'multiselect',
   data: 'multiselect',
+  systems: 'multiselect',
   frequency: 'select',
   unitType: 'select',
   locked: 'boolean',
   requiresFTE: 'boolean',
   hasPainPoints: 'boolean',
   hasImprovement: 'boolean',
+  hasRisk: 'boolean',
   painPoints: 'text',
   improvement: 'text',
+  risk: 'text',
   sheet: 'select',
 };
 
@@ -88,14 +94,17 @@ export const FIELD_LABELS: Record<FilterableField, string> = {
   role: 'Role',
   documents: 'Documents',
   data: 'Data',
+  systems: 'Systems',
   frequency: 'Frequency',
   unitType: 'Unit Type',
   locked: 'Locked',
   requiresFTE: 'Requires FTE',
   hasPainPoints: 'Has Pain Points',
   hasImprovement: 'Has Improvement',
+  hasRisk: 'Has Risk',
   painPoints: 'Pain Points',
   improvement: 'Improvement',
+  risk: 'Risk',
   sheet: 'Sheet',
 };
 

@@ -5,6 +5,7 @@ import {
   useFilterRoles,
   useFilterDocuments,
   useFilterData,
+  useFilterSystems,
   useFilterSearchText,
   useFilterNodeTypes,
   useFilterFrequencies,
@@ -13,6 +14,7 @@ import {
   useFilterRequiresFTE,
   useFilterHasPainPoints,
   useFilterHasImprovement,
+  useFilterHasRisk,
   useFilterMode,
   useHighlightedNodeIds,
 } from '../stores/flowchartStore';
@@ -33,6 +35,7 @@ export interface FilterOptions {
   roles: string[];
   documents: string[];
   data: string[];
+  systems: string[];
   nodeTypes: ProcessNodeType[];
   frequencies: FrequencyType[];
   unitTypes: UnitType[];
@@ -50,6 +53,7 @@ export interface UseNodeFilterReturn {
     roles: string[];
     documents: string[];
     data: string[];
+    systems: string[];
     searchText: string;
     nodeTypes: ProcessNodeType[];
     frequencies: FrequencyType[];
@@ -58,6 +62,7 @@ export interface UseNodeFilterReturn {
     requiresFTE: boolean | null;
     hasPainPoints: boolean | null;
     hasImprovement: boolean | null;
+    hasRisk: boolean | null;
   };
   /** Check if any filters are active */
   hasActiveFilters: boolean;
@@ -79,10 +84,12 @@ interface NodeDataForFilter {
   tags?: string[];
   documents?: string[];
   data?: string[];
+  systems?: string[];
   role?: string;
   locked?: boolean;
   painPoints?: string;
   improvement?: string;
+  risk?: string;
   frequency?: FrequencyType;
   unitType?: UnitType;
   requiresFTE?: boolean;
@@ -110,6 +117,7 @@ export function useIsNodeMuted(nodeId: string): boolean {
   const filterRoles = useFilterRoles();
   const filterDocuments = useFilterDocuments();
   const filterData = useFilterData();
+  const filterSystems = useFilterSystems();
   const filterSearchText = useFilterSearchText();
   const filterNodeTypes = useFilterNodeTypes();
   const filterFrequencies = useFilterFrequencies();
@@ -118,6 +126,7 @@ export function useIsNodeMuted(nodeId: string): boolean {
   const filterRequiresFTE = useFilterRequiresFTE();
   const filterHasPainPoints = useFilterHasPainPoints();
   const filterHasImprovement = useFilterHasImprovement();
+  const filterHasRisk = useFilterHasRisk();
   const nodes = useNodes();
 
   // Advanced filter state
@@ -151,6 +160,7 @@ export function useIsNodeMuted(nodeId: string): boolean {
       filterRoles.length > 0 ||
       filterDocuments.length > 0 ||
       filterData.length > 0 ||
+      filterSystems.length > 0 ||
       filterSearchText.length > 0 ||
       filterNodeTypes.length > 0 ||
       filterFrequencies.length > 0 ||
@@ -158,7 +168,8 @@ export function useIsNodeMuted(nodeId: string): boolean {
       filterLocked !== null ||
       filterRequiresFTE !== null ||
       filterHasPainPoints !== null ||
-      filterHasImprovement !== null;
+      filterHasImprovement !== null ||
+      filterHasRisk !== null;
 
     if (!hasActiveFilters) {
       return false;
@@ -169,6 +180,7 @@ export function useIsNodeMuted(nodeId: string): boolean {
       filterRoles,
       filterDocuments,
       filterData,
+      filterSystems,
       filterSearchText,
       filterNodeTypes,
       filterFrequencies,
@@ -177,6 +189,7 @@ export function useIsNodeMuted(nodeId: string): boolean {
       filterRequiresFTE,
       filterHasPainPoints,
       filterHasImprovement,
+      filterHasRisk,
     });
   }, [
     nodeId,
@@ -187,6 +200,7 @@ export function useIsNodeMuted(nodeId: string): boolean {
     filterRoles,
     filterDocuments,
     filterData,
+    filterSystems,
     filterSearchText,
     filterNodeTypes,
     filterFrequencies,
@@ -195,6 +209,7 @@ export function useIsNodeMuted(nodeId: string): boolean {
     filterRequiresFTE,
     filterHasPainPoints,
     filterHasImprovement,
+    filterHasRisk,
     highlightedNodeIds,
   ]);
 }
@@ -209,6 +224,7 @@ function nodeMatchesFilterCriteria(
     filterRoles: string[];
     filterDocuments: string[];
     filterData: string[];
+    filterSystems: string[];
     filterSearchText: string;
     filterNodeTypes: ProcessNodeType[];
     filterFrequencies: FrequencyType[];
@@ -217,6 +233,7 @@ function nodeMatchesFilterCriteria(
     filterRequiresFTE: boolean | null;
     filterHasPainPoints: boolean | null;
     filterHasImprovement: boolean | null;
+    filterHasRisk: boolean | null;
   }
 ): boolean {
   const {
@@ -224,6 +241,7 @@ function nodeMatchesFilterCriteria(
     filterRoles,
     filterDocuments,
     filterData,
+    filterSystems,
     filterSearchText,
     filterNodeTypes,
     filterFrequencies,
@@ -232,6 +250,7 @@ function nodeMatchesFilterCriteria(
     filterRequiresFTE,
     filterHasPainPoints,
     filterHasImprovement,
+    filterHasRisk,
   } = filters;
 
   // Check text search filter
@@ -241,8 +260,9 @@ function nodeMatchesFilterCriteria(
     const descriptionMatch = nodeData.description?.toLowerCase().includes(searchLower) ?? false;
     const painPointsMatch = nodeData.painPoints?.toLowerCase().includes(searchLower) ?? false;
     const improvementMatch = nodeData.improvement?.toLowerCase().includes(searchLower) ?? false;
+    const riskMatch = nodeData.risk?.toLowerCase().includes(searchLower) ?? false;
 
-    if (!labelMatch && !descriptionMatch && !painPointsMatch && !improvementMatch) {
+    if (!labelMatch && !descriptionMatch && !painPointsMatch && !improvementMatch && !riskMatch) {
       return false;
     }
   }
@@ -285,6 +305,15 @@ function nodeMatchesFilterCriteria(
     const nodeDataElements = nodeData.data || [];
     const hasMatchingData = filterData.some((d) => nodeDataElements.includes(d));
     if (!hasMatchingData) {
+      return false;
+    }
+  }
+
+  // Check systems filter
+  if (filterSystems.length > 0) {
+    const nodeSystems = nodeData.systems || [];
+    const hasMatchingSystem = filterSystems.some((s) => nodeSystems.includes(s));
+    if (!hasMatchingSystem) {
       return false;
     }
   }
@@ -345,6 +374,17 @@ function nodeMatchesFilterCriteria(
     }
   }
 
+  // Check hasRisk filter
+  if (filterHasRisk !== null) {
+    const hasRisk = !!nodeData.risk && nodeData.risk.trim().length > 0;
+    if (filterHasRisk && !hasRisk) {
+      return false;
+    }
+    if (!filterHasRisk && hasRisk) {
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -368,6 +408,7 @@ export function useNodeFilter(): UseNodeFilterReturn {
   const filterRoles = useFilterRoles();
   const filterDocuments = useFilterDocuments();
   const filterData = useFilterData();
+  const filterSystems = useFilterSystems();
   const filterSearchText = useFilterSearchText();
   const filterNodeTypes = useFilterNodeTypes();
   const filterFrequencies = useFilterFrequencies();
@@ -376,6 +417,7 @@ export function useNodeFilter(): UseNodeFilterReturn {
   const filterRequiresFTE = useFilterRequiresFTE();
   const filterHasPainPoints = useFilterHasPainPoints();
   const filterHasImprovement = useFilterHasImprovement();
+  const filterHasRisk = useFilterHasRisk();
 
   // Derive available filter options from all nodes
   const filterOptions = useMemo<FilterOptions>(() => {
@@ -383,6 +425,7 @@ export function useNodeFilter(): UseNodeFilterReturn {
     const roles = new Set<string>();
     const documents = new Set<string>();
     const dataElements = new Set<string>();
+    const systems = new Set<string>();
     const nodeTypes = new Set<ProcessNodeType>();
     const frequencies = new Set<FrequencyType>();
     const unitTypes = new Set<UnitType>();
@@ -410,6 +453,11 @@ export function useNodeFilter(): UseNodeFilterReturn {
         nodeData.data.forEach((d) => dataElements.add(d));
       }
 
+      // Collect systems
+      if (nodeData.systems) {
+        nodeData.systems.forEach((s) => systems.add(s));
+      }
+
       // Collect node type
       if (nodeData.nodeType) {
         nodeTypes.add(nodeData.nodeType);
@@ -431,6 +479,7 @@ export function useNodeFilter(): UseNodeFilterReturn {
       roles: Array.from(roles).sort(),
       documents: Array.from(documents).sort(),
       data: Array.from(dataElements).sort(),
+      systems: Array.from(systems).sort(),
       nodeTypes: Array.from(nodeTypes).sort(),
       frequencies: Array.from(frequencies).sort(),
       unitTypes: Array.from(unitTypes).sort(),
@@ -444,6 +493,7 @@ export function useNodeFilter(): UseNodeFilterReturn {
       filterRoles.length > 0 ||
       filterDocuments.length > 0 ||
       filterData.length > 0 ||
+      filterSystems.length > 0 ||
       filterSearchText.length > 0 ||
       filterNodeTypes.length > 0 ||
       filterFrequencies.length > 0 ||
@@ -451,13 +501,15 @@ export function useNodeFilter(): UseNodeFilterReturn {
       filterLocked !== null ||
       filterRequiresFTE !== null ||
       filterHasPainPoints !== null ||
-      filterHasImprovement !== null
+      filterHasImprovement !== null ||
+      filterHasRisk !== null
     );
   }, [
     filterTags,
     filterRoles,
     filterDocuments,
     filterData,
+    filterSystems,
     filterSearchText,
     filterNodeTypes,
     filterFrequencies,
@@ -466,6 +518,7 @@ export function useNodeFilter(): UseNodeFilterReturn {
     filterRequiresFTE,
     filterHasPainPoints,
     filterHasImprovement,
+    filterHasRisk,
   ]);
 
   // Check if a node matches the filter criteria
@@ -481,6 +534,7 @@ export function useNodeFilter(): UseNodeFilterReturn {
         filterRoles,
         filterDocuments,
         filterData,
+        filterSystems,
         filterSearchText,
         filterNodeTypes,
         filterFrequencies,
@@ -489,6 +543,7 @@ export function useNodeFilter(): UseNodeFilterReturn {
         filterRequiresFTE,
         filterHasPainPoints,
         filterHasImprovement,
+        filterHasRisk,
       });
     },
     [
@@ -497,6 +552,7 @@ export function useNodeFilter(): UseNodeFilterReturn {
       filterRoles,
       filterDocuments,
       filterData,
+      filterSystems,
       filterSearchText,
       filterNodeTypes,
       filterFrequencies,
@@ -505,6 +561,7 @@ export function useNodeFilter(): UseNodeFilterReturn {
       filterRequiresFTE,
       filterHasPainPoints,
       filterHasImprovement,
+      filterHasRisk,
     ]
   );
 
@@ -535,6 +592,7 @@ export function useNodeFilter(): UseNodeFilterReturn {
       roles: filterRoles,
       documents: filterDocuments,
       data: filterData,
+      systems: filterSystems,
       searchText: filterSearchText,
       nodeTypes: filterNodeTypes,
       frequencies: filterFrequencies,
@@ -543,6 +601,7 @@ export function useNodeFilter(): UseNodeFilterReturn {
       requiresFTE: filterRequiresFTE,
       hasPainPoints: filterHasPainPoints,
       hasImprovement: filterHasImprovement,
+      hasRisk: filterHasRisk,
     },
     hasActiveFilters,
     nodeMatchesFilter,
