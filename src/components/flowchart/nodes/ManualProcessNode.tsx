@@ -489,7 +489,7 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
 
       {/* Systems indicator below node */}
       {systems && systems.length > 0 && (
-        <div className="absolute pointer-events-none left-1/2 -translate-x-1/2" style={{ top: '100%', marginTop: '8px' }}>
+        <div className="absolute pointer-events-none left-1/2 -translate-x-1/2" style={{ top: '100%', marginTop: '30px' }}>
           <NodeSystems systems={systems} />
         </div>
       )}
