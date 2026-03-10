@@ -356,19 +356,6 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
           )}
         </div>
 
-        {/* Description (if provided) */}
-        {description && (
-          <div className="border-t border-purple-400 pt-2 mt-1">
-            <span
-              className="text-purple-100 text-xs line-clamp-2"
-              title={description}
-            >
-              {description}
-            </span>
-          </div>
-        )}
-
-        {/* Open button */}
         <div className="flex items-center justify-end">
           <button
             onClick={handleOpenSheet}

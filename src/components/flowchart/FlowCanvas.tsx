@@ -82,7 +82,7 @@ function FlowCanvasInner({
   customNodeTypes,
 }: FlowCanvasInnerProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { screenToFlowPosition, getNodes, getEdges, fitView } = useReactFlow();
+  const { screenToFlowPosition, getNodes, getEdges, fitView, setNodes: setReactFlowNodes } = useReactFlow();
 
   // Store custom positions for boundary port nodes (input/output nodes in subprocess sheets)
   // This allows them to be freely moved and maintain their positions
@@ -110,6 +110,7 @@ function FlowCanvasInner({
   const setNodes = useFlowchartStore((state) => state.setNodes);
   const setEdges = useFlowchartStore((state) => state.setEdges);
   const setSelectedNode = useFlowchartStore((state) => state.setSelectedNode);
+  const updateNode = useFlowchartStore((state) => state.updateNode);
   const deleteNode = useFlowchartStore((state) => state.deleteNode);
   const deleteNodes = useFlowchartStore((state) => state.deleteNodes);
   const deleteEdge = useFlowchartStore((state) => state.deleteEdge);
@@ -601,14 +602,63 @@ function FlowCanvasInner({
         position.y = Math.round(position.y / gridSize) * gridSize;
       }
 
-      // Add the node - use addAnnotationNode for annotation types, addNode for process types
-      if (isAnnotation) {
-        addAnnotationNode(nodeType as AnnotationType, position);
+      // Check if dropping on an existing node (for type swap)
+      const nodes = getNodes();
+      const targetNode = nodes.find((node) => {
+        // Use measured dimensions or fallback to defaults
+        const width = node.measured?.width || node.width || 200;
+        const height = node.measured?.height || node.height || 100;
+        return (
+          position.x >= node.position.x &&
+          position.x <= node.position.x + width &&
+          position.y >= node.position.y &&
+          position.y <= node.position.y + height
+        );
+      });
+
+      if (targetNode) {
+        // Get the target node's data to check if it's an annotation
+        const targetNodeData = targetNode.data as ProcessNodeData;
+        const targetIsAnnotation = targetNodeData.nodeType !== undefined &&
+          ['annotationRectangle', 'annotationSquare', 'annotationCircle', 'annotationLine', 'annotationTextBox'].includes(targetNodeData.nodeType);
+
+        // Node types that cannot be swapped
+        const nonSwappableTypes: ProcessNodeType[] = ['start', 'end', 'subprocess', 'junction', 'connector', 'reference'];
+
+        // Only swap if not trying to swap between annotation and process types
+        // and if the target node is not a non-swappable type
+        if (!isAnnotation && !targetIsAnnotation && !nonSwappableTypes.includes(targetNodeData.nodeType)) {
+          // Swap node type - update both the node's type and data.nodeType
+          const newType = nodeType as ProcessNodeType;
+          updateNode(targetNode.id, { nodeType: newType });
+          // Also need to update the node's type in ReactFlow
+          setReactFlowNodes(
+            nodes.map((n) =>
+              n.id === targetNode.id ? { ...n, type: newType } : n
+            )
+          );
+        } else if (isAnnotation && targetIsAnnotation) {
+          // Swap annotation type - update both the node's type and data.nodeType
+          const newType = nodeType as AnnotationType;
+          updateNode(targetNode.id, { nodeType: newType });
+          // Also need to update the node's type in ReactFlow
+          setReactFlowNodes(
+            nodes.map((n) =>
+              n.id === targetNode.id ? { ...n, type: newType } : n
+            )
+          );
+        }
+        // Otherwise, create a new node (don't swap between annotation and process)
       } else {
-        addNode(nodeType as ProcessNodeType, position);
+        // Create new node (existing behavior)
+        if (isAnnotation) {
+          addAnnotationNode(nodeType as AnnotationType, position);
+        } else {
+          addNode(nodeType as ProcessNodeType, position);
+        }
       }
     },
-    [readOnly, screenToFlowPosition, snapToGrid, gridSize, addNode, addAnnotationNode]
+    [readOnly, screenToFlowPosition, snapToGrid, gridSize, addNode, addAnnotationNode, updateNode, getNodes, setReactFlowNodes]
   );
 
   /**
