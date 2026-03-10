@@ -52,7 +52,7 @@ function ConnectorNode({ id, data, selected }: NodeProps) {
         style={{ top: '100%', marginTop: '28px' }}
       >
         <span
-          className="text-xs font-medium text-teal-800 bg-teal-100 px-1.5 py-0.5 rounded whitespace-nowrap"
+          className="text-sm font-medium text-teal-800 bg-teal-100 px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm"
           title={label}
         >
           {label}

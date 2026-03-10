@@ -72,7 +72,7 @@ function TerminatorNode({ id, data, selected }: NodeProps) {
         style={{ top: '100%', marginTop: '28px' }}
       >
         <span
-          className="text-xs font-medium text-rose-800 bg-rose-100 px-2 py-0.5 rounded whitespace-nowrap"
+          className="text-sm font-medium text-rose-800 bg-rose-100 px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm"
           title={label}
         >
           {label}
