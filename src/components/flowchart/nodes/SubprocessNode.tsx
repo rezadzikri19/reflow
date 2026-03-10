@@ -30,6 +30,7 @@ import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
 import { useTagColors } from '../../../hooks/useTagColors';
 import { useRoleColors } from '../../../hooks/useRoleColors';
 import NodeRole from './NodeRole';
+import NodeSystems from './NodeSystems';
 
 // =============================================================================
 // Helper Functions
@@ -611,6 +612,13 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
       {normalizedRoles.length > 0 && (
         <div className="absolute pointer-events-none left-1/2 -translate-x-1/2" style={{ bottom: '100%', marginBottom: '36px' }}>
           <NodeRole role={normalizedRoles} />
+        </div>
+      )}
+
+      {/* Systems indicator below node */}
+      {systems && systems.length > 0 && (
+        <div className="absolute pointer-events-none left-1/2 -translate-x-1/2" style={{ top: '100%', marginTop: '8px' }}>
+          <NodeSystems systems={systems} />
         </div>
       )}
     </div>

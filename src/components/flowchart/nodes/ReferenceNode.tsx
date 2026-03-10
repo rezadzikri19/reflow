@@ -3,6 +3,7 @@ import { Position, type NodeProps } from '@xyflow/react';
 import type { BaseNodeData, ProcessNodeData } from '../../../types/index';
 import NodeTags from './NodeTags';
 import NodeRole from './NodeRole';
+import NodeSystems from './NodeSystems';
 import { useHierarchicalFlowOrder } from '../../../contexts/FlowOrderContext';
 import { useNodes } from '../../../stores/flowchartStore';
 import HybridHandle from './HybridHandle';
@@ -25,6 +26,8 @@ function ReferenceNode({ id, data, selected }: NodeProps) {
   const label = referencedNode ? (referencedNode.data as ProcessNodeData).label || 'Reference' : 'Reference';
   // Role is synced from the referenced node
   const role = referencedNode ? (referencedNode.data as ProcessNodeData).role : undefined;
+  // Systems is synced from the referenced node
+  const systems = referencedNode ? (referencedNode.data as ProcessNodeData).systems : undefined;
 
   // Get the flow order of the referenced node (not this node)
   const referencedFlowOrder = useHierarchicalFlowOrder(referencedNodeId || '');
@@ -67,19 +70,11 @@ function ReferenceNode({ id, data, selected }: NodeProps) {
         style={{ top: '100%', marginTop: '28px' }}
       >
         <span
-          className="text-xs font-medium text-sky-800 bg-sky-100 px-2 py-0.5 rounded text-wrap block text-center max-w-[120px]"
+          className="text-xs font-medium text-sky-800 bg-sky-100 px-2 py-0.5 rounded whitespace-nowrap"
           title={label}
         >
           {label}
         </span>
-      </div>
-
-      {/* Tags indicator below label */}
-      <div
-        className="absolute pointer-events-none left-1/2 -translate-x-1/2"
-        style={{ top: '100%', marginTop: '52px' }}
-      >
-        <NodeTags tags={tags} />
       </div>
 
       {/* Role indicator above node (synced from referenced node) */}
@@ -91,6 +86,24 @@ function ReferenceNode({ id, data, selected }: NodeProps) {
           <NodeRole role={role} />
         </div>
       )}
+
+      {/* Systems indicator below label (synced from referenced node) */}
+      {systems && systems.length > 0 && (
+        <div
+          className="absolute pointer-events-none left-1/2 -translate-x-1/2"
+          style={{ top: '100%', marginTop: '60px' }}
+        >
+          <NodeSystems systems={systems} />
+        </div>
+      )}
+
+      {/* Tags indicator below systems */}
+      <div
+        className="absolute pointer-events-none left-1/2 -translate-x-1/2"
+        style={{ top: '100%', marginTop: '104px' }}
+      >
+        <NodeTags tags={tags} />
+      </div>
     </div>
   );
 }

@@ -45,7 +45,7 @@ function JunctionNode({ id, data, selected }: NodeProps) {
         style={{ top: '100%', marginTop: '28px' }}
       >
         <span
-          className="text-xs font-medium text-violet-800 bg-violet-100 px-1.5 py-0.5 rounded text-wrap block text-center max-w-[120px]"
+          className="text-xs font-medium text-violet-800 bg-violet-100 px-1.5 py-0.5 rounded whitespace-nowrap"
           title={label}
         >
           {label}
