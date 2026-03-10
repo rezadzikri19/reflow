@@ -111,6 +111,7 @@ function FlowCanvasInner({
   const setEdges = useFlowchartStore((state) => state.setEdges);
   const setSelectedNode = useFlowchartStore((state) => state.setSelectedNode);
   const updateNode = useFlowchartStore((state) => state.updateNode);
+  const updateAnnotationNode = useFlowchartStore((state) => state.updateAnnotationNode);
   const deleteNode = useFlowchartStore((state) => state.deleteNode);
   const deleteNodes = useFlowchartStore((state) => state.deleteNodes);
   const deleteEdge = useFlowchartStore((state) => state.deleteEdge);
@@ -640,7 +641,7 @@ function FlowCanvasInner({
         } else if (isAnnotation && targetIsAnnotation) {
           // Swap annotation type - update both the node's type and data.nodeType
           const newType = nodeType as AnnotationType;
-          updateNode(targetNode.id, { nodeType: newType });
+          updateAnnotationNode(targetNode.id, { nodeType: newType });
           // Also need to update the node's type in ReactFlow
           setReactFlowNodes(
             nodes.map((n) =>
