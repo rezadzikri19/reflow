@@ -282,6 +282,10 @@ interface FlowchartState {
   /** Clipboard state for copy/paste */
   clipboardNodes: FlowchartNode[];
   clipboardEdges: FlowchartEdge[];
+  /** Source flowchart ID for clipboard (for cross-flowchart paste) */
+  clipboardSourceFlowchartId: string | null;
+  /** Source sheet ID for clipboard (for cross-sheet paste) */
+  clipboardSourceSheetId: string | null;
   /** History state for undo/redo */
   past: SheetSnapshot[];
   future: SheetSnapshot[];
@@ -436,6 +440,7 @@ interface FlowchartActions {
   pasteNodes: (position?: { x: number; y: number }) => void;
   cutSelectedNodes: () => void;
   hasClipboardContent: () => boolean;
+  getClipboardSourceInfo: () => { nodeCount: number; edgeCount: number; sourceFlowchartId: string | null; sourceSheetId: string | null; isFromCurrentFlowchart: boolean } | null;
   // History actions (undo/redo)
   undo: () => void;
   redo: () => void;
@@ -506,6 +511,8 @@ const initialState: FlowchartState = {
   // Clipboard state
   clipboardNodes: [],
   clipboardEdges: [],
+  clipboardSourceFlowchartId: null,
+  clipboardSourceSheetId: null,
   // History state
   past: [],
   future: [],
@@ -1635,9 +1642,10 @@ export const useFlowchartStore = create<FlowchartStore>()(
               // Clear history when loading a different flowchart
               state.past = [];
               state.future = [];
-              // Clear clipboard
-              state.clipboardNodes = [];
-              state.clipboardEdges = [];
+              // Keep clipboard for cross-flowchart paste
+              // Clear source tracking but preserve content
+              state.clipboardSourceFlowchartId = null;
+              state.clipboardSourceSheetId = null;
               syncNodesAndEdgesFromActiveSheet(state);
             });
           } else {
@@ -1661,9 +1669,10 @@ export const useFlowchartStore = create<FlowchartStore>()(
               // Clear history when loading a different flowchart
               state.past = [];
               state.future = [];
-              // Clear clipboard
-              state.clipboardNodes = [];
-              state.clipboardEdges = [];
+              // Keep clipboard for cross-flowchart paste
+              // Clear source tracking but preserve content
+              state.clipboardSourceFlowchartId = null;
+              state.clipboardSourceSheetId = null;
               syncNodesAndEdgesFromActiveSheet(state);
             });
           }
@@ -3266,6 +3275,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
         set({
           clipboardNodes: JSON.parse(JSON.stringify(nodesToCopy)),
           clipboardEdges: JSON.parse(JSON.stringify(internalEdges)),
+          clipboardSourceFlowchartId: state.flowchartId,
+          clipboardSourceSheetId: state.activeSheetId,
         });
       },
 
@@ -3534,6 +3545,22 @@ export const useFlowchartStore = create<FlowchartStore>()(
       hasClipboardContent: () => {
         const state = get();
         return state.clipboardNodes.length > 0;
+      },
+
+      /**
+       * Get clipboard source info for display
+       */
+      getClipboardSourceInfo: () => {
+        const state = get();
+        if (state.clipboardNodes.length === 0) return null;
+
+        return {
+          nodeCount: state.clipboardNodes.length,
+          edgeCount: state.clipboardEdges.length,
+          sourceFlowchartId: state.clipboardSourceFlowchartId,
+          sourceSheetId: state.clipboardSourceSheetId,
+          isFromCurrentFlowchart: state.clipboardSourceFlowchartId === state.flowchartId,
+        };
       },
 
       // =============================================================================
