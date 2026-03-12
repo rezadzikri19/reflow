@@ -968,20 +968,37 @@ export const useFlowchartStore = create<FlowchartStore>()(
           const sheet = state.sheets.find(s => s.id === state.activeSheetId);
           if (!sheet) return;
 
-          // Find the node being deleted to check if it has a parent
+          // Find the node being deleted
           const nodeToDelete = sheet.nodes.find((n) => n.id === nodeId);
-          const parentId = nodeToDelete?.data?.parentId;
 
-          // Remove the node
-          sheet.nodes = sheet.nodes.filter((n) => n.id !== nodeId);
+          // If deleting a subprocess, include all descendants (children, grandchildren, etc.)
+          let idsToDelete = new Set<string>([nodeId]);
+          if (nodeToDelete?.type === 'subprocess') {
+            // Recursively find all descendant node IDs
+            const findDescendants = (parentId: string) => {
+              sheet.nodes.forEach(n => {
+                if (n.data.parentId === parentId && !idsToDelete.has(n.id)) {
+                  idsToDelete.add(n.id);
+                  // If this child is also a subprocess, recurse
+                  if (n.type === 'subprocess') {
+                    findDescendants(n.id);
+                  }
+                }
+              });
+            };
+            findDescendants(nodeId);
+          }
 
-          // Remove all edges connected to this node
+          // Remove the nodes (including all descendants)
+          sheet.nodes = sheet.nodes.filter((n) => !idsToDelete.has(n.id));
+
+          // Remove all edges connected to any of the deleted nodes
           sheet.edges = sheet.edges.filter(
-            (e) => e.source !== nodeId && e.target !== nodeId
+            (e) => !idsToDelete.has(e.source) && !idsToDelete.has(e.target)
           );
 
-          // Clear selection if the deleted node was selected
-          if (state.selectedNodeId === nodeId) {
+          // Clear selection if any deleted node was selected
+          if (state.selectedNodeId && idsToDelete.has(state.selectedNodeId)) {
             state.selectedNodeId = null;
           }
 
@@ -1001,18 +1018,39 @@ export const useFlowchartStore = create<FlowchartStore>()(
           const sheet = state.sheets.find(s => s.id === state.activeSheetId);
           if (!sheet) return;
 
-          const idsSet = new Set(nodeIds);
+          // Start with the explicitly selected node IDs
+          const idsToDelete = new Set<string>(nodeIds);
 
-          // Remove the nodes
-          sheet.nodes = sheet.nodes.filter((n) => !idsSet.has(n.id));
+          // For each subprocess being deleted, include all descendants
+          nodeIds.forEach(nodeId => {
+            const node = sheet.nodes.find(n => n.id === nodeId);
+            if (node?.type === 'subprocess') {
+              // Recursively find all descendant node IDs
+              const findDescendants = (parentId: string) => {
+                sheet.nodes.forEach(n => {
+                  if (n.data.parentId === parentId && !idsToDelete.has(n.id)) {
+                    idsToDelete.add(n.id);
+                    // If this child is also a subprocess, recurse
+                    if (n.type === 'subprocess') {
+                      findDescendants(n.id);
+                    }
+                  }
+                });
+              };
+              findDescendants(nodeId);
+            }
+          });
+
+          // Remove the nodes (including all descendants)
+          sheet.nodes = sheet.nodes.filter((n) => !idsToDelete.has(n.id));
 
           // Remove all edges connected to any of the deleted nodes
           sheet.edges = sheet.edges.filter(
-            (e) => !idsSet.has(e.source) && !idsSet.has(e.target)
+            (e) => !idsToDelete.has(e.source) && !idsToDelete.has(e.target)
           );
 
           // Clear selection if any deleted node was selected
-          if (state.selectedNodeId && idsSet.has(state.selectedNodeId)) {
+          if (state.selectedNodeId && idsToDelete.has(state.selectedNodeId)) {
             state.selectedNodeId = null;
           }
 
