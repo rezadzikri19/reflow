@@ -3360,6 +3360,10 @@ export const useFlowchartStore = create<FlowchartStore>()(
               } else if (state.activeSubprocessId) {
                 // Parent wasn't copied but we're inside a subprocess, use current subprocess
                 newData.parentId = state.activeSubprocessId;
+              } else {
+                // Parent wasn't copied and we're not inside a subprocess
+                // Clear the parentId to avoid orphan reference
+                newData.parentId = undefined;
               }
             }
 
