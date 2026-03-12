@@ -3336,18 +3336,6 @@ export const useFlowchartStore = create<FlowchartStore>()(
         const state = get();
         if (state.clipboardNodes.length === 0) return;
 
-        // Prevent pasting from different flowchart
-        if (state.clipboardSourceFlowchartId && state.clipboardSourceFlowchartId !== state.flowchartId) {
-          console.warn('Cannot paste nodes from a different flowchart');
-          return;
-        }
-
-        // Prevent pasting from different sheet
-        if (state.clipboardSourceSheetId && state.clipboardSourceSheetId !== state.activeSheetId) {
-          console.warn('Cannot paste nodes from a different sheet');
-          return;
-        }
-
         const OFFSET = position ?? { x: 50, y: 50 };
         const idMap = new Map<string, string>();
 
@@ -3416,12 +3404,23 @@ export const useFlowchartStore = create<FlowchartStore>()(
               locked: false, // Pasted nodes are unlocked by default
             };
 
-            // Update parentId reference if it exists
-            if (newData.parentId && idMap.has(newData.parentId)) {
-              newData.parentId = idMap.get(newData.parentId);
+            // When pasting into a subprocess, set parentId to the active subprocess
+            if (state.activeSubprocessId && !newData.parentId) {
+              newData.parentId = state.activeSubprocessId;
             }
 
-            // Update childNodeIds if this is a subprocess
+            // Update parentId reference if it exists - map to new ID if the parent was also copied
+            if (newData.parentId) {
+              if (idMap.has(newData.parentId)) {
+                // Parent was also copied, update to new parent ID
+                newData.parentId = idMap.get(newData.parentId);
+              } else if (state.activeSubprocessId) {
+                // Parent wasn't copied but we're inside a subprocess, use current subprocess
+                newData.parentId = state.activeSubprocessId;
+              }
+            }
+
+            // Update childNodeIds if this is a subprocess - map all child IDs to new IDs
             if (node.type === 'subprocess' && newData.childNodeIds) {
               newData.childNodeIds = newData.childNodeIds.map((childId: string) =>
                 idMap.get(childId) || childId
@@ -3549,6 +3548,22 @@ export const useFlowchartStore = create<FlowchartStore>()(
           // Add new nodes and edges
           sheet.nodes = [...sheet.nodes, ...newNodes];
           sheet.edges = [...sheet.edges, ...newEdges];
+
+          // If pasting into an existing subprocess, update its childNodeIds
+          if (state.activeSubprocessId) {
+            const parentSubprocess = sheet.nodes.find(n => n.id === state.activeSubprocessId);
+            if (parentSubprocess && parentSubprocess.type === 'subprocess') {
+              const parentData = parentSubprocess.data as ProcessNodeData;
+              const existingChildIds = new Set(parentData.childNodeIds || []);
+              // Add new node IDs that belong to this subprocess
+              newNodes.forEach(newNode => {
+                const nodeData = newNode.data as ProcessNodeData;
+                if (nodeData.parentId === state.activeSubprocessId && !existingChildIds.has(newNode.id)) {
+                  parentData.childNodeIds = [...(parentData.childNodeIds || []), newNode.id];
+                }
+              });
+            }
+          }
 
           sheet.updatedAt = new Date();
           state.isDirty = true;
@@ -4145,6 +4160,65 @@ export const useFlowchartStore = create<FlowchartStore>()(
             sheet.updatedAt = new Date();
             state.isDirty = true;
             syncNodesAndEdgesFromActiveSheet(state);
+          }
+        });
+      },
+
+      /**
+       * Repair all childNodeIds for all subprocesses based on actual parentId relationships
+       * This ensures childNodeIds matches the actual nodes that belong to each subprocess
+       */
+      repairChildNodeIds: () => {
+        set((state) => {
+          let repairedCount = 0;
+          let fixedParentIdCount = 0;
+
+          state.sheets.forEach(sheet => {
+            // First, find all subprocesses and their IDs
+            const subprocessIds = new Set(
+              sheet.nodes.filter(n => n.type === 'subprocess').map(n => n.id)
+            );
+
+            // Fix 1: Ensure all nodes inside a subprocess have correct parentId
+            sheet.nodes.forEach(node => {
+              const nodeData = node.data as ProcessNodeData;
+              const parentId = nodeData.parentId;
+
+              // If node has a parentId but parent doesn't exist, clear it
+              if (parentId && !subprocessIds.has(parentId)) {
+                console.log(`Clearing orphan parentId for node "${nodeData.label}" (parent ${parentId} not found)`);
+                nodeData.parentId = undefined;
+                fixedParentIdCount++;
+              }
+            });
+
+            // Fix 2: Update childNodeIds for all subprocesses
+            sheet.nodes.forEach(node => {
+              if (node.type === 'subprocess') {
+                const nodeData = node.data as ProcessNodeData;
+                // Find all nodes that have this subprocess as their parent
+                const actualChildIds = sheet.nodes
+                  .filter(n => (n.data as ProcessNodeData).parentId === node.id)
+                  .map(n => n.id);
+                // Only update if different
+                const currentChildIds = nodeData.childNodeIds || [];
+                if (actualChildIds.length !== currentChildIds.length ||
+                    !actualChildIds.every(id => currentChildIds.includes(id))) {
+                  console.log(`Repairing subprocess "${nodeData.label}": ${currentChildIds.length} -> ${actualChildIds.length} children`);
+                  nodeData.childNodeIds = actualChildIds;
+                  repairedCount++;
+                }
+              }
+            });
+          });
+
+          const totalChanges = repairedCount + fixedParentIdCount;
+          if (totalChanges > 0) {
+            console.log(`Total repairs: ${repairedCount} subprocesses, ${fixedParentIdCount} orphan nodes`);
+            state.isDirty = true;
+            state.nodeVersion += 1; // Force re-render
+          } else {
+            console.log('No repairs needed - all childNodeIds are correct');
           }
         });
       },

@@ -537,6 +537,15 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
           <Button
             variant="ghost"
             size="sm"
+            onClick={() => useFlowchartStore.getState().repairChildNodeIds()}
+            leftIcon={<RefreshIcon />}
+            title="Repair subprocess child nodes"
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={handleNew}
             leftIcon={<NewIcon />}
             title="New Flowchart"
