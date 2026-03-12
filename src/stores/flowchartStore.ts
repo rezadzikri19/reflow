@@ -702,21 +702,6 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
           sheet.nodes.push(newNode);
 
-          // If inside a subprocess sheet, also update the parent's childNodeIds
-          if (state.activeSubprocessId) {
-            const parentIndex = sheet.nodes.findIndex((n) => n.id === state.activeSubprocessId);
-            if (parentIndex !== -1) {
-              const parentNode = sheet.nodes[parentIndex];
-              sheet.nodes[parentIndex] = {
-                ...parentNode,
-                data: {
-                  ...parentNode.data,
-                  childNodeIds: [...((parentNode.data.childNodeIds as string[] | undefined) || []), id],
-                },
-              } as FlowchartNode;
-            }
-          }
-
           sheet.updatedAt = new Date();
           state.isDirty = true;
           syncNodesAndEdgesFromActiveSheet(state);
@@ -848,21 +833,6 @@ export const useFlowchartStore = create<FlowchartStore>()(
           };
 
           sheet.nodes.push(newNode as FlowchartNode);
-
-          // If inside a subprocess sheet, also update the parent's childNodeIds
-          if (state.activeSubprocessId) {
-            const parentIndex = sheet.nodes.findIndex((n) => n.id === state.activeSubprocessId);
-            if (parentIndex !== -1) {
-              const parentNode = sheet.nodes[parentIndex];
-              sheet.nodes[parentIndex] = {
-                ...parentNode,
-                data: {
-                  ...parentNode.data,
-                  childNodeIds: [...((parentNode.data.childNodeIds as string[] | undefined) || []), id],
-                },
-              } as FlowchartNode;
-            }
-          }
 
           sheet.updatedAt = new Date();
           state.isDirty = true;
@@ -1005,21 +975,6 @@ export const useFlowchartStore = create<FlowchartStore>()(
           // Remove the node
           sheet.nodes = sheet.nodes.filter((n) => n.id !== nodeId);
 
-          // If node was inside a subprocess, remove from parent's childNodeIds
-          if (parentId) {
-            const parentIndex = sheet.nodes.findIndex((n) => n.id === parentId);
-            if (parentIndex !== -1) {
-              const parentNode = sheet.nodes[parentIndex];
-              sheet.nodes[parentIndex] = {
-                ...parentNode,
-                data: {
-                  ...parentNode.data,
-                  childNodeIds: ((parentNode.data.childNodeIds as string[] | undefined) || []).filter((id) => id !== nodeId),
-                },
-              } as FlowchartNode;
-            }
-          }
-
           // Remove all edges connected to this node
           sheet.edges = sheet.edges.filter(
             (e) => e.source !== nodeId && e.target !== nodeId
@@ -1048,37 +1003,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
           const idsSet = new Set(nodeIds);
 
-          // Find all nodes being deleted and group by parent
-          const nodesByParent = new Map<string, string[]>();
-          sheet.nodes.forEach((n) => {
-            if (idsSet.has(n.id) && n.data?.parentId) {
-              const parentId = n.data.parentId as string;
-              const parentList = nodesByParent.get(parentId) || [];
-              parentList.push(n.id);
-              nodesByParent.set(parentId, parentList);
-            }
-          });
-
           // Remove the nodes
           sheet.nodes = sheet.nodes.filter((n) => !idsSet.has(n.id));
-
-          // Update each parent's childNodeIds
-          nodesByParent.forEach((removedIds, parentId) => {
-            const parentIndex = sheet.nodes.findIndex((n) => n.id === parentId);
-            if (parentIndex !== -1) {
-              const parentNode = sheet.nodes[parentIndex];
-              const removedSet = new Set(removedIds);
-              sheet.nodes[parentIndex] = {
-                ...parentNode,
-                data: {
-                  ...parentNode.data,
-                  childNodeIds: ((parentNode.data.childNodeIds as string[] | undefined) || []).filter(
-                    (id) => !removedSet.has(id)
-                  ),
-                },
-              } as FlowchartNode;
-            }
-          });
 
           // Remove all edges connected to any of the deleted nodes
           sheet.edges = sheet.edges.filter(
@@ -1860,7 +1786,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
             label: label || 'Subprocess',
             nodeType: 'subprocess',
             parentId: commonParentId || undefined, // Inherit parent for nesting support
-            childNodeIds: nodeIds,
+            // childNodeIds is now computed from parentId relationships - not stored
             isExpanded: true,
             inputPorts: [],
             outputPorts: [],
@@ -1885,21 +1811,6 @@ export const useFlowchartStore = create<FlowchartStore>()(
           }
           return node;
         });
-
-        // If creating a nested subprocess, update parent's childNodeIds
-        if (commonParentId) {
-          const parentIndex = updatedNodes.findIndex(n => n.id === commonParentId);
-          if (parentIndex !== -1) {
-            const parentData = updatedNodes[parentIndex].data as ProcessNodeData;
-            updatedNodes[parentIndex] = {
-              ...updatedNodes[parentIndex],
-              data: {
-                ...parentData,
-                childNodeIds: [...(parentData.childNodeIds || []), subprocessId],
-              },
-            } as FlowchartNode;
-          }
-        }
 
         // Transform edges - group by unique external connections
         // Step 1: Categorize all edges
@@ -2065,7 +1976,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
         // Save snapshot for undo before making changes
         get().saveSnapshot('Ungroup subprocess');
 
-        const childIds = new Set(subprocessNode.data.childNodeIds || []);
+        // Get child IDs from parentId relationships (single source of truth)
+        const childIds = new Set(sheet.nodes.filter(n => n.data.parentId === subprocessId).map(n => n.id));
         const inputPorts = (subprocessNode.data.inputPorts || []) as Port[];
         const outputPorts = (subprocessNode.data.outputPorts || []) as Port[];
 
@@ -2217,21 +2129,6 @@ export const useFlowchartStore = create<FlowchartStore>()(
         set((state) => {
           const sheet = state.sheets.find(s => s.id === state.activeSheetId);
           if (!sheet) return;
-
-          // If this is a nested subprocess, remove it from parent's childNodeIds
-          if (subprocessParentId) {
-            const parentIndex = sheet.nodes.findIndex(n => n.id === subprocessParentId);
-            if (parentIndex !== -1) {
-              const parentData = sheet.nodes[parentIndex].data as ProcessNodeData;
-              sheet.nodes[parentIndex] = {
-                ...sheet.nodes[parentIndex],
-                data: {
-                  ...parentData,
-                  childNodeIds: (parentData.childNodeIds || []).filter(id => id !== subprocessId),
-                },
-              } as FlowchartNode;
-            }
-          }
 
           // Update child nodes: inherit parent's parentId and convert back to absolute positions
           sheet.nodes = sheet.nodes
@@ -2651,8 +2548,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
           const portLabel = label || `${defaultLabel} ${existingPorts.length + 1}`;
 
           // Calculate initial position based on existing internal nodes or existing ports
-          const childNodeIds = new Set(nodeData.childNodeIds || []);
-          const childNodes = sheet.nodes.filter(n => childNodeIds.has(n.id));
+          // Get children from parentId relationships (single source of truth)
+          const childNodes = sheet.nodes.filter(n => n.data.parentId === subprocessId);
 
           let initialPosition = { x: 0, y: 0 };
 
@@ -3294,19 +3191,27 @@ export const useFlowchartStore = create<FlowchartStore>()(
         const selectedIds = new Set(selectedNodes.map(n => n.id));
         const nodesToCopy = [...selectedNodes];
 
-        // For each selected subprocess, also include its child nodes
+        // Recursively add all descendant nodes (children, grandchildren, etc.) of subprocesses
+        const addAllDescendants = (subprocessId: string) => {
+          // Get children from parentId relationships (single source of truth)
+          const children = sheet.nodes.filter(n => n.data.parentId === subprocessId);
+          children.forEach(childNode => {
+            if (!selectedIds.has(childNode.id)) {
+              nodesToCopy.push(childNode);
+              selectedIds.add(childNode.id);
+
+              // Recursively add descendants if this child is also a subprocess
+              if (childNode.type === 'subprocess') {
+                addAllDescendants(childNode.id);
+              }
+            }
+          });
+        };
+
+        // For each selected subprocess, also include ALL its descendants
         selectedNodes.forEach(node => {
           if (node.type === 'subprocess') {
-            const childNodeIds = (node.data as ProcessNodeData).childNodeIds || [];
-            childNodeIds.forEach(childId => {
-              if (!selectedIds.has(childId)) {
-                const childNode = sheet.nodes.find(n => n.id === childId);
-                if (childNode) {
-                  nodesToCopy.push(childNode);
-                  selectedIds.add(childId);
-                }
-              }
-            });
+            addAllDescendants(node.id);
           }
         });
 
@@ -3418,13 +3323,6 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 // Parent wasn't copied but we're inside a subprocess, use current subprocess
                 newData.parentId = state.activeSubprocessId;
               }
-            }
-
-            // Update childNodeIds if this is a subprocess - map all child IDs to new IDs
-            if (node.type === 'subprocess' && newData.childNodeIds) {
-              newData.childNodeIds = newData.childNodeIds.map((childId: string) =>
-                idMap.get(childId) || childId
-              );
             }
 
             // Handle ports for subprocess nodes
@@ -3549,22 +3447,6 @@ export const useFlowchartStore = create<FlowchartStore>()(
           sheet.nodes = [...sheet.nodes, ...newNodes];
           sheet.edges = [...sheet.edges, ...newEdges];
 
-          // If pasting into an existing subprocess, update its childNodeIds
-          if (state.activeSubprocessId) {
-            const parentSubprocess = sheet.nodes.find(n => n.id === state.activeSubprocessId);
-            if (parentSubprocess && parentSubprocess.type === 'subprocess') {
-              const parentData = parentSubprocess.data as ProcessNodeData;
-              const existingChildIds = new Set(parentData.childNodeIds || []);
-              // Add new node IDs that belong to this subprocess
-              newNodes.forEach(newNode => {
-                const nodeData = newNode.data as ProcessNodeData;
-                if (nodeData.parentId === state.activeSubprocessId && !existingChildIds.has(newNode.id)) {
-                  parentData.childNodeIds = [...(parentData.childNodeIds || []), newNode.id];
-                }
-              });
-            }
-          }
-
           sheet.updatedAt = new Date();
           state.isDirty = true;
           state.nodeVersion += 1;
@@ -3587,30 +3469,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
         // First copy
         get().copySelectedNodes();
 
-        // Save snapshot for undo
-        get().saveSnapshot('Cut nodes');
-
-        // Then delete
-        const selectedIds = new Set(selectedNodes.map(n => n.id));
-        set((state) => {
-          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
-          if (!sheet) return;
-
-          // Remove nodes
-          sheet.nodes = sheet.nodes.filter(n => !selectedIds.has(n.id));
-
-          // Remove edges connected to deleted nodes
-          sheet.edges = sheet.edges.filter(
-            e => !selectedIds.has(e.source) && !selectedIds.has(e.target)
-          );
-
-          sheet.updatedAt = new Date();
-          state.isDirty = true;
-          state.nodeVersion += 1;
-          state.edgeVersion += 1;
-          state.selectedNodeId = null;
-          syncNodesAndEdgesFromActiveSheet(state);
-        });
+        // Then delete using deleteNodes (parentId is the single source of truth)
+        const nodeIdsToDelete = selectedNodes.map(n => n.id);
+        get().deleteNodes(nodeIdsToDelete);
       },
 
       /**
@@ -4165,21 +4026,21 @@ export const useFlowchartStore = create<FlowchartStore>()(
       },
 
       /**
-       * Repair all childNodeIds for all subprocesses based on actual parentId relationships
-       * This ensures childNodeIds matches the actual nodes that belong to each subprocess
+       * Repair parentId relationships for all nodes
+       * Clears orphan parentIds (nodes pointing to non-existent subprocesses)
+       * Note: childNodeIds is now computed from parentId - no longer stored/updated
        */
       repairChildNodeIds: () => {
         set((state) => {
-          let repairedCount = 0;
           let fixedParentIdCount = 0;
 
           state.sheets.forEach(sheet => {
-            // First, find all subprocesses and their IDs
+            // Find all subprocesses and their IDs
             const subprocessIds = new Set(
               sheet.nodes.filter(n => n.type === 'subprocess').map(n => n.id)
             );
 
-            // Fix 1: Ensure all nodes inside a subprocess have correct parentId
+            // Ensure all nodes inside a subprocess have correct parentId
             sheet.nodes.forEach(node => {
               const nodeData = node.data as ProcessNodeData;
               const parentId = nodeData.parentId;
@@ -4191,34 +4052,14 @@ export const useFlowchartStore = create<FlowchartStore>()(
                 fixedParentIdCount++;
               }
             });
-
-            // Fix 2: Update childNodeIds for all subprocesses
-            sheet.nodes.forEach(node => {
-              if (node.type === 'subprocess') {
-                const nodeData = node.data as ProcessNodeData;
-                // Find all nodes that have this subprocess as their parent
-                const actualChildIds = sheet.nodes
-                  .filter(n => (n.data as ProcessNodeData).parentId === node.id)
-                  .map(n => n.id);
-                // Only update if different
-                const currentChildIds = nodeData.childNodeIds || [];
-                if (actualChildIds.length !== currentChildIds.length ||
-                    !actualChildIds.every(id => currentChildIds.includes(id))) {
-                  console.log(`Repairing subprocess "${nodeData.label}": ${currentChildIds.length} -> ${actualChildIds.length} children`);
-                  nodeData.childNodeIds = actualChildIds;
-                  repairedCount++;
-                }
-              }
-            });
           });
 
-          const totalChanges = repairedCount + fixedParentIdCount;
-          if (totalChanges > 0) {
-            console.log(`Total repairs: ${repairedCount} subprocesses, ${fixedParentIdCount} orphan nodes`);
+          if (fixedParentIdCount > 0) {
+            console.log(`Repaired ${fixedParentIdCount} orphan parentId references`);
             state.isDirty = true;
             state.nodeVersion += 1; // Force re-render
           } else {
-            console.log('No repairs needed - all childNodeIds are correct');
+            console.log('No repairs needed - all parentId relationships are valid');
           }
         });
       },

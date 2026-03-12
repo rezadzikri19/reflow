@@ -95,6 +95,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
   } = (data as ProcessNodeData) || {};
   const openSubprocessSheet = useFlowchartStore((state) => state.openSubprocessSheet);
   const edges = useFlowchartStore((state) => state.edges);
+  const nodes = useFlowchartStore((state) => state.nodes);
   const nodeVersion = useFlowchartStore((state) => state.nodeVersion);
   const flowOrder = useHierarchicalFlowOrder(id);
   const isMuted = useIsNodeMuted(id);
@@ -108,8 +109,8 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
       ? [role]
       : [];
 
-  // Get child count from childNodeIds array directly
-  const childCount = childNodeIds.length;
+  // Get child count from parentId relationships (single source of truth)
+  const childCount = nodes.filter(n => n.data.parentId === id).length;
 
   // Compute input/output ports from edges AND stored ports
   const { inputPorts: computedInputPorts, outputPorts: computedOutputPorts } = useMemo(() => {

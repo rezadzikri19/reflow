@@ -519,8 +519,8 @@ export const NodeTable: React.FC<NodeTableProps> = ({
   const renderExpandToggle = (node: FlowchartNode) => {
     const depth = nodeDepths.get(node.id) || 0;
     const isSubprocess = node.type === 'subprocess';
-    const childNodeIds = hasProcessNodeData(node) ? (node.data.childNodeIds || []) : [];
-    const hasChildren = childNodeIds.length > 0;
+    // Compute hasChildren from parentId relationships
+    const hasChildren = nodes.some(n => n.data.parentId === node.id);
     const isExpanded = expandedIds.has(node.id);
 
     // Use full depth for indentation
@@ -640,7 +640,8 @@ export const NodeTable: React.FC<NodeTableProps> = ({
             {sortedNodes.map((node) => {
               const depth = nodeDepths.get(node.id) || 0;
               const isSubprocess = node.type === 'subprocess';
-              const childCount = hasProcessNodeData(node) ? (node.data.childNodeIds?.length || 0) : 0;
+              // Compute childCount from parentId relationships
+              const childCount = nodes.filter(n => n.data.parentId === node.id).length;
               const isSelected = selectedNodeIds.has(node.id);
 
               // Calculate visual styles based on depth and selection

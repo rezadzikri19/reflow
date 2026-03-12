@@ -973,7 +973,8 @@ function FlowCanvasInner({
         .map(n => ({
           id: n.id,
           label: n.data.label || 'Subprocess',
-          nodeCount: ((n.data.childNodeIds as string[] | undefined) || []).length,
+          // Compute child count from parentId relationships
+          nodeCount: nodes.filter(child => child.data.parentId === n.id).length,
         }));
     } else {
       // Sheet view: only direct child subprocesses (parentId equals activeSubprocessId)
@@ -982,7 +983,8 @@ function FlowCanvasInner({
         .map(n => ({
           id: n.id,
           label: n.data.label || 'Subprocess',
-          nodeCount: ((n.data.childNodeIds as string[] | undefined) || []).length,
+          // Compute child count from parentId relationships
+          nodeCount: nodes.filter(child => child.data.parentId === n.id).length,
         }));
     }
   }, [nodes, activeSubprocessId]);

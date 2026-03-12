@@ -19,12 +19,14 @@ function getParentId(node: FlowchartNode): string | undefined {
   return undefined;
 }
 
-// Helper to safely get childNodeIds
-function getChildNodeIds(node: FlowchartNode): string[] {
-  if (hasProcessNodeData(node)) {
-    return node.data.childNodeIds || [];
-  }
-  return [];
+/**
+ * Get child node IDs for a subprocess by computing from parentId relationships
+ * This is the single source of truth - childNodeIds array is no longer maintained
+ */
+export function getChildNodeIds(subprocessId: string, nodes: FlowchartNode[]): string[] {
+  return nodes
+    .filter(n => getParentId(n) === subprocessId)
+    .map(n => n.id);
 }
 
 // Helper to safely get label
@@ -113,8 +115,9 @@ export function buildNodeTree(nodes: FlowchartNode[]): TreeNode[] {
 
   // Sort children by their position in the original childNodeIds array
   // or by label if no childNodeIds exist
+  // Note: childNodeIds is now computed from parentId, so we pass the full nodes array
   nodeMap.forEach(treeNode => {
-    const childNodeIds = getChildNodeIds(treeNode.node);
+    const childNodeIds = getChildNodeIds(treeNode.node.id, nodes);
     if (childNodeIds.length > 0) {
       // Sort by the order in childNodeIds
       treeNode.children.sort((a, b) => {
