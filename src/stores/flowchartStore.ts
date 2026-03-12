@@ -4125,6 +4125,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
             console.log(`Cleaned up ${deletedOrphanCount} orphan nodes and their nested children`);
             state.isDirty = true;
             state.nodeVersion += 1; // Force re-render
+            // Sync nodes from active sheet so UI updates immediately
+            syncNodesAndEdgesFromActiveSheet(state);
           } else {
             console.log('No orphan nodes found - diagram is clean');
           }
