@@ -523,8 +523,8 @@ export const NodeTable: React.FC<NodeTableProps> = ({
     const hasChildren = childNodeIds.length > 0;
     const isExpanded = expandedIds.has(node.id);
 
-    // Cap visual depth at 4 levels to prevent excessive indentation
-    const visualDepth = Math.min(depth, 4);
+    // Use full depth for indentation
+    const visualDepth = depth;
 
     // Render connector dots for depth levels
     const renderDepthIndicators = () => {
@@ -714,7 +714,7 @@ export const NodeTable: React.FC<NodeTableProps> = ({
                             {/* Show depth indicator prefix for nested nodes */}
                             {depth > 0 && (
                               <span className="text-gray-400 text-xs select-none">
-                                {'→'.repeat(Math.min(depth, 3))}
+                                {'→'.repeat(depth)}
                               </span>
                             )}
                             {column.accessor(node, connections, accessorContext)}

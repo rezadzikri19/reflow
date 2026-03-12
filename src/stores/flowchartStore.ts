@@ -1099,12 +1099,34 @@ export const useFlowchartStore = create<FlowchartStore>()(
       setSelectedNode: (nodeId: string | null) => {
         set((state) => {
           state.selectedNodeId = nodeId;
+          const activeSheet = state.sheets.find(s => s.id === state.activeSheetId);
+          if (activeSheet) {
+            // First, clear selected property on ALL nodes in ALL sheets
+            state.sheets.forEach(sheet => {
+              sheet.nodes.forEach(n => { n.selected = false; });
+            });
+            // Then set selected on the node in the active sheet (if any)
+            if (nodeId) {
+              const node = activeSheet.nodes.find(n => n.id === nodeId);
+              if (node) {
+                node.selected = true;
+              }
+            }
+          }
         });
       },
 
       setSelectedEdgeId: (edgeId: string | null) => {
         set((state) => {
           state.selectedEdgeId = edgeId;
+          // Clear selected property on nodes in all OTHER sheets when edge is selected
+          if (edgeId) {
+            state.sheets.forEach(sheet => {
+              if (sheet.id !== state.activeSheetId) {
+                sheet.nodes.forEach(n => { n.selected = false; });
+              }
+            });
+          }
         });
       },
 
@@ -2266,8 +2288,10 @@ export const useFlowchartStore = create<FlowchartStore>()(
             state.activeSubprocessId = subprocessId;
             state.selectedNodeId = null; // Clear selection when switching
             state.selectedEdgeId = null;
-            // Clear selected property on all nodes to prevent stale selection issues
-            sheet.nodes.forEach(n => { n.selected = false; });
+            // Clear selected property on ALL nodes in ALL sheets to prevent stale selection
+            state.sheets.forEach(s => {
+              s.nodes.forEach(n => { n.selected = false; });
+            });
           }
         });
       },
@@ -3311,6 +3335,18 @@ export const useFlowchartStore = create<FlowchartStore>()(
       pasteNodes: (position?: { x: number; y: number }) => {
         const state = get();
         if (state.clipboardNodes.length === 0) return;
+
+        // Prevent pasting from different flowchart
+        if (state.clipboardSourceFlowchartId && state.clipboardSourceFlowchartId !== state.flowchartId) {
+          console.warn('Cannot paste nodes from a different flowchart');
+          return;
+        }
+
+        // Prevent pasting from different sheet
+        if (state.clipboardSourceSheetId && state.clipboardSourceSheetId !== state.activeSheetId) {
+          console.warn('Cannot paste nodes from a different sheet');
+          return;
+        }
 
         const OFFSET = position ?? { x: 50, y: 50 };
         const idMap = new Map<string, string>();

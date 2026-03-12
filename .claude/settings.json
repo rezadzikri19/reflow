@@ -1,4 +1,17 @@
 {
+  "env": {
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "MiniMax-M2.5",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "MiniMax-M2.5",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M2.5",
+    "ANTHROPIC_MODEL": "MiniMax-M2.5"
+  },
+  "permissions": {
+    "defaultMode": "default"
+  },
+  "autoUpdatesChannel": "stable",
+  "skipDangerousModePermissionPrompt": true,
+  "autoUpdates": false,
+  "model": "MiniMax-M2.5",
   "hooks": {
     "Stop": [
       {
