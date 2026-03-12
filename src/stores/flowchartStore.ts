@@ -638,6 +638,11 @@ export const useFlowchartStore = create<FlowchartStore>()(
             state.activeSubprocessId = null;
             state.subprocessNavigationStack = [];
             state.selectedNodeId = null;
+            state.selectedEdgeId = null;
+            // Clear selection on all sheets to prevent copy/paste issues
+            state.sheets.forEach(s => {
+              s.nodes.forEach(n => { n.selected = false; });
+            });
             // Sync nodes/edges from the new active sheet
             syncNodesAndEdgesFromActiveSheet(state);
           }
@@ -2260,6 +2265,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
             }
             state.activeSubprocessId = subprocessId;
             state.selectedNodeId = null; // Clear selection when switching
+            state.selectedEdgeId = null;
+            // Clear selected property on all nodes to prevent stale selection issues
+            sheet.nodes.forEach(n => { n.selected = false; });
           }
         });
       },
@@ -2272,6 +2280,11 @@ export const useFlowchartStore = create<FlowchartStore>()(
           state.activeSubprocessId = null;
           state.subprocessNavigationStack = []; // Clear navigation stack
           state.selectedNodeId = null; // Clear selection when closing
+          state.selectedEdgeId = null;
+          // Clear selected property on all nodes to prevent stale selection issues
+          state.sheets.forEach(sheet => {
+            sheet.nodes.forEach(n => { n.selected = false; });
+          });
         });
       },
 
@@ -2286,6 +2299,11 @@ export const useFlowchartStore = create<FlowchartStore>()(
             state.activeSubprocessId = null;
           }
           state.selectedNodeId = null;
+          state.selectedEdgeId = null;
+          // Clear selected property on all nodes
+          state.sheets.forEach(sheet => {
+            sheet.nodes.forEach(n => { n.selected = false; });
+          });
         });
       },
 
@@ -2317,6 +2335,11 @@ export const useFlowchartStore = create<FlowchartStore>()(
             }
           }
           state.selectedNodeId = null;
+          state.selectedEdgeId = null;
+          // Clear selected property on all nodes
+          state.sheets.forEach(sheet => {
+            sheet.nodes.forEach(n => { n.selected = false; });
+          });
         });
       },
 
