@@ -9,7 +9,7 @@ import FlowOrderBadge from './FlowOrderBadge';
 import { useHierarchicalFlowOrder } from '../../../contexts/FlowOrderContext';
 import LockIndicator from './LockIndicator';
 import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
-import { getNodeColorForHandle, getNodeColorStyles } from '../../../utils/nodeColors';
+import { getNodeColorStyles } from '../../../utils/nodeColors';
 
 /**
  * EndNode - Red circular end node with stop icon
@@ -22,7 +22,6 @@ function EndNode({ id, data, selected }: NodeProps) {
 
   // Get color styles based on custom color or default
   const colorStyles = getNodeColorStyles(color, 'end');
-  const handleColor = getNodeColorForHandle(color, 'end');
 
   return (
     <div className={`relative transition-opacity duration-200 ${isMuted ? 'opacity-30 grayscale' : ''}`}>

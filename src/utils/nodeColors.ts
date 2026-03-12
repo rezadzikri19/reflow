@@ -44,12 +44,14 @@ export const NODE_TYPE_HANDLE_COLORS: Record<ProcessNodeType, string> = {
  * @param color - Custom hex color
  * @param nodeType - Node type for default handle color fallback
  */
-export function getNodeColorForHandle(color?: string, nodeType?: ProcessNodeType): string {
+export function getNodeColorForHandle(color?: string, nodeType?: ProcessNodeType): 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'gray' | 'orange' | undefined {
   if (!color) {
     // Return default handle color based on node type, or blue as fallback
-    return nodeType ? NODE_TYPE_HANDLE_COLORS[nodeType] : 'blue';
+    const defaultColor = nodeType ? NODE_TYPE_HANDLE_COLORS[nodeType] : 'blue';
+    return defaultColor as 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'gray' | 'orange';
   }
-  return PRESET_COLOR_MAP[color.toLowerCase()] || 'blue';
+  const mappedColor = PRESET_COLOR_MAP[color.toLowerCase()];
+  return (mappedColor || 'blue') as 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'gray' | 'orange';
 }
 
 /**

@@ -18,7 +18,7 @@ import { getNodeColorForHandle, getNodeColorStyles } from '../../../utils/nodeCo
  * The label is automatically synced with the referenced node's label.
  */
 function ReferenceNode({ id, data, selected }: NodeProps) {
-  const { tags, referencedNodeId, locked, color } = (data as BaseNodeData & { referencedNodeId?: string }) || {};
+  const { tags, referencedNodeId, locked } = (data as BaseNodeData & { referencedNodeId?: string }) || {};
   const nodes = useNodes();
 
   // Get the referenced node

@@ -9,7 +9,7 @@ import FlowOrderBadge from './FlowOrderBadge';
 import { useHierarchicalFlowOrder } from '../../../contexts/FlowOrderContext';
 import LockIndicator from './LockIndicator';
 import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
-import { getNodeColorForHandle, getNodeColorStyles } from '../../../utils/nodeColors';
+import { getNodeColorStyles } from '../../../utils/nodeColors';
 
 /**
  * StartNode - Green circular start node with play icon
@@ -22,7 +22,6 @@ function StartNode({ id, data, selected }: NodeProps) {
 
   // Get color styles based on custom color or default
   const colorStyles = getNodeColorStyles(color, 'start');
-  const handleColor = getNodeColorForHandle(color, 'start');
 
   return (
     <div className={`relative transition-opacity duration-200 ${isMuted ? 'opacity-30 grayscale' : ''}`}>

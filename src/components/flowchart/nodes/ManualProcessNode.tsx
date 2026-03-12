@@ -486,7 +486,9 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
 
           {/* Unit Type */}
           <div className="flex items-center gap-2 text-xs">
-            <UnitIcon className={`w-4 h-4 shrink-0 ${!color ? 'text-orange-200' : ''}`} style={color ? { color: colorStyles.customTextLight } : undefined} />
+            <span className={`w-4 h-4 shrink-0 ${!color ? 'text-orange-200' : ''}`} style={color ? { color: colorStyles.customTextLight } : undefined}>
+              <UnitIcon className="w-4 h-4 shrink-0" />
+            </span>
             <span className={`truncate capitalize ${!color ? 'text-orange-200' : ''}`} style={color ? { color: colorStyles.customTextLight } : undefined}>
               {unitType === 'custom' ? (customUnitName || 'Custom') : unitType}
             </span>
