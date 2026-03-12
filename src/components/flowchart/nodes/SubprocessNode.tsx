@@ -76,7 +76,6 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
     label = 'Subprocess',
     description,
     tags,
-    childNodeIds = [],
     inputPorts = [],
     outputPorts = [],
     locked,

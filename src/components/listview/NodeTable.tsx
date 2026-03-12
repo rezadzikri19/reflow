@@ -28,6 +28,8 @@ export interface AccessorContext {
 
 interface NodeTableProps {
   nodes: FlowchartNode[];
+  /** All nodes from all sheets (for hasChildren check) */
+  allNodes: FlowchartNode[];
   connections: NodeConnectionsMap;
   sort: SortState;
   nodeTypeFilter: ProcessNodeType | 'all';
@@ -417,6 +419,7 @@ export const COLUMNS: ColumnDef[] = [
 
 export const NodeTable: React.FC<NodeTableProps> = ({
   nodes,
+  allNodes,
   connections,
   sort,
   nodeTypeFilter,
@@ -519,8 +522,8 @@ export const NodeTable: React.FC<NodeTableProps> = ({
   const renderExpandToggle = (node: FlowchartNode) => {
     const depth = nodeDepths.get(node.id) || 0;
     const isSubprocess = node.type === 'subprocess';
-    // Compute hasChildren from parentId relationships
-    const hasChildren = nodes.some(n => n.data.parentId === node.id);
+    // Compute hasChildren from all nodes (not just visible ones) using parentId
+    const hasChildren = allNodes.some(n => (n.data as any)?.parentId === node.id);
     const isExpanded = expandedIds.has(node.id);
 
     // Use full depth for indentation
@@ -640,8 +643,8 @@ export const NodeTable: React.FC<NodeTableProps> = ({
             {sortedNodes.map((node) => {
               const depth = nodeDepths.get(node.id) || 0;
               const isSubprocess = node.type === 'subprocess';
-              // Compute childCount from parentId relationships
-              const childCount = nodes.filter(n => n.data.parentId === node.id).length;
+              // Compute childCount from all nodes (not just visible ones) using parentId
+              const childCount = allNodes.filter(n => (n.data as any)?.parentId === node.id).length;
               const isSelected = selectedNodeIds.has(node.id);
 
               // Calculate visual styles based on depth and selection

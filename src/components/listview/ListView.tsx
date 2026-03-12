@@ -681,6 +681,7 @@ export const ListView: React.FC = () => {
       <div className="flex-1 min-h-0">
         <NodeTable
           nodes={nodesForTable}
+          allNodes={nodes}
           connections={connections}
           sort={sort}
           nodeTypeFilter={nodeTypeFilter}
