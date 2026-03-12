@@ -29,6 +29,7 @@ import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
 import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
 import { useTagColors } from '../../../hooks/useTagColors';
+import { getNodeColorForHandle, getNodeColorStyles } from '../../../utils/nodeColors';
 
 /**
  * Maps unit types to their corresponding icons
@@ -58,10 +59,33 @@ function formatTime(minutes: number): string {
 }
 
 /**
+ * Adjust color brightness
+ * @param color - Hex color
+ * @param amount - Amount to adjust (-100 to 100)
+ */
+function adjustColorBrightness(color: string, amount: number): string {
+  // Remove # if present
+  let hex = color.replace('#', '');
+
+  // Parse RGB values
+  let r = parseInt(hex.substring(0, 2), 16);
+  let g = parseInt(hex.substring(2, 4), 16);
+  let b = parseInt(hex.substring(4, 6), 16);
+
+  // Adjust brightness
+  r = Math.max(0, Math.min(255, r + amount));
+  g = Math.max(0, Math.min(255, g + amount));
+  b = Math.max(0, Math.min(255, b + amount));
+
+  // Convert back to hex
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+/**
  * Generates SVG path for inverted trapezoid with rounded corners
  * Top is wider, bottom is narrower (standard manual process symbol)
  */
-function getTrapezoidPath(width: number, height: number, cornerRadius = 10, strokeWidth = 2) {
+function getTrapezoidPath(width: number, height: number, cornerRadius = 10, strokeWidth = 1) {
   const inset = strokeWidth / 2;
   const bottomInset = width * 0.03; // 3% inset on each side for bottom (wider bottom)
   const r = Math.min(cornerRadius, height / 4, width / 8);
@@ -113,12 +137,17 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
     painPoints,
     improvement,
     risk,
+    color,
   } = (data as ProcessNodeData) || {};
 
   const UnitIcon = unitTypeIcons[unitType];
   const calculatedTime = unitTimeMinutes * defaultQuantity;
   const flowOrder = useHierarchicalFlowOrder(id);
   const isMuted = useIsNodeMuted(id);
+
+  // Get color styles based on custom color or default
+  const colorStyles = getNodeColorStyles(color, 'manualProcess');
+  const handleColor = getNodeColorForHandle(color, 'manualProcess');
 
   // Normalize role to array for backward compatibility
   const normalizedRoles: string[] = Array.isArray(role)
@@ -127,8 +156,10 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
       ? [role]
       : [];
 
-  const fillColor = isHovered ? '#ea580c' : '#f97316';
-  const strokeColor = '#c2410c';
+  const fillColor = color
+    ? (isHovered ? adjustColorBrightness(color, 10) : color)
+    : (isHovered ? '#ea580c' : '#f97316');
+  const strokeColor = color ? adjustColorBrightness(color, -35) : '#c2410c';
 
   // Fixed width to match ProcessNode
   const width = 180; // Same as ProcessNode typical width
@@ -194,7 +225,7 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
               setIsInfoOpen(!isInfoOpen);
             }}
           >
-            <Info className={`w-3.5 h-3.5 text-orange-600 ${isInfoOpen ? 'text-orange-800' : ''}`} />
+            <Info className={`w-3.5 h-3.5 ${isInfoOpen ? 'text-orange-800' : ''} ${!color ? 'text-orange-700' : ''}`} style={color ? { color: '#c2410c' } : undefined} />
           </div>
 
           {/* Info Popup */}
@@ -425,17 +456,17 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
             d={svgPath}
             fill={fillColor}
             stroke={strokeColor}
-            strokeWidth={2}
+            strokeWidth={1}
             strokeDasharray={locked ? '6,3' : 'none'}
             style={{ transition: 'fill 200ms' }}
           />
         </svg>
 
         {/* Handles - Hybrid (can be input or output) */}
-        <HybridHandle id="top" position={Position.Top} nodeId={id} nodeColor="orange" zIndex={20} />
-        <HybridHandle id="bottom" position={Position.Bottom} nodeId={id} nodeColor="orange" zIndex={20} />
-        <HybridHandle id="left" position={Position.Left} nodeId={id} nodeColor="orange" zIndex={20} />
-        <HybridHandle id="right" position={Position.Right} nodeId={id} nodeColor="orange" zIndex={20} />
+        <HybridHandle id="top" position={Position.Top} nodeId={id} nodeColor={handleColor} zIndex={20} />
+        <HybridHandle id="bottom" position={Position.Bottom} nodeId={id} nodeColor={handleColor} zIndex={20} />
+        <HybridHandle id="left" position={Position.Left} nodeId={id} nodeColor={handleColor} zIndex={20} />
+        <HybridHandle id="right" position={Position.Right} nodeId={id} nodeColor={handleColor} zIndex={20} />
 
         {/* Content - positioned over the SVG */}
         <div
@@ -449,31 +480,31 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
           style={{ width }}
         >
           {/* Node Label */}
-          <div className="text-white font-semibold text-base text-wrap" title={label}>
+          <div className={`font-semibold text-base text-wrap ${!color ? 'text-white' : ''}`} style={color ? { color: colorStyles.customText } : undefined} title={label}>
             {label}
           </div>
 
           {/* Unit Type */}
-          <div className="flex items-center gap-2 text-orange-100 text-xs">
-            <UnitIcon className="w-4 h-4 shrink-0" />
-            <span className="truncate capitalize">
+          <div className="flex items-center gap-2 text-xs">
+            <UnitIcon className={`w-4 h-4 shrink-0 ${!color ? 'text-orange-200' : ''}`} style={color ? { color: colorStyles.customTextLight } : undefined} />
+            <span className={`truncate capitalize ${!color ? 'text-orange-200' : ''}`} style={color ? { color: colorStyles.customTextLight } : undefined}>
               {unitType === 'custom' ? (customUnitName || 'Custom') : unitType}
             </span>
           </div>
 
           {/* Unit Time */}
-          <div className="flex items-center gap-2 text-orange-100 text-xs">
+          <div className={`flex items-center gap-2 text-xs ${!color ? 'text-orange-200' : ''}`} style={color ? { color: colorStyles.customTextLight } : undefined}>
             <Clock className="w-4 h-4 shrink-0" />
             <span>{unitTimeMinutes} min/unit</span>
           </div>
 
           {/* Divider */}
-          <div className="border-t border-orange-400 my-1" />
+          <div className={`border-t my-1 ${!color ? 'border-orange-300' : ''}`} style={color ? { borderColor: colorStyles.customTextLight } : undefined} />
 
           {/* Quantity and Total Time */}
           <div className="flex items-center justify-between text-xs">
-            <span className="text-orange-200">Qty: {defaultQuantity}</span>
-            <span className="bg-orange-700 px-2 py-0.5 rounded text-white font-medium">
+            <span className={!color ? 'text-orange-200' : ''} style={color ? { color: colorStyles.customTextLight } : undefined}>Qty: {defaultQuantity}</span>
+            <span className={`px-2 py-0.5 rounded font-medium ${!color ? 'bg-orange-700 text-white' : ''}`} style={color ? { backgroundColor: colorStyles.customBadge, color: colorStyles.customBadgeText } : undefined}>
               {formatTime(calculatedTime)}
             </span>
           </div>

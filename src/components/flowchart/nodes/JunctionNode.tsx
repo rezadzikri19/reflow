@@ -4,14 +4,19 @@ import type { BaseNodeData } from '../../../types/index';
 import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
 import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
+import { getNodeColorForHandle, getNodeColorStyles } from '../../../utils/nodeColors';
 
 /**
  * JunctionNode - Violet circular node that acts as a many-to-one connection hub
  * Multiple nodes can connect TO it, and it connects TO one other node.
  */
 function JunctionNode({ id, data, selected }: NodeProps) {
-  const { label = 'Junction', locked } = (data as BaseNodeData) || {};
+  const { label = 'Junction', locked, color } = (data as BaseNodeData) || {};
   const isMuted = useIsNodeMuted(id);
+
+  // Get color styles based on custom color or default
+  const colorStyles = getNodeColorStyles(color, 'junction');
+  const handleColor = getNodeColorForHandle(color, 'junction');
 
   return (
     <div className={`relative transition-opacity duration-200 ${isMuted ? 'opacity-30 grayscale' : ''}`}>
@@ -19,24 +24,28 @@ function JunctionNode({ id, data, selected }: NodeProps) {
       <LockIndicator locked={locked} />
 
       {/* Handles - Hybrid (can be input or output) */}
-      <HybridHandle id="top" position={Position.Top} nodeId={id} nodeColor="purple" />
-      <HybridHandle id="bottom" position={Position.Bottom} nodeId={id} nodeColor="purple" />
-      <HybridHandle id="left" position={Position.Left} nodeId={id} nodeColor="purple" />
+      <HybridHandle id="top" position={Position.Top} nodeId={id} nodeColor={handleColor} />
+      <HybridHandle id="bottom" position={Position.Bottom} nodeId={id} nodeColor={handleColor} />
+      <HybridHandle id="left" position={Position.Left} nodeId={id} nodeColor={handleColor} />
 
       <div
         className={`
           flex items-center justify-center
           w-6 h-6 rounded-full
-          bg-violet-500 hover:bg-violet-600
-          border-2 border-violet-700
           shadow-md hover:shadow-lg
           transition-all duration-200
           cursor-pointer
-          ${selected ? 'ring-2 ring-violet-400 ring-offset-2' : ''}
+          ${selected ? 'ring-2 ring-offset-2' : ''}
           ${locked ? 'border-dashed opacity-80' : ''}
+          ${!color ? 'bg-violet-500 hover:bg-violet-600 border-2 border-violet-700' : 'border-2'}
+          ${!color && selected ? 'ring-violet-400' : ''}
         `}
+        style={color ? {
+          backgroundColor: colorStyles.customBg,
+          borderColor: colorStyles.customBorder,
+        } : undefined}
       >
-        <HybridHandle id="right" position={Position.Right} nodeId={id} nodeColor="purple" />
+        <HybridHandle id="right" position={Position.Right} nodeId={id} nodeColor={handleColor} />
       </div>
 
       {/* Label below the node */}
@@ -45,7 +54,11 @@ function JunctionNode({ id, data, selected }: NodeProps) {
         style={{ top: '100%', marginTop: '28px' }}
       >
         <span
-          className="text-sm font-medium text-violet-800 bg-violet-100 px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm"
+          className={`text-sm font-medium px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm ${!color ? `${colorStyles.badgeBg} ${colorStyles.badgeText}` : ''}`}
+          style={color ? {
+            backgroundColor: colorStyles.customBadge,
+            color: colorStyles.customBadgeText,
+          } : undefined}
           title={label}
         >
           {label}

@@ -30,6 +30,7 @@ import LockIndicator from './LockIndicator';
 import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
 import { useTagColors } from '../../../hooks/useTagColors';
 import { useRoleColors } from '../../../hooks/useRoleColors';
+import { getNodeColorForHandle, getNodeColorStyles } from '../../../utils/nodeColors';
 
 /**
  * Maps unit types to their corresponding icons
@@ -84,12 +85,17 @@ function ProcessNode({ id, data, selected }: NodeProps) {
     painPoints,
     improvement,
     risk,
+    color,
   } = (data as ProcessNodeData) || {};
 
   const UnitIcon = unitTypeIcons[unitType];
   const calculatedTime = unitTimeMinutes * defaultQuantity;
   const flowOrder = useHierarchicalFlowOrder(id);
   const isMuted = useIsNodeMuted(id);
+
+  // Get color styles based on custom color or default
+  const colorStyles = getNodeColorStyles(color, 'process');
+  const handleColor = getNodeColorForHandle(color, 'process');
 
   // Normalize role to array for backward compatibility
   const normalizedRoles: string[] = Array.isArray(role)
@@ -341,29 +347,39 @@ function ProcessNode({ id, data, selected }: NodeProps) {
         className={`
           flex flex-col gap-2
           min-w-[180px] max-w-[240px]
-          bg-blue-500 hover:bg-blue-600
           rounded-lg
-          border-2 border-blue-700
           shadow-lg hover:shadow-xl
           transition-all duration-200
           cursor-pointer
           p-3
-          ${selected ? 'ring-2 ring-blue-400 ring-offset-2' : ''}
+          ${selected ? 'ring-2 ring-offset-2' : ''}
           ${locked ? 'border-dashed opacity-80' : ''}
+          ${!color ? 'bg-blue-500 hover:bg-blue-600 border-2 border-blue-700' : 'border-2'}
         `}
+        style={color ? {
+          backgroundColor: colorStyles.customBg,
+          borderColor: colorStyles.customBorder,
+        } : undefined}
       >
         {/* Handles - Hybrid (can be input or output) */}
-        <HybridHandle id="top" position={Position.Top} nodeId={id} nodeColor="blue" />
-        <HybridHandle id="bottom" position={Position.Bottom} nodeId={id} nodeColor="blue" />
-        <HybridHandle id="left" position={Position.Left} nodeId={id} nodeColor="blue" />
+        <HybridHandle id="top" position={Position.Top} nodeId={id} nodeColor={handleColor} />
+        <HybridHandle id="bottom" position={Position.Bottom} nodeId={id} nodeColor={handleColor} />
+        <HybridHandle id="left" position={Position.Left} nodeId={id} nodeColor={handleColor} />
 
         {/* Node Label */}
-        <div className="text-white font-semibold text-base text-wrap" title={label}>
+        <div
+          className={`font-semibold text-base text-wrap ${!color ? 'text-white' : ''}`}
+          style={color ? { color: colorStyles.customText } : undefined}
+          title={label}
+        >
           {label}
         </div>
 
         {/* Unit Type and Time Info */}
-        <div className="flex items-center gap-2 text-blue-100 text-xs">
+        <div
+          className={`flex items-center gap-2 text-xs ${!color ? 'text-blue-100' : ''}`}
+          style={color ? { color: colorStyles.customTextLight } : undefined}
+        >
           <UnitIcon className="w-4 h-4 shrink-0" />
           <span className="truncate capitalize">
             {unitType === 'custom' ? (customUnitName || 'Custom') : unitType}
@@ -371,23 +387,37 @@ function ProcessNode({ id, data, selected }: NodeProps) {
         </div>
 
         {/* Unit Time */}
-        <div className="flex items-center gap-2 text-blue-100 text-xs">
+        <div
+          className={`flex items-center gap-2 text-xs ${!color ? 'text-blue-100' : ''}`}
+          style={color ? { color: colorStyles.customTextLight } : undefined}
+        >
           <Clock className="w-4 h-4 shrink-0" />
           <span>{unitTimeMinutes} min/unit</span>
         </div>
 
         {/* Divider */}
-        <div className="border-t border-blue-400 my-1" />
+        <div
+          className={`my-1 ${!color ? 'border-blue-400' : ''}`}
+          style={color ? { borderColor: colorStyles.customTextLight } : undefined}
+        />
 
         {/* Quantity and Total Time */}
         <div className="flex items-center justify-between text-xs">
-          <span className="text-blue-200">Qty: {defaultQuantity}</span>
-          <span className="bg-blue-700 px-2 py-0.5 rounded text-white font-medium">
+          <span className={!color ? 'text-blue-200' : ''} style={color ? { color: colorStyles.customTextLight } : undefined}>
+            Qty: {defaultQuantity}
+          </span>
+          <span
+            className={`px-2 py-0.5 rounded font-medium ${!color ? 'bg-blue-700 text-white' : ''}`}
+            style={color ? {
+              backgroundColor: colorStyles.customBadge,
+              color: colorStyles.customBadgeText,
+            } : undefined}
+          >
             {formatTime(calculatedTime)}
           </span>
         </div>
 
-        <HybridHandle id="right" position={Position.Right} nodeId={id} nodeColor="blue" />
+        <HybridHandle id="right" position={Position.Right} nodeId={id} nodeColor={handleColor} />
       </div>
 
       {/* Role indicator above node */}

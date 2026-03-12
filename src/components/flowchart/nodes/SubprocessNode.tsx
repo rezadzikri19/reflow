@@ -31,6 +31,7 @@ import { useTagColors } from '../../../hooks/useTagColors';
 import { useRoleColors } from '../../../hooks/useRoleColors';
 import NodeRole from './NodeRole';
 import NodeSystems from './NodeSystems';
+import { getNodeColorForHandle, getNodeColorStyles } from '../../../utils/nodeColors';
 
 // =============================================================================
 // Helper Functions
@@ -91,6 +92,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
     customUnitName,
     unitTimeMinutes = 0,
     defaultQuantity = 1,
+    color,
   } = (data as ProcessNodeData) || {};
   const openSubprocessSheet = useFlowchartStore((state) => state.openSubprocessSheet);
   const edges = useFlowchartStore((state) => state.edges);
@@ -100,6 +102,10 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
   const isMuted = useIsNodeMuted(id);
   const { getTagColor } = useTagColors();
   const { getRoleColor } = useRoleColors();
+
+  // Get color styles based on custom color or default
+  const colorStyles = getNodeColorStyles(color, 'subprocess');
+  const handleColor = getNodeColorForHandle(color, 'subprocess');
 
   // Normalize role to array for backward compatibility
   const normalizedRoles: string[] = Array.isArray(role)
@@ -215,17 +221,21 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
       className={`
         relative
         min-w-[180px] max-w-[240px]
-        bg-purple-500 hover:bg-purple-600
         rounded-lg
-        border-2 border-purple-700
         shadow-lg hover:shadow-xl
         transition-all duration-200
         cursor-pointer
         p-3
-        ${selected ? 'ring-2 ring-purple-400 ring-offset-2' : ''}
+        ${selected ? 'ring-2 ring-offset-2' : ''}
         ${locked ? 'border-dashed opacity-80' : ''}
         ${isMuted ? 'opacity-30 grayscale' : ''}
+        ${!color ? 'bg-purple-500 hover:bg-purple-600 border-2 border-purple-700' : 'border-2'}
+        ${!color && selected ? 'ring-purple-400' : ''}
       `}
+      style={color ? {
+        backgroundColor: colorStyles.customBg,
+        borderColor: colorStyles.customBorder,
+      } : undefined}
     >
       {/* Lock Indicator */}
       <LockIndicator locked={locked} />
@@ -267,7 +277,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
             position={position}
             id={port.id}
             nodeId={id}
-            nodeColor="purple"
+            nodeColor={handleColor}
             forceType="target"
             style={style}
           />
@@ -308,7 +318,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
             position={position}
             id={port.id}
             nodeId={id}
-            nodeColor="purple"
+            nodeColor={handleColor}
             forceType="source"
             style={style}
           />
@@ -319,8 +329,8 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
       <div className="flex flex-col gap-2">
         {/* Header with icon and label */}
         <div className="flex items-center gap-2">
-          <Layers className="w-5 h-5 text-purple-200 shrink-0" />
-          <span className="text-white font-semibold text-base text-wrap flex-1" title={label}>
+          <Layers className={`w-5 h-5 shrink-0 ${!color ? 'text-purple-200' : ''}`} style={color ? { color: colorStyles.customTextLight } : undefined} />
+          <span className={`font-semibold text-base text-wrap flex-1 ${!color ? 'text-white' : ''}`} style={color ? { color: colorStyles.customText } : undefined} title={label}>
             {label}
           </span>
         </div>
@@ -329,18 +339,18 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
             <div className="flex gap-0.5">
-              <div className="w-1 h-4 bg-purple-300 rounded-sm" />
-              <div className="w-1 h-4 bg-purple-400 rounded-sm" />
-              <div className="w-1 h-4 bg-purple-300 rounded-sm" />
+              <div className={`w-1 h-4 rounded-sm ${!color ? 'bg-purple-300' : ''}`} style={color ? { backgroundColor: colorStyles.customTextLight } : undefined} />
+              <div className={`w-1 h-4 rounded-sm ${!color ? 'bg-purple-300' : ''}`} style={color ? { backgroundColor: colorStyles.customTextLight } : undefined} />
+              <div className={`w-1 h-4 rounded-sm ${!color ? 'bg-purple-300' : ''}`} style={color ? { backgroundColor: colorStyles.customTextLight } : undefined} />
             </div>
-            <span className="text-purple-100 text-xs">
+            <span className={`text-xs ${!color ? 'text-purple-200' : ''}`} style={color ? { color: colorStyles.customTextLight } : undefined}>
               {childCount} node{childCount !== 1 ? 's' : ''}
             </span>
           </div>
 
           {/* Port count indicators */}
           {(computedInputPorts.length > 0 || computedOutputPorts.length > 0) && (
-            <div className="flex items-center gap-2 text-xs text-purple-100">
+            <div className={`flex items-center gap-2 text-xs ${!color ? 'text-purple-200' : ''}`} style={color ? { color: colorStyles.customTextLight } : undefined}>
               {computedInputPorts.length > 0 && (
                 <div className="flex items-center gap-0.5" title={`${computedInputPorts.length} input${computedInputPorts.length !== 1 ? 's' : ''}`}>
                   <ArrowLeft className="w-3 h-3" />
@@ -360,7 +370,8 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
         <div className="flex items-center justify-end">
           <button
             onClick={handleOpenSheet}
-            className="flex items-center gap-1 text-purple-200 text-xs hover:text-white transition-colors"
+            className={`flex items-center gap-1 text-xs hover:text-white transition-colors ${!color ? 'text-purple-200' : ''}`}
+            style={color ? { color: colorStyles.customTextLight } : undefined}
           >
             <ExternalLink className="w-3.5 h-3.5" />
             <span>Open</span>
@@ -377,7 +388,7 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
             setIsInfoOpen(!isInfoOpen);
           }}
         >
-          <Info className={`w-3.5 h-3.5 text-purple-600 ${isInfoOpen ? 'text-purple-800' : ''}`} />
+          <Info className={`w-3.5 h-3.5 ${isInfoOpen ? 'text-purple-800' : ''} ${!color ? 'text-purple-700' : ''}`} style={color ? { color: '#7e22ce' } : undefined} />
         </div>
 
         {/* Info Popup */}

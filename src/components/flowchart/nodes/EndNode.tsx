@@ -9,15 +9,20 @@ import FlowOrderBadge from './FlowOrderBadge';
 import { useHierarchicalFlowOrder } from '../../../contexts/FlowOrderContext';
 import LockIndicator from './LockIndicator';
 import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
+import { getNodeColorForHandle, getNodeColorStyles } from '../../../utils/nodeColors';
 
 /**
  * EndNode - Red circular end node with stop icon
  * This node represents the ending point of a process flowchart
  */
 function EndNode({ id, data, selected }: NodeProps) {
-  const { label = 'End', tags, role, locked, systems } = (data as BaseNodeData) || {};
+  const { label = 'End', tags, role, locked, systems, color } = (data as BaseNodeData) || {};
   const flowOrder = useHierarchicalFlowOrder(id);
   const isMuted = useIsNodeMuted(id);
+
+  // Get color styles based on custom color or default
+  const colorStyles = getNodeColorStyles(color, 'end');
+  const handleColor = getNodeColorForHandle(color, 'end');
 
   return (
     <div className={`relative transition-opacity duration-200 ${isMuted ? 'opacity-30 grayscale' : ''}`}>
@@ -31,39 +36,59 @@ function EndNode({ id, data, selected }: NodeProps) {
         className={`
           flex items-center justify-center
           w-14 h-14 rounded-full
-          bg-red-500 hover:bg-red-600
-          border-2 border-red-700
           shadow-lg hover:shadow-xl
           transition-all duration-200
           cursor-pointer
-          ${selected ? 'ring-2 ring-red-400 ring-offset-2' : ''}
+          ${selected ? 'ring-2 ring-offset-2' : ''}
           ${locked ? 'border-dashed opacity-80' : ''}
+          ${!color ? 'bg-red-500 hover:bg-red-600 border-2 border-red-700' : 'border-2'}
+          ${!color && selected ? 'ring-red-400' : ''}
         `}
+        style={color ? {
+          backgroundColor: colorStyles.customBg,
+          borderColor: colorStyles.customBorder,
+        } : undefined}
       >
         {/* Target Handles - All sides for incoming connections */}
         <Handle
           type="target"
           id="top"
           position={Position.Top}
-          className="!w-3 !h-3 !bg-red-300 !border-2 !border-red-700 hover:!bg-red-200"
+          className="!w-3 !h-3 !border-2 hover:!bg-red-200"
+          style={{
+            backgroundColor: color ? colorStyles.customTextLight : colorStyles.handleBgLight,
+            borderColor: color ? colorStyles.customBorder : colorStyles.handleBorder,
+          }}
         />
         <Handle
           type="target"
           id="bottom"
           position={Position.Bottom}
-          className="!w-3 !h-3 !bg-red-300 !border-2 !border-red-700 hover:!bg-red-200"
+          className="!w-3 !h-3 !border-2 hover:!bg-red-200"
+          style={{
+            backgroundColor: color ? colorStyles.customTextLight : colorStyles.handleBgLight,
+            borderColor: color ? colorStyles.customBorder : colorStyles.handleBorder,
+          }}
         />
         <Handle
           type="target"
           id="left"
           position={Position.Left}
-          className="!w-3 !h-3 !bg-red-300 !border-2 !border-red-700 hover:!bg-red-200"
+          className="!w-3 !h-3 !border-2 hover:!bg-red-200"
+          style={{
+            backgroundColor: color ? colorStyles.customTextLight : colorStyles.handleBgLight,
+            borderColor: color ? colorStyles.customBorder : colorStyles.handleBorder,
+          }}
         />
         <Handle
           type="target"
           id="right"
           position={Position.Right}
-          className="!w-3 !h-3 !bg-red-300 !border-2 !border-red-700 hover:!bg-red-200"
+          className="!w-3 !h-3 !border-2 hover:!bg-red-200"
+          style={{
+            backgroundColor: color ? colorStyles.customTextLight : colorStyles.handleBgLight,
+            borderColor: color ? colorStyles.customBorder : colorStyles.handleBorder,
+          }}
         />
 
         {/* Stop Icon */}
@@ -76,7 +101,11 @@ function EndNode({ id, data, selected }: NodeProps) {
         style={{ top: '100%', marginTop: '28px' }}
       >
         <span
-          className="text-sm font-medium text-red-800 bg-red-100 px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm"
+          className={`text-sm font-medium px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm ${!color ? `${colorStyles.badgeBg} ${colorStyles.badgeText}` : ''}`}
+          style={color ? {
+            backgroundColor: colorStyles.customBadge,
+            color: colorStyles.customBadgeText,
+          } : undefined}
           title={label}
         >
           {label}

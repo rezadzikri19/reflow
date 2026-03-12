@@ -108,6 +108,8 @@ export interface BaseNodeData {
   systems?: string[];
   /** Potential risks or concerns associated with this node */
   risk?: string;
+  /** Custom color for the node (hex or Tailwind color class) */
+  color?: string;
   /** Index signature to satisfy Record<string, unknown> constraint */
   [key: string]: unknown;
 }

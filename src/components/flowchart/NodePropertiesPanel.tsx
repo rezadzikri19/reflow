@@ -60,6 +60,41 @@ const NODE_TYPE_LABELS: Record<ProcessNodeType, string> = {
   terminator: 'Terminator',
 };
 
+// Default colors for each node type
+const NODE_TYPE_DEFAULT_COLORS: Record<ProcessNodeType, string> = {
+  start: '#10b981',    // Emerald
+  end: '#ef4444',      // Red
+  process: '#3b82f6', // Blue
+  manualProcess: '#f97316', // Orange
+  decision: '#f59e0b', // Amber
+  subprocess: '#8b5cf6', // Purple
+  boundaryPort: '#10b981', // Green (input)
+  junction: '#7c3aed', // Violet
+  reference: '#0ea5e9', // Sky
+  connector: '#14b8a6', // Teal
+  terminator: '#f43f5e', // Rose
+};
+
+// Preset colors for node customization (includes all node type defaults)
+const PRESET_NODE_COLORS = [
+  { name: 'Blue (Process)', value: '#3b82f6', nodeType: 'process' },
+  { name: 'Amber (Decision)', value: '#f59e0b', nodeType: 'decision' },
+  { name: 'Purple (Subprocess)', value: '#8b5cf6', nodeType: 'subprocess' },
+  { name: 'Emerald (Start)', value: '#10b981', nodeType: 'start' },
+  { name: 'Red (End)', value: '#ef4444', nodeType: 'end' },
+  { name: 'Orange (Manual)', value: '#f97316', nodeType: 'manualProcess' },
+  { name: 'Rose (Terminator)', value: '#f43f5e', nodeType: 'terminator' },
+  { name: 'Violet (Junction)', value: '#7c3aed', nodeType: 'junction' },
+  { name: 'Teal (Connector)', value: '#14b8a6', nodeType: 'connector' },
+  { name: 'Sky (Reference)', value: '#0ea5e9', nodeType: 'reference' },
+  { name: 'Pink', value: '#ec4899' },
+  { name: 'Cyan', value: '#06b6d4' },
+  { name: 'Indigo', value: '#6366f1' },
+  { name: 'Lime', value: '#84cc16' },
+  { name: 'Slate', value: '#64748b' },
+  { name: 'Gray', value: '#6b7280' },
+];
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -295,6 +330,15 @@ export const NodePropertiesPanel: React.FC = () => {
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       if (selectedNode) {
         updateNode(selectedNode.id, { description: e.target.value });
+      }
+    },
+    [selectedNode, updateNode]
+  );
+
+  const handleColorChange = useCallback(
+    (color: string | undefined) => {
+      if (selectedNode) {
+        updateNode(selectedNode.id, { color });
       }
     },
     [selectedNode, updateNode]
@@ -578,6 +622,69 @@ export const NodePropertiesPanel: React.FC = () => {
                   className="block w-full rounded-md border border-gray-300 hover:border-gray-400 bg-white px-4 py-2 text-sm placeholder-gray-400 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   placeholder="Enter node description"
                 />
+              )}
+            </div>
+
+            {/* Color Picker */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Color
+              </label>
+              {nodeType === 'reference' ? (
+                <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+                  <p className="text-xs text-gray-400 mt-1">Synced with referenced node</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {/* Preset Colors */}
+                  <div className="flex flex-wrap gap-2">
+                    {PRESET_NODE_COLORS.map((preset) => {
+                      const isDefaultForType = NODE_TYPE_DEFAULT_COLORS[nodeType] === preset.value;
+                      const isSelected = nodeData.color === preset.value;
+                      return (
+                        <button
+                          key={preset.value}
+                          type="button"
+                          onClick={() => handleColorChange(preset.value)}
+                          className={`
+                            w-8 h-8 rounded-md border-2 transition-all hover:scale-110
+                            ${isSelected || (!nodeData.color && isDefaultForType)
+                              ? 'border-gray-800 ring-2 ring-gray-400'
+                              : 'border-gray-200'
+                            }
+                          `}
+                          style={{ backgroundColor: preset.value }}
+                          title={preset.name}
+                        />
+                      );
+                    })}
+                  </div>
+                  {/* Custom Color Input */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={nodeData.color && !PRESET_NODE_COLORS.some(p => p.value === nodeData.color) ? nodeData.color : NODE_TYPE_DEFAULT_COLORS[nodeType]}
+                      onChange={(e) => handleColorChange(e.target.value)}
+                      className="w-8 h-8 rounded border border-gray-300 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={nodeData.color || ''}
+                      onChange={(e) => handleColorChange(e.target.value)}
+                      placeholder={NODE_TYPE_DEFAULT_COLORS[nodeType]}
+                      className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+                    />
+                    {nodeData.color && (
+                      <button
+                        type="button"
+                        onClick={() => handleColorChange(undefined)}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>
