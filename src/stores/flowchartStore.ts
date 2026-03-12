@@ -26,6 +26,7 @@ import {
 import type {
   FlowchartRecord,
 } from '../db/database';
+import { getDescendantIds } from '../utils/nodeHierarchy';
 
 // Re-export the FlowchartRecord type for use in migration functions
 type FlowchartRecordWithVersion = FlowchartRecord & { version?: number };
@@ -457,6 +458,8 @@ interface FlowchartActions {
   addBoundaryEdgeControlPoint: (subprocessId: string, portId: string, direction: 'input' | 'output', connectionIndex: number, position: { x: number; y: number }) => void;
   updateBoundaryEdgeControlPoint: (subprocessId: string, portId: string, direction: 'input' | 'output', connectionIndex: number, pointId: string, position: { x: number; y: number }) => void;
   removeBoundaryEdgeControlPoint: (subprocessId: string, portId: string, direction: 'input' | 'output', connectionIndex: number, pointId: string) => void;
+  // Repair/cleanup actions
+  repairChildNodeIds: () => void;
 }
 
 type FlowchartStore = FlowchartState & FlowchartActions;
@@ -4069,12 +4072,13 @@ export const useFlowchartStore = create<FlowchartStore>()(
 
       /**
        * Repair parentId relationships for all nodes
-       * Clears orphan parentIds (nodes pointing to non-existent subprocesses)
+       * Deletes orphan nodes (nodes whose parentId points to non-existent subprocess)
+       * Also deletes all nested children of those orphan nodes
        * Note: childNodeIds is now computed from parentId - no longer stored/updated
        */
       repairChildNodeIds: () => {
         set((state) => {
-          let fixedParentIdCount = 0;
+          let deletedOrphanCount = 0;
 
           state.sheets.forEach(sheet => {
             // Find all subprocesses and their IDs
@@ -4082,26 +4086,47 @@ export const useFlowchartStore = create<FlowchartStore>()(
               sheet.nodes.filter(n => n.type === 'subprocess').map(n => n.id)
             );
 
-            // Ensure all nodes inside a subprocess have correct parentId
+            // Find all nodes whose parentId points to non-existent subprocess
+            const orphanNodeIds = new Set<string>();
+
             sheet.nodes.forEach(node => {
               const nodeData = node.data as ProcessNodeData;
               const parentId = nodeData.parentId;
 
-              // If node has a parentId but parent doesn't exist, clear it
+              // If node has a parentId but parent doesn't exist, mark as orphan
               if (parentId && !subprocessIds.has(parentId)) {
-                console.log(`Clearing orphan parentId for node "${nodeData.label}" (parent ${parentId} not found)`);
-                nodeData.parentId = undefined;
-                fixedParentIdCount++;
+                orphanNodeIds.add(node.id);
               }
             });
+
+            // For each orphan node, also collect all its nested descendants to delete
+            const nodesToDelete = new Set<string>(orphanNodeIds);
+            orphanNodeIds.forEach(orphanId => {
+              const descendants = getDescendantIds(orphanId, sheet.nodes);
+              descendants.forEach(id => nodesToDelete.add(id));
+            });
+
+            // Delete all orphan nodes and their descendants
+            if (nodesToDelete.size > 0) {
+              const nodeCountBefore = sheet.nodes.length;
+              sheet.nodes = sheet.nodes.filter(node => !nodesToDelete.has(node.id));
+              deletedOrphanCount += nodeCountBefore - sheet.nodes.length;
+
+              // Also delete edges connected to deleted nodes
+              sheet.edges = sheet.edges.filter(edge =>
+                !nodesToDelete.has(edge.source) && !nodesToDelete.has(edge.target)
+              );
+
+              console.log(`Deleted ${nodesToDelete.size} orphan nodes (including nested children)`);
+            }
           });
 
-          if (fixedParentIdCount > 0) {
-            console.log(`Repaired ${fixedParentIdCount} orphan parentId references`);
+          if (deletedOrphanCount > 0) {
+            console.log(`Cleaned up ${deletedOrphanCount} orphan nodes and their nested children`);
             state.isDirty = true;
             state.nodeVersion += 1; // Force re-render
           } else {
-            console.log('No repairs needed - all parentId relationships are valid');
+            console.log('No orphan nodes found - diagram is clean');
           }
         });
       },

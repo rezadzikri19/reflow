@@ -485,13 +485,6 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
     selectedNodes[0]?.type !== 'reference' &&
     selectedNodes[0]?.type !== 'boundaryPort';
 
-  // Handle refresh render - forces a re-render of the canvas
-  const handleRefreshRender = useCallback(() => {
-    // Create new array references to trigger React Flow re-render
-    setNodes([...nodes]);
-    setEdges([...edges]);
-  }, [nodes, edges, setNodes, setEdges]);
-
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 bg-white border-b border-gray-200 shadow-sm">
       {/* Left Section - Flowchart Name & File Actions */}
@@ -533,15 +526,6 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
             title="Version History"
           >
             History
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => useFlowchartStore.getState().repairChildNodeIds()}
-            leftIcon={<RefreshIcon />}
-            title="Repair subprocess child nodes"
-          >
-            Refresh
           </Button>
           <Button
             variant="ghost"
@@ -713,9 +697,9 @@ export const FlowToolbar: React.FC<FlowToolbarProps> = ({
         <Button
           variant="ghost"
           size="sm"
-          onClick={handleRefreshRender}
+          onClick={() => useFlowchartStore.getState().repairChildNodeIds()}
           leftIcon={<RefreshIcon />}
-          title="Refresh Render - Force canvas to re-render"
+          title="Refresh and clean up orphan nodes"
         >
           Refresh
         </Button>
