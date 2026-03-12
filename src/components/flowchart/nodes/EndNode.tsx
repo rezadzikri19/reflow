@@ -1,4 +1,4 @@
-import { memo, useState, useRef, useCallback } from 'react';
+import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Square } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
@@ -9,7 +9,6 @@ import FlowOrderBadge from './FlowOrderBadge';
 import { useHierarchicalFlowOrder } from '../../../contexts/FlowOrderContext';
 import LockIndicator from './LockIndicator';
 import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
-import InlineLabelEditor from './InlineLabelEditor';
 
 /**
  * EndNode - Red circular end node with stop icon
@@ -17,18 +16,8 @@ import InlineLabelEditor from './InlineLabelEditor';
  */
 function EndNode({ id, data, selected }: NodeProps) {
   const { label = 'End', tags, role, locked, systems } = (data as BaseNodeData) || {};
-  const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState('');
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const flowOrder = useHierarchicalFlowOrder(id);
   const isMuted = useIsNodeMuted(id);
-
-  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!locked) {
-      setIsEditing(true);
-    }
-  }, [locked]);
 
   return (
     <div className={`relative transition-opacity duration-200 ${isMuted ? 'opacity-30 grayscale' : ''}`}>
@@ -83,23 +72,14 @@ function EndNode({ id, data, selected }: NodeProps) {
 
       {/* Label below the node */}
       <div
-        className="absolute left-1/2 -translate-x-1/2"
+        className="absolute pointer-events-none left-1/2 -translate-x-1/2"
         style={{ top: '100%', marginTop: '28px' }}
-        onDoubleClick={handleDoubleClick}
       >
         <span
-          className={`text-sm font-medium text-red-800 bg-red-100 px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm ${locked ? '' : 'cursor-text'}`}
+          className="text-sm font-medium text-red-800 bg-red-100 px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm"
+          title={label}
         >
-          <InlineLabelEditor
-            id={id}
-            label={label}
-            isEditing={isEditing}
-            editText={editText}
-            inputRef={inputRef}
-            setIsEditing={setIsEditing}
-            setEditText={setEditText}
-            className="whitespace-nowrap"
-          />
+          {label}
         </span>
       </div>
 

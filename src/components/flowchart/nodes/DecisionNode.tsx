@@ -1,4 +1,4 @@
-import { memo, useState, useRef, useCallback } from 'react';
+import { memo } from 'react';
 import { Position, type NodeProps } from '@xyflow/react';
 import { Route } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
@@ -10,7 +10,6 @@ import { useHierarchicalFlowOrder } from '../../../contexts/FlowOrderContext';
 import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
 import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
-import InlineLabelEditor from './InlineLabelEditor';
 
 /**
  * DecisionNode - Amber diamond-shaped node for conditional branching
@@ -19,18 +18,8 @@ import InlineLabelEditor from './InlineLabelEditor';
  */
 function DecisionNode({ id, data, selected }: NodeProps) {
   const { label = 'Decision', tags, role, locked, systems } = (data as BaseNodeData) || {};
-  const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState('');
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const flowOrder = useHierarchicalFlowOrder(id);
   const isMuted = useIsNodeMuted(id);
-
-  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!locked) {
-      setIsEditing(true);
-    }
-  }, [locked]);
 
   // Diamond dimensions
   const diamondSize = 60;
@@ -112,23 +101,14 @@ function DecisionNode({ id, data, selected }: NodeProps) {
 
       {/* Label below the diamond */}
       <div
-        className="absolute -translate-x-1/2"
+        className="absolute pointer-events-none -translate-x-1/2"
         style={{ top: '100%', left: centerOffset, marginTop: '28px' }}
-        onDoubleClick={handleDoubleClick}
       >
         <span
-          className={`text-sm font-medium text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm ${locked ? '' : 'cursor-text'}`}
+          className="text-sm font-medium text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm"
+          title={label}
         >
-          <InlineLabelEditor
-            id={id}
-            label={label}
-            isEditing={isEditing}
-            editText={editText}
-            inputRef={inputRef}
-            setIsEditing={setIsEditing}
-            setEditText={setEditText}
-            className="whitespace-nowrap"
-          />
+          {label}
         </span>
       </div>
 
