@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState, useRef, useCallback } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Play } from 'lucide-react';
 import type { BaseNodeData } from '../../../types/index';
@@ -9,6 +9,7 @@ import FlowOrderBadge from './FlowOrderBadge';
 import { useHierarchicalFlowOrder } from '../../../contexts/FlowOrderContext';
 import LockIndicator from './LockIndicator';
 import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
+import InlineLabelEditor from './InlineLabelEditor';
 
 /**
  * StartNode - Green circular start node with play icon
@@ -16,8 +17,18 @@ import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
  */
 function StartNode({ id, data, selected }: NodeProps) {
   const { label = 'Start', tags, role, locked, systems } = (data as BaseNodeData) || {};
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState('');
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const flowOrder = useHierarchicalFlowOrder(id);
   const isMuted = useIsNodeMuted(id);
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!locked) {
+      setIsEditing(true);
+    }
+  }, [locked]);
 
   return (
     <div className={`relative transition-opacity duration-200 ${isMuted ? 'opacity-30 grayscale' : ''}`}>
@@ -72,14 +83,23 @@ function StartNode({ id, data, selected }: NodeProps) {
 
       {/* Label below the node */}
       <div
-        className="absolute pointer-events-none left-1/2 -translate-x-1/2"
+        className="absolute left-1/2 -translate-x-1/2"
         style={{ top: '100%', marginTop: '28px' }}
+        onDoubleClick={handleDoubleClick}
       >
         <span
-          className="text-sm font-medium text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm"
-          title={label}
+          className={`text-sm font-medium text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm ${locked ? '' : 'cursor-text'}`}
         >
-          {label}
+          <InlineLabelEditor
+            id={id}
+            label={label}
+            isEditing={isEditing}
+            editText={editText}
+            inputRef={inputRef}
+            setIsEditing={setIsEditing}
+            setEditText={setEditText}
+            className="whitespace-nowrap"
+          />
         </span>
       </div>
 

@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState, useRef } from 'react';
 import { Position, type NodeProps } from '@xyflow/react';
 import {
   Layers,
@@ -31,6 +31,7 @@ import { useTagColors } from '../../../hooks/useTagColors';
 import { useRoleColors } from '../../../hooks/useRoleColors';
 import NodeRole from './NodeRole';
 import NodeSystems from './NodeSystems';
+import InlineLabelEditor from './InlineLabelEditor';
 
 // =============================================================================
 // Helper Functions
@@ -72,6 +73,9 @@ interface PortRenderInfo {
 
 function SubprocessNode({ data, selected, id }: NodeProps) {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState('');
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const {
     label = 'Subprocess',
     description,
@@ -210,6 +214,14 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
     openSubprocessSheet(id);
   }, [id, openSubprocessSheet]);
 
+  // Handle double-click to edit label
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!locked) {
+      setIsEditing(true);
+    }
+  }, [locked]);
+
   return (
     <div
       className={`
@@ -318,10 +330,19 @@ function SubprocessNode({ data, selected, id }: NodeProps) {
       {/* Content container */}
       <div className="flex flex-col gap-2">
         {/* Header with icon and label */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" onDoubleClick={handleDoubleClick}>
           <Layers className="w-5 h-5 text-purple-200 shrink-0" />
-          <span className="text-white font-semibold text-base text-wrap flex-1" title={label}>
-            {label}
+          <span className={`text-white font-semibold text-base text-wrap flex-1 ${locked ? '' : 'cursor-text'}`}>
+            <InlineLabelEditor
+              id={id}
+              label={label}
+              isEditing={isEditing}
+              editText={editText}
+              inputRef={inputRef}
+              setIsEditing={setIsEditing}
+              setEditText={setEditText}
+              className="text-white font-semibold text-base text-wrap flex-1"
+            />
           </span>
         </div>
 

@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useState, useRef, useCallback } from 'react';
 import { Position, type NodeProps } from '@xyflow/react';
 import {
   FileText,
@@ -30,6 +30,7 @@ import LockIndicator from './LockIndicator';
 import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
 import { useTagColors } from '../../../hooks/useTagColors';
 import { useRoleColors } from '../../../hooks/useRoleColors';
+import InlineLabelEditor from './InlineLabelEditor';
 
 /**
  * Maps unit types to their corresponding icons
@@ -64,6 +65,9 @@ function formatTime(minutes: number): string {
  */
 function ProcessNode({ id, data, selected }: NodeProps) {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState('');
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const { getTagColor } = useTagColors();
   const { getRoleColor } = useRoleColors();
 
@@ -85,6 +89,13 @@ function ProcessNode({ id, data, selected }: NodeProps) {
     improvement,
     risk,
   } = (data as ProcessNodeData) || {};
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!locked) {
+      setIsEditing(true);
+    }
+  }, [locked]);
 
   const UnitIcon = unitTypeIcons[unitType];
   const calculatedTime = unitTimeMinutes * defaultQuantity;
@@ -358,8 +369,20 @@ function ProcessNode({ id, data, selected }: NodeProps) {
         <HybridHandle id="left" position={Position.Left} nodeId={id} nodeColor="blue" />
 
         {/* Node Label */}
-        <div className="text-white font-semibold text-base text-wrap" title={label}>
-          {label}
+        <div
+          onDoubleClick={handleDoubleClick}
+          className={locked ? '' : 'cursor-text'}
+        >
+          <InlineLabelEditor
+            id={id}
+            label={label}
+            isEditing={isEditing}
+            editText={editText}
+            inputRef={inputRef}
+            setIsEditing={setIsEditing}
+            setEditText={setEditText}
+            className="text-white font-semibold text-base text-wrap"
+          />
         </div>
 
         {/* Unit Type and Time Info */}

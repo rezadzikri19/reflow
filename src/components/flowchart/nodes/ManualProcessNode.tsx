@@ -29,6 +29,7 @@ import HybridHandle from './HybridHandle';
 import LockIndicator from './LockIndicator';
 import { useIsNodeMuted } from '../../../hooks/useNodeFilter';
 import { useTagColors } from '../../../hooks/useTagColors';
+import InlineLabelEditor from './InlineLabelEditor';
 
 /**
  * Maps unit types to their corresponding icons
@@ -91,7 +92,10 @@ function getTrapezoidPath(width: number, height: number, cornerRadius = 10, stro
 function ManualProcessNode({ id, data, selected }: NodeProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
+  const labelInputRef = useRef<HTMLTextAreaElement>(null);
   const [svgPath, setSvgPath] = useState('');
   const [height, setHeight] = useState(120);
   const { getTagColor } = useTagColors();
@@ -114,6 +118,13 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
     improvement,
     risk,
   } = (data as ProcessNodeData) || {};
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!locked) {
+      setIsEditing(true);
+    }
+  }, [locked]);
 
   const UnitIcon = unitTypeIcons[unitType];
   const calculatedTime = unitTimeMinutes * defaultQuantity;
@@ -449,8 +460,20 @@ function ManualProcessNode({ id, data, selected }: NodeProps) {
           style={{ width }}
         >
           {/* Node Label */}
-          <div className="text-white font-semibold text-base text-wrap" title={label}>
-            {label}
+          <div
+            className="text-white font-semibold text-base text-wrap"
+            onDoubleClick={handleDoubleClick}
+          >
+            <InlineLabelEditor
+              id={id}
+              label={label}
+              isEditing={isEditing}
+              editText={editText}
+              inputRef={labelInputRef}
+              setIsEditing={setIsEditing}
+              setEditText={setEditText}
+              className="text-white font-semibold text-base text-wrap"
+            />
           </div>
 
           {/* Unit Type */}
