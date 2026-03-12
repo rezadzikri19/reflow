@@ -253,11 +253,8 @@ function FlowCanvasInner({
         if (change.type === 'remove' && !isBoundaryPort) {
           deleteNode(change.id);
         } else if (change.type === 'select' && !isBoundaryPort) {
-          if (change.selected) {
-            setSelectedNode(change.id);
-          } else if (selectedNodeId === change.id) {
-            setSelectedNode(null);
-          }
+          // Selection is now handled by onSelectionChange for multi-select support
+          // Don't call setSelectedNode here as it interferes with drag selection
         } else if (change.type === 'position' && !isBoundaryPort) {
           markDirty();
         }
@@ -557,6 +554,22 @@ function FlowCanvasInner({
       onNodeClick?.(node.id);
     },
     [setSelectedNode, setSelectedEdgeId, onNodeClick]
+  );
+
+  /**
+   * Handle selection changes (for multi-select support)
+   * Updates selectedNodeId to the last selected node for properties panel
+   */
+  const handleSelectionChange = useCallback(
+    ({ nodes }: { nodes: FlowchartNode[]; edges: FlowchartEdge[] }) => {
+      // Get selected nodes for the properties panel
+      const selectedNodes = nodes.filter((n) => n.selected);
+      if (selectedNodes.length > 0) {
+        // Set to the last selected node (most recent)
+        setSelectedNode(selectedNodes[selectedNodes.length - 1].id);
+      }
+    },
+    [setSelectedNode]
   );
 
   /**
@@ -1400,6 +1413,7 @@ function FlowCanvasInner({
           onConnect={onConnect}
           onNodeClick={handleNodeClick}
           onPaneClick={handlePaneClick}
+          onSelectionChange={handleSelectionChange}
           onDragOver={onDragOver}
           onDrop={onDrop}
           nodeTypes={registeredNodeTypes}
