@@ -3229,6 +3229,18 @@ export const useFlowchartStore = create<FlowchartStore>()(
         const selectedNodes = sheet.nodes.filter(n => n.selected);
         if (selectedNodes.length === 0) return;
 
+        console.log('[COPY] Selected nodes:', selectedNodes.length);
+
+        // Log internal connections from selected subprocesses
+        selectedNodes.forEach(n => {
+          if (n.type === 'subprocess') {
+            const data = n.data as ProcessNodeData;
+            console.log('[COPY] Subprocess:', n.id);
+            console.log('[COPY]   inputPorts:', JSON.stringify(data.inputPorts?.map(p => ({ id: p.id, internalConnections: p.internalConnections }))));
+            console.log('[COPY]   outputPorts:', JSON.stringify(data.outputPorts?.map(p => ({ id: p.id, internalConnections: p.internalConnections }))));
+          }
+        });
+
         const selectedIds = new Set(selectedNodes.map(n => n.id));
         const nodesToCopy = [...selectedNodes];
 
@@ -3236,8 +3248,15 @@ export const useFlowchartStore = create<FlowchartStore>()(
         const addAllDescendants = (subprocessId: string) => {
           // Get children from parentId relationships (single source of truth)
           const children = sheet.nodes.filter(n => n.data.parentId === subprocessId);
+          console.log('[COPY] addAllDescendants for', subprocessId, 'found children:', children.map(c => ({ id: c.id, type: c.type })));
           children.forEach(childNode => {
             if (!selectedIds.has(childNode.id)) {
+              console.log('[COPY] Adding child:', childNode.id, childNode.type);
+              if (childNode.type === 'subprocess') {
+                const data = childNode.data as ProcessNodeData;
+                console.log('[COPY] Child subprocess inputPorts:', JSON.stringify(data.inputPorts?.map(p => ({ id: p.id, internalConnections: p.internalConnections }))));
+                console.log('[COPY] Child subprocess outputPorts:', JSON.stringify(data.outputPorts?.map(p => ({ id: p.id, internalConnections: p.internalConnections }))));
+              }
               nodesToCopy.push(childNode);
               selectedIds.add(childNode.id);
 
@@ -3259,14 +3278,24 @@ export const useFlowchartStore = create<FlowchartStore>()(
         // Get all IDs including children
         const allCopiedIds = new Set(nodesToCopy.map(n => n.id));
 
+        console.log('[COPY] Total nodes to copy:', nodesToCopy.length, 'allCopiedIds:', allCopiedIds.size);
+
         // Get internal edges (both ends in the copied set)
         const internalEdges = sheet.edges.filter(e =>
           allCopiedIds.has(e.source) && allCopiedIds.has(e.target)
         );
 
+        console.log('[COPY] Internal edges copied:', internalEdges.length);
+
         // Deep clone to avoid reference issues
+        const clonedNodes = JSON.parse(JSON.stringify(nodesToCopy));
+        console.log('[COPY] After JSON parse, checking first subprocess:');
+        if (clonedNodes[0] && clonedNodes[0].type === 'subprocess') {
+          const data = clonedNodes[0].data as ProcessNodeData;
+          console.log('[COPY] Cloned first node inputPorts:', JSON.stringify(data.inputPorts?.map(p => ({ id: p.id, internalConnections: p.internalConnections }))));
+        }
         set({
-          clipboardNodes: JSON.parse(JSON.stringify(nodesToCopy)),
+          clipboardNodes: clonedNodes,
           clipboardEdges: JSON.parse(JSON.stringify(internalEdges)),
           clipboardSourceFlowchartId: state.flowchartId,
           clipboardSourceSheetId: state.activeSheetId,
@@ -3334,9 +3363,30 @@ export const useFlowchartStore = create<FlowchartStore>()(
             }
           });
 
-          // Track port ID changes for updating edge handles
+          // Track port ID changes for updating edge handles and internal connection handleIds
           // Key: oldPortId, Value: newPortId
           const portIdMap = new Map<string, string>();
+
+          // First pass: build portIdMap for all ports
+          state.clipboardNodes.forEach(node => {
+            if (node.type === 'subprocess') {
+              const nodeData = node.data as ProcessNodeData;
+
+              // Map input ports
+              (nodeData.inputPorts || []).forEach((port: Port) => {
+                const oldPortId = port.id;
+                const newPortId = `port-in-${uuidv4()}`;
+                portIdMap.set(oldPortId, newPortId);
+              });
+
+              // Map output ports
+              (nodeData.outputPorts || []).forEach((port: Port) => {
+                const oldPortId = port.id;
+                const newPortId = `port-out-${uuidv4()}`;
+                portIdMap.set(oldPortId, newPortId);
+              });
+            }
+          });
 
           // Clone nodes with new IDs
           const newNodes = state.clipboardNodes.map(node => {
@@ -3350,24 +3400,25 @@ export const useFlowchartStore = create<FlowchartStore>()(
               locked: false, // Pasted nodes are unlocked by default
             };
 
-            // When pasting into a subprocess, set parentId to the active subprocess
-            if (state.activeSubprocessId && !newData.parentId) {
-              newData.parentId = state.activeSubprocessId;
-            }
-
-            // Update parentId reference if it exists - map to new ID if the parent was also copied
+            // Handle parentId mapping:
+            // - If the node had a parent that was ALSO copied, map to the new parent ID
+            // - If the node had a parent that was NOT copied (external), update based on context
+            // - If the node had no parent, it becomes a direct child of the target (if any)
             if (newData.parentId) {
               if (idMap.has(newData.parentId)) {
-                // Parent was also copied, update to new parent ID
+                // Parent was also copied - map to new parent ID (this preserves internal hierarchy)
                 newData.parentId = idMap.get(newData.parentId);
               } else if (state.activeSubprocessId) {
-                // Parent wasn't copied but we're inside a subprocess, use current subprocess
+                // Parent wasn't copied but we're inside a subprocess - use current subprocess
                 newData.parentId = state.activeSubprocessId;
               } else {
                 // Parent wasn't copied and we're not inside a subprocess
                 // Clear the parentId to avoid orphan reference
                 newData.parentId = undefined;
               }
+            } else if (state.activeSubprocessId) {
+              // Node had no parent but we're pasting into a subprocess - become child of target
+              newData.parentId = state.activeSubprocessId;
             }
 
             // Handle ports for subprocess nodes
@@ -3379,7 +3430,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
               if (newData.inputPorts) {
                 newData.inputPorts = newData.inputPorts.map((port: Port, index: number) => {
                   const oldPortId = port.id;
-                  const newPortId = `port-in-${uuidv4()}`; // Always generate new ID
+                  // Use the pre-built portIdMap
+                  const newPortId = portIdMap.get(oldPortId) || `port-in-${uuidv4()}`;
                   let newLabel = port.label || `Input ${index + 1}`;
 
                   // Check if this port has an external connection that was also copied
@@ -3394,18 +3446,27 @@ export const useFlowchartStore = create<FlowchartStore>()(
                     }
                   }
 
-                  // Track port ID change
-                  portIdMap.set(oldPortId, newPortId);
+                  // Update internal connections with new node IDs AND new port handle IDs
+                  const newInternalConnections = (port.internalConnections || []).map((conn: InternalNodeConnection) => {
+                    const newNodeId = idMap.get(conn.nodeId) || conn.nodeId;
+                    // If handleId is a port ID, map it to the new port ID
+                    let newHandleId = conn.handleId;
+                    if (conn.handleId && portIdMap.has(conn.handleId)) {
+                      newHandleId = portIdMap.get(conn.handleId) || conn.handleId;
+                    }
+                    return {
+                      ...conn,
+                      nodeId: newNodeId,
+                      handleId: newHandleId,
+                    };
+                  });
 
                   return {
                     ...port,
                     id: newPortId,
                     label: newLabel,
-                    // Update internal connections with new node IDs (these are to internal nodes)
-                    internalConnections: (port.internalConnections || []).map((conn: { nodeId: string; handleId?: string | null }) => ({
-                      ...conn,
-                      nodeId: idMap.get(conn.nodeId) || conn.nodeId,
-                    })),
+                    // Update internal connections with new node IDs
+                    internalConnections: newInternalConnections,
                     // Clear position to use default positioning
                     position: undefined,
                   };
@@ -3416,7 +3477,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
               if (newData.outputPorts) {
                 newData.outputPorts = newData.outputPorts.map((port: Port, index: number) => {
                   const oldPortId = port.id;
-                  const newPortId = `port-out-${uuidv4()}`; // Always generate new ID
+                  // Use the pre-built portIdMap
+                  const newPortId = portIdMap.get(oldPortId) || `port-out-${uuidv4()}`;
                   let newLabel = port.label || `Output ${index + 1}`;
 
                   // Check if this port has an external connection that was also copied
@@ -3438,11 +3500,20 @@ export const useFlowchartStore = create<FlowchartStore>()(
                     ...port,
                     id: newPortId,
                     label: newLabel,
-                    // Update internal connections with new node IDs (these are to internal nodes)
-                    internalConnections: (port.internalConnections || []).map((conn: { nodeId: string; handleId?: string | null }) => ({
-                      ...conn,
-                      nodeId: idMap.get(conn.nodeId) || conn.nodeId,
-                    })),
+                    // Update internal connections with new node IDs AND new port handle IDs
+                    internalConnections: (port.internalConnections || []).map((conn: InternalNodeConnection) => {
+                      const newNodeId = idMap.get(conn.nodeId) || conn.nodeId;
+                      // If handleId is a port ID, map it to the new port ID
+                      let newHandleId = conn.handleId;
+                      if (conn.handleId && portIdMap.has(conn.handleId)) {
+                        newHandleId = portIdMap.get(conn.handleId) || conn.handleId;
+                      }
+                      return {
+                        ...conn,
+                        nodeId: newNodeId,
+                        handleId: newHandleId,
+                      };
+                    }),
                     // Clear position to use default positioning
                     position: undefined,
                   };
