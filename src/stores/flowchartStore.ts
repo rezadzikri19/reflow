@@ -3432,7 +3432,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                   const oldPortId = port.id;
                   // Use the pre-built portIdMap
                   const newPortId = portIdMap.get(oldPortId) || `port-in-${uuidv4()}`;
-                  let newLabel = port.label || `Input ${index + 1}`;
+                  let newLabel = `Input ${index + 1}`;
 
                   // Check if this port has an external connection that was also copied
                   const externalNodeId = externalConnections?.get(oldPortId);
@@ -3479,7 +3479,7 @@ export const useFlowchartStore = create<FlowchartStore>()(
                   const oldPortId = port.id;
                   // Use the pre-built portIdMap
                   const newPortId = portIdMap.get(oldPortId) || `port-out-${uuidv4()}`;
-                  let newLabel = port.label || `Output ${index + 1}`;
+                  let newLabel = `Output ${index + 1}`;
 
                   // Check if this port has an external connection that was also copied
                   const externalNodeId = externalConnections?.get(oldPortId);
