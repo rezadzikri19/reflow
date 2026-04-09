@@ -559,6 +559,7 @@ function FlowCanvasInner({
   /**
    * Handle selection changes (for multi-select support)
    * Updates selectedNodeId to the last selected node for properties panel
+   * Also updates the selected property on all nodes in the store
    */
   const handleSelectionChange = useCallback(
     ({ nodes }: { nodes: FlowchartNode[]; edges: FlowchartEdge[] }) => {
@@ -567,7 +568,22 @@ function FlowCanvasInner({
       if (selectedNodes.length > 0) {
         // Set to the last selected node (most recent)
         setSelectedNode(selectedNodes[selectedNodes.length - 1].id);
+      } else {
+        // Clear selection when nothing is selected
+        setSelectedNode(null);
       }
+
+      // Update selected property on all nodes in the store to match React Flow's selection state
+      // This is critical for copy/paste to work correctly with multi-select
+      // Use setState to properly update the frozen objects through Zustand
+      const selectedIds = new Set(selectedNodes.map(n => n.id));
+      useFlowchartStore.setState((state) => {
+        state.sheets.forEach(sheet => {
+          sheet.nodes.forEach(node => {
+            node.selected = selectedIds.has(node.id);
+          });
+        });
+      });
     },
     [setSelectedNode]
   );
