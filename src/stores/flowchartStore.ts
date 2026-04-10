@@ -2572,12 +2572,9 @@ export const useFlowchartStore = create<FlowchartStore>()(
           targetSheet.updatedAt = new Date();
           state.isDirty = true;
           state.edgeVersion += 1;
+          syncNodesAndEdgesFromActiveSheet(state);
         });
       },
-
-      // =============================================================================
-      // Manual Port Actions
-      // =============================================================================
 
       /**
        * Add a manual port to a subprocess node

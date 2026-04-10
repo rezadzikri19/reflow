@@ -97,6 +97,7 @@ function parseBoundaryEdgeId(edgeId: string): { portId: string; direction: 'inpu
 export const EdgePropertiesPanel: React.FC = () => {
   const edges = useFlowchartStore((state) => state.edges);
   const selectedEdgeId = useFlowchartStore((state) => state.selectedEdgeId);
+  const edgeVersion = useFlowchartStore((state) => state.edgeVersion);
   const defaultEdgeType = useFlowchartStore((state) => state.defaultEdgeType);
   const updateEdge = useFlowchartStore((state) => state.updateEdge);
   const deleteEdge = useFlowchartStore((state) => state.deleteEdge);
@@ -125,7 +126,7 @@ export const EdgePropertiesPanel: React.FC = () => {
     const flowEdges = getEdges();
     const virtualEdge = flowEdges.find((e) => e.id === selectedEdgeId);
     return virtualEdge || null;
-  }, [selectedEdgeId, edges, getEdges]);
+  }, [selectedEdgeId, edges, getEdges, edgeVersion]);
 
   // Check if selected edge is a boundary edge
   const boundaryInfo = selectedEdge ? parseBoundaryEdgeId(selectedEdge.id) : null;
@@ -135,32 +136,39 @@ export const EdgePropertiesPanel: React.FC = () => {
   const boundaryConnectionData = useMemo((): { style: EdgeStyleOptions; label: string } | undefined => {
     if (!isBoundary || !boundaryInfo || !selectedEdge) return undefined;
 
-    // For boundary edges, we need to get the data from the virtual edge (React Flow's version)
-    const edgeData = selectedEdge.data as EdgeData | undefined;
-    const customStyle = edgeData?.customStyle || {};
+    // For boundary edges, the style and label are on the edge directly (from FlowCanvas)
+    // The edge style is: { stroke, strokeWidth, strokeDasharray }
+    const edgeStyle = selectedEdge.style as React.CSSProperties || {};
+    const customStyle: EdgeStyleOptions = {
+      stroke: edgeStyle.stroke as string,
+      strokeWidth: edgeStyle.strokeWidth as number,
+      strokeDasharray: edgeStyle.strokeDasharray as string,
+      edgeType: selectedEdge.type as EdgeType,
+    };
     const label = selectedEdge.label as string | undefined;
 
     return { style: customStyle, label: label || '' };
   }, [isBoundary, boundaryInfo, selectedEdge]);
 
-  // Sync local label with boundaryConnectionData when selection changes
+  // Sync local label with boundaryConnectionData when selection changes or when data changes
   // Only sync on initial load (localLabel is undefined), to avoid overwriting user input
   useEffect(() => {
-    if (isBoundary && boundaryConnectionData && localLabel === undefined) {
-      // Only sync if there's an existing label to sync
-      if (boundaryConnectionData.label) {
-        setLocalLabel(boundaryConnectionData.label);
-      } else {
-        // Set to empty string to mark as initialized
-        setLocalLabel('');
-      }
+    // Only sync when localLabel is not yet initialized for this selection
+    if (localLabel === undefined && isBoundary && boundaryConnectionData) {
+      // Set to empty string to mark as initialized
+      setLocalLabel(boundaryConnectionData.label);
     }
-
-    // Also sync style on selection change
-    if (isBoundary && boundaryConnectionData && localStyle === undefined) {
+    // Only sync style on initial load
+    if (localStyle === undefined && isBoundary && boundaryConnectionData) {
       setLocalStyle(boundaryConnectionData.style);
     }
-  }, [selectedEdgeId, isBoundary]);
+  }, [isBoundary, boundaryConnectionData, selectedEdgeId]);
+
+  // Reset local state when switching to a different edge
+  useEffect(() => {
+    setLocalLabel(undefined);
+    setLocalStyle(undefined);
+  }, [selectedEdgeId]);
 
   const handleEdgeTypeChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
