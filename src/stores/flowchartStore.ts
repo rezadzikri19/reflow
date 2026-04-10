@@ -2526,33 +2526,52 @@ export const useFlowchartStore = create<FlowchartStore>()(
         label?: string
       ) => {
         set((state) => {
-          const sheet = state.sheets.find(s => s.id === state.activeSheetId);
-          if (!sheet) return;
+          // Edge ID format: "boundary-edge-out-{portId}" e.g., "boundary-edge-out-port-out-uuid"
+          // Extract portId from edge ID: "boundary-edge-out-port-out-uuid" -> "port-out-uuid"
+          const portIdMatch = originalEdgeId.match(/^boundary-edge-(in|out)-(.+)$/);
+          if (!portIdMatch) return state;
 
-          const edge = sheet.edges.find((e) => e.id === originalEdgeId);
-          if (!edge) return;
+          const portId = portIdMatch[2]; // e.g., "port-out-uuid"
 
-          if (direction === 'input' && edge.originalTargets && edge.originalTargets[connectionIndex]) {
-            const connection = edge.originalTargets[connectionIndex];
-            if (style !== undefined) {
-              connection.style = style;
+          // Find the subprocess node that has this port - search in all sheets
+          let targetSheet: Sheet | undefined;
+          let subprocessNode: FlowchartNode | undefined;
+
+          for (const sheet of state.sheets) {
+            subprocessNode = sheet.nodes.find(n => {
+              const nodeData = n.data as ProcessNodeData;
+              const ports = direction === 'input' ? nodeData.inputPorts : nodeData.outputPorts;
+              return ports?.some(p => p.id === portId);
+            });
+            if (subprocessNode) {
+              targetSheet = sheet;
+              break;
             }
-            if (label !== undefined) {
-              connection.label = label;
-            }
-            sheet.updatedAt = new Date();
-            state.isDirty = true;
-          } else if (direction === 'output' && edge.originalSources && edge.originalSources[connectionIndex]) {
-            const connection = edge.originalSources[connectionIndex];
-            if (style !== undefined) {
-              connection.style = style;
-            }
-            if (label !== undefined) {
-              connection.label = label;
-            }
-            sheet.updatedAt = new Date();
-            state.isDirty = true;
           }
+
+          if (!subprocessNode || !targetSheet) return state;
+
+          const nodeData = subprocessNode.data as ProcessNodeData;
+          const ports = direction === 'input' ? nodeData.inputPorts : nodeData.outputPorts;
+          const port = ports?.find(p => p.id === portId);
+
+          if (!port || !port.internalConnections || !port.internalConnections[connectionIndex]) {
+            return state;
+          }
+
+          // Update the style and label in the internal connection
+          const connection = port.internalConnections[connectionIndex];
+          if (style !== undefined) {
+            connection.style = style;
+          }
+          if (label !== undefined) {
+            connection.label = label;
+          }
+
+          // Trigger recalculation of virtual edges
+          targetSheet.updatedAt = new Date();
+          state.isDirty = true;
+          state.edgeVersion += 1;
         });
       },
 

@@ -1,8 +1,8 @@
-import React, { useCallback, useState, useMemo } from 'react';
+import React, { useCallback, useState, useMemo, useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { useFlowchartStore } from '../../stores/flowchartStore';
 import { Button } from '../common/Button';
-import type { EdgeType, EdgeStyleOptions, EdgeControlPoint } from '../../types';
+import type { EdgeType, EdgeStyleOptions, EdgeControlPoint, EdgeData } from '../../types';
 
 // ============================================================================
 // Types
@@ -110,6 +110,8 @@ export const EdgePropertiesPanel: React.FC = () => {
   const { getEdges } = useReactFlow();
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [localLabel, setLocalLabel] = useState<string | undefined>(undefined);
+  const [localStyle, setLocalStyle] = useState<EdgeStyleOptions | undefined>(undefined);
 
   // Find selected edge (check both store edges and virtual edges from React Flow)
   const selectedEdge = useMemo(() => {
@@ -129,22 +131,36 @@ export const EdgePropertiesPanel: React.FC = () => {
   const boundaryInfo = selectedEdge ? parseBoundaryEdgeId(selectedEdge.id) : null;
   const isBoundary = selectedEdge ? isBoundaryEdge(selectedEdge.id) : false;
 
-  // Get the current style and label for the boundary connection
-  const boundaryConnectionData = useMemo(() => {
-    if (!isBoundary || !boundaryInfo) return null;
+  // Get the current style and label for the boundary connection from the virtual edge
+  const boundaryConnectionData = useMemo((): { style: EdgeStyleOptions; label: string } | undefined => {
+    if (!isBoundary || !boundaryInfo || !selectedEdge) return undefined;
 
-    // Find the edge that corresponds to this port
-    const edge = edges.find((e) => e.id === boundaryInfo.portId);
-    if (!edge) return null;
+    // For boundary edges, we need to get the data from the virtual edge (React Flow's version)
+    const edgeData = selectedEdge.data as EdgeData | undefined;
+    const customStyle = edgeData?.customStyle || {};
+    const label = selectedEdge.label as string | undefined;
 
-    const connections = boundaryInfo.direction === 'input'
-      ? edge.originalTargets
-      : edge.originalSources;
+    return { style: customStyle, label: label || '' };
+  }, [isBoundary, boundaryInfo, selectedEdge]);
 
-    if (!connections || !connections[boundaryInfo.connectionIndex]) return null;
+  // Sync local label with boundaryConnectionData when selection changes
+  // Only sync on initial load (localLabel is undefined), to avoid overwriting user input
+  useEffect(() => {
+    if (isBoundary && boundaryConnectionData && localLabel === undefined) {
+      // Only sync if there's an existing label to sync
+      if (boundaryConnectionData.label) {
+        setLocalLabel(boundaryConnectionData.label);
+      } else {
+        // Set to empty string to mark as initialized
+        setLocalLabel('');
+      }
+    }
 
-    return connections[boundaryInfo.connectionIndex];
-  }, [isBoundary, boundaryInfo, edges]);
+    // Also sync style on selection change
+    if (isBoundary && boundaryConnectionData && localStyle === undefined) {
+      setLocalStyle(boundaryConnectionData.style);
+    }
+  }, [selectedEdgeId, isBoundary]);
 
   const handleEdgeTypeChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -152,9 +168,15 @@ export const EdgePropertiesPanel: React.FC = () => {
 
       if (isBoundary && boundaryInfo) {
         // Update boundary connection edge type
-        const currentStyle = boundaryConnectionData?.style || {};
+        const currentStyle = localStyle ?? boundaryConnectionData?.style ?? {};
+        // Update local state for immediate feedback
+        setLocalStyle({ ...currentStyle, edgeType: newType });
+        // Construct the edge ID that matches the format in the store
+        const edgeId = boundaryInfo.direction === 'input'
+          ? `boundary-edge-in-${boundaryInfo.portId}`
+          : `boundary-edge-out-${boundaryInfo.portId}`;
         updateBoundaryConnectionStyle(
-          boundaryInfo.portId,
+          edgeId,
           boundaryInfo.direction,
           boundaryInfo.connectionIndex,
           { ...currentStyle, edgeType: newType },
@@ -173,20 +195,31 @@ export const EdgePropertiesPanel: React.FC = () => {
 
   const handleLabelChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newValue = e.target.value;
+
+      // Always update local state first for immediate feedback
+      if (isBoundary && boundaryInfo) {
+        setLocalLabel(newValue);
+      }
+
       if (!selectedEdge) return;
 
       if (isBoundary && boundaryInfo) {
         // Update boundary connection label
+        const edgeId = boundaryInfo.direction === 'input'
+          ? `boundary-edge-in-${boundaryInfo.portId}`
+          : `boundary-edge-out-${boundaryInfo.portId}`;
+
         updateBoundaryConnectionStyle(
-          boundaryInfo.portId,
+          edgeId,
           boundaryInfo.direction,
           boundaryInfo.connectionIndex,
           undefined,
-          e.target.value
+          newValue
         );
       } else {
         // Update regular edge label
-        updateEdge(selectedEdge.id, { label: e.target.value });
+        updateEdge(selectedEdge.id, { label: newValue });
       }
     },
     [selectedEdge, isBoundary, boundaryInfo, updateEdge, updateBoundaryConnectionStyle]
@@ -200,9 +233,14 @@ export const EdgePropertiesPanel: React.FC = () => {
 
       if (isBoundary && boundaryInfo) {
         // Update boundary connection color
-        const currentStyle = boundaryConnectionData?.style || {};
+        const currentStyle = localStyle ?? boundaryConnectionData?.style ?? {};
+        // Update local state for immediate feedback
+        setLocalStyle({ ...currentStyle, stroke: newColor });
+        const edgeId = boundaryInfo.direction === 'input'
+          ? `boundary-edge-in-${boundaryInfo.portId}`
+          : `boundary-edge-out-${boundaryInfo.portId}`;
         updateBoundaryConnectionStyle(
-          boundaryInfo.portId,
+          edgeId,
           boundaryInfo.direction,
           boundaryInfo.connectionIndex,
           { ...currentStyle, stroke: newColor },
@@ -227,9 +265,14 @@ export const EdgePropertiesPanel: React.FC = () => {
 
       if (isBoundary && boundaryInfo) {
         // Update boundary connection dash pattern
-        const currentStyle = boundaryConnectionData?.style || {};
+        const currentStyle = localStyle ?? boundaryConnectionData?.style ?? {};
+        // Update local state for immediate feedback
+        setLocalStyle({ ...currentStyle, strokeDasharray: newDash || undefined });
+        const edgeId = boundaryInfo.direction === 'input'
+          ? `boundary-edge-in-${boundaryInfo.portId}`
+          : `boundary-edge-out-${boundaryInfo.portId}`;
         updateBoundaryConnectionStyle(
-          boundaryInfo.portId,
+          edgeId,
           boundaryInfo.direction,
           boundaryInfo.connectionIndex,
           { ...currentStyle, strokeDasharray: newDash || undefined },
@@ -243,7 +286,7 @@ export const EdgePropertiesPanel: React.FC = () => {
         });
       }
     },
-    [selectedEdge, isBoundary, boundaryInfo, boundaryConnectionData, updateEdge, updateBoundaryConnectionStyle]
+    [selectedEdge, isBoundary, boundaryInfo, localStyle, boundaryConnectionData, updateEdge, updateBoundaryConnectionStyle]
   );
 
   const handleDeleteClick = useCallback(() => {
@@ -317,12 +360,10 @@ export const EdgePropertiesPanel: React.FC = () => {
     clearControlPoints(selectedEdge.id);
   }, [selectedEdge, clearControlPoints]);
 
-  // Get current values with defaults based on edge type
-  // Note: selectedEdge.label can be React.ReactNode from React Flow's Edge type,
-  // so we convert to string for use in input value
+  // Get current label - for boundary edges, use local state only
   const currentLabel = isBoundary
-    ? (boundaryConnectionData?.label || '')
-    : (selectedEdge?.label?.toString() || '');
+    ? localLabel
+    : (selectedEdge?.label as string || '');
 
   // Determine default color based on edge type
   const defaultColor = isBoundary
@@ -333,12 +374,12 @@ export const EdgePropertiesPanel: React.FC = () => {
   const defaultDash = isBoundary ? DEFAULT_DASH : DEFAULT_REGULAR_DASH;
 
   const currentStyle = isBoundary
-    ? (boundaryConnectionData?.style || {})
+    ? (localStyle ?? boundaryConnectionData?.style ?? {})
     : (((selectedEdge?.style as React.CSSProperties) || {}) as EdgeStyleOptions);
 
   // Get current edge type
   const currentEdgeType = isBoundary
-    ? (boundaryConnectionData?.style?.edgeType || defaultEdgeType)
+    ? ((localStyle?.edgeType ?? boundaryConnectionData?.style?.edgeType) || defaultEdgeType)
     : (selectedEdge?.type || defaultEdgeType);
 
   // No edge selected state
@@ -458,7 +499,7 @@ export const EdgePropertiesPanel: React.FC = () => {
               <input
                 id="edgeLabel"
                 type="text"
-                value={currentLabel}
+                value={isBoundary ? (localLabel !== undefined ? localLabel : '') : (selectedEdge?.label as string || '')}
                 onChange={handleLabelChange}
                 className="block w-full rounded-md border border-gray-300 hover:border-gray-400 bg-white px-4 py-2 text-sm placeholder-gray-400 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 placeholder="Enter connection label"
