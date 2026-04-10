@@ -3229,18 +3229,6 @@ export const useFlowchartStore = create<FlowchartStore>()(
         const selectedNodes = sheet.nodes.filter(n => n.selected);
         if (selectedNodes.length === 0) return;
 
-        console.log('[COPY] Selected nodes:', selectedNodes.length);
-
-        // Log internal connections from selected subprocesses
-        selectedNodes.forEach(n => {
-          if (n.type === 'subprocess') {
-            const data = n.data as ProcessNodeData;
-            console.log('[COPY] Subprocess:', n.id);
-            console.log('[COPY]   inputPorts:', JSON.stringify(data.inputPorts?.map(p => ({ id: p.id, internalConnections: p.internalConnections }))));
-            console.log('[COPY]   outputPorts:', JSON.stringify(data.outputPorts?.map(p => ({ id: p.id, internalConnections: p.internalConnections }))));
-          }
-        });
-
         const selectedIds = new Set(selectedNodes.map(n => n.id));
         const nodesToCopy = [...selectedNodes];
 
@@ -3248,15 +3236,8 @@ export const useFlowchartStore = create<FlowchartStore>()(
         const addAllDescendants = (subprocessId: string) => {
           // Get children from parentId relationships (single source of truth)
           const children = sheet.nodes.filter(n => n.data.parentId === subprocessId);
-          console.log('[COPY] addAllDescendants for', subprocessId, 'found children:', children.map(c => ({ id: c.id, type: c.type })));
           children.forEach(childNode => {
             if (!selectedIds.has(childNode.id)) {
-              console.log('[COPY] Adding child:', childNode.id, childNode.type);
-              if (childNode.type === 'subprocess') {
-                const data = childNode.data as ProcessNodeData;
-                console.log('[COPY] Child subprocess inputPorts:', JSON.stringify(data.inputPorts?.map(p => ({ id: p.id, internalConnections: p.internalConnections }))));
-                console.log('[COPY] Child subprocess outputPorts:', JSON.stringify(data.outputPorts?.map(p => ({ id: p.id, internalConnections: p.internalConnections }))));
-              }
               nodesToCopy.push(childNode);
               selectedIds.add(childNode.id);
 
@@ -3278,22 +3259,13 @@ export const useFlowchartStore = create<FlowchartStore>()(
         // Get all IDs including children
         const allCopiedIds = new Set(nodesToCopy.map(n => n.id));
 
-        console.log('[COPY] Total nodes to copy:', nodesToCopy.length, 'allCopiedIds:', allCopiedIds.size);
-
         // Get internal edges (both ends in the copied set)
         const internalEdges = sheet.edges.filter(e =>
           allCopiedIds.has(e.source) && allCopiedIds.has(e.target)
         );
 
-        console.log('[COPY] Internal edges copied:', internalEdges.length);
-
         // Deep clone to avoid reference issues
         const clonedNodes = JSON.parse(JSON.stringify(nodesToCopy));
-        console.log('[COPY] After JSON parse, checking first subprocess:');
-        if (clonedNodes[0] && clonedNodes[0].type === 'subprocess') {
-          const data = clonedNodes[0].data as ProcessNodeData;
-          console.log('[COPY] Cloned first node inputPorts:', JSON.stringify(data.inputPorts?.map(p => ({ id: p.id, internalConnections: p.internalConnections }))));
-        }
         set({
           clipboardNodes: clonedNodes,
           clipboardEdges: JSON.parse(JSON.stringify(internalEdges)),
@@ -4187,19 +4159,14 @@ export const useFlowchartStore = create<FlowchartStore>()(
               sheet.edges = sheet.edges.filter(edge =>
                 !nodesToDelete.has(edge.source) && !nodesToDelete.has(edge.target)
               );
-
-              console.log(`Deleted ${nodesToDelete.size} orphan nodes (including nested children)`);
             }
           });
 
           if (deletedOrphanCount > 0) {
-            console.log(`Cleaned up ${deletedOrphanCount} orphan nodes and their nested children`);
             state.isDirty = true;
             state.nodeVersion += 1; // Force re-render
             // Sync nodes from active sheet so UI updates immediately
             syncNodesAndEdgesFromActiveSheet(state);
-          } else {
-            console.log('No orphan nodes found - diagram is clean');
           }
         });
       },
