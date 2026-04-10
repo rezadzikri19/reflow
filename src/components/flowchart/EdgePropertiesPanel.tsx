@@ -2,7 +2,7 @@ import React, { useCallback, useState, useMemo, useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { useFlowchartStore } from '../../stores/flowchartStore';
 import { Button } from '../common/Button';
-import type { EdgeType, EdgeStyleOptions, EdgeControlPoint, EdgeData } from '../../types';
+import type { EdgeType, EdgeStyleOptions, EdgeControlPoint } from '../../types';
 
 // ============================================================================
 // Types
@@ -364,11 +364,6 @@ export const EdgePropertiesPanel: React.FC = () => {
     if (!selectedEdge) return;
     clearControlPoints(selectedEdge.id);
   }, [selectedEdge, clearControlPoints]);
-
-  // Get current label - for boundary edges, use local state only
-  const currentLabel = isBoundary
-    ? localLabel
-    : (selectedEdge?.label as string || '');
 
   // Determine default color based on edge type
   const defaultColor = isBoundary
