@@ -49,6 +49,13 @@ const DASH_OPTIONS = [
   { value: '10,5,2,5', label: 'Dash-dot' },
 ];
 
+// Boundary connections only have dashed patterns (no Solid option)
+const BOUNDARY_DASH_OPTIONS = [
+  { value: '6,3', label: 'Dashed' },
+  { value: '2,2', label: 'Dotted' },
+  { value: '10,5,2,5', label: 'Dash-dot' },
+];
+
 // Default colors based on direction
 const DEFAULT_INPUT_COLOR = '#22C55E';
 const DEFAULT_OUTPUT_COLOR = '#3B82F6';
@@ -150,25 +157,15 @@ export const EdgePropertiesPanel: React.FC = () => {
     return { style: customStyle, label: label || '' };
   }, [isBoundary, boundaryInfo, selectedEdge]);
 
-  // Sync local label with boundaryConnectionData when selection changes or when data changes
-  // Only sync on initial load (localLabel is undefined), to avoid overwriting user input
+  // Sync local label with boundaryConnectionData when selection changes
   useEffect(() => {
-    // Only sync when localLabel is not yet initialized for this selection
-    if (localLabel === undefined && isBoundary && boundaryConnectionData) {
-      // Set to empty string to mark as initialized
-      setLocalLabel(boundaryConnectionData.label);
-    }
-    // Only sync style on initial load
-    if (localStyle === undefined && isBoundary && boundaryConnectionData) {
-      setLocalStyle(boundaryConnectionData.style);
-    }
-  }, [isBoundary, boundaryConnectionData, selectedEdgeId]);
+    if (!isBoundary || !boundaryConnectionData) return;
 
-  // Reset local state when switching to a different edge
-  useEffect(() => {
-    setLocalLabel(undefined);
-    setLocalStyle(undefined);
-  }, [selectedEdgeId]);
+    // Sync label from the edge data (only if localLabel is undefined or matches previous edge)
+    setLocalLabel(boundaryConnectionData.label);
+    // Sync style
+    setLocalStyle(boundaryConnectionData.style);
+  }, [isBoundary, selectedEdgeId]);
 
   const handleEdgeTypeChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -488,7 +485,7 @@ export const EdgePropertiesPanel: React.FC = () => {
                 onChange={handleDashChange}
                 className="block w-full rounded-md border border-gray-300 hover:border-gray-400 bg-white px-4 py-2 text-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               >
-                {DASH_OPTIONS.map((option) => (
+                {(isBoundary ? BOUNDARY_DASH_OPTIONS : DASH_OPTIONS).map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -507,7 +504,7 @@ export const EdgePropertiesPanel: React.FC = () => {
               <input
                 id="edgeLabel"
                 type="text"
-                value={isBoundary ? (localLabel !== undefined ? localLabel : '') : (selectedEdge?.label as string || '')}
+                value={isBoundary ? (localLabel !== undefined ? localLabel : (boundaryConnectionData?.label ?? '')) : (selectedEdge?.label as string || '')}
                 onChange={handleLabelChange}
                 className="block w-full rounded-md border border-gray-300 hover:border-gray-400 bg-white px-4 py-2 text-sm placeholder-gray-400 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 placeholder="Enter connection label"
